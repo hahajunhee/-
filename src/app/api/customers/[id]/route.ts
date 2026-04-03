@@ -8,10 +8,10 @@ export async function PUT(
   const { id } = await params;
   const body = await request.json();
   const data = await query(
-    `UPDATE customers SET company_name=$1, contact_name=$2, address=$3, tel=$4,
-     business_type=$5, business_category=$6, fax=$7, reg_number=$8
-     WHERE id=$9 RETURNING *`,
-    [body.company_name, body.contact_name, body.address, body.tel, body.business_type, body.business_category, body.fax, body.reg_number, Number(id)]
+    `UPDATE customers SET company_name=$1, contact_name=$2, email=$3, address=$4, tel=$5,
+     business_type=$6, business_category=$7, fax=$8, reg_number=$9
+     WHERE id=$10 RETURNING *`,
+    [body.company_name, body.contact_name, body.email || '', body.address, body.tel, body.business_type, body.business_category, body.fax, body.reg_number, Number(id)]
   );
   if (data.length === 0) return NextResponse.json({ error: 'Not found' }, { status: 404 });
   return NextResponse.json(data[0]);

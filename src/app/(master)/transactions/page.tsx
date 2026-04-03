@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
-import { Search, FileText, Trash2, CheckCircle, Clock, PlusCircle } from 'lucide-react';
+import { Search, FileText, Trash2, CheckCircle, Clock, PlusCircle, Mail } from 'lucide-react';
 import toast from 'react-hot-toast';
 import PageHeader from '@/components/PageHeader';
 import { Transaction, Customer } from '@/types';
@@ -181,6 +181,18 @@ export default function TransactionsPage() {
                         >
                           <FileText size={14} className="text-blue-500" />
                         </Link>
+                        <button onClick={async () => {
+                          const res = await fetch('/api/email', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ transaction_id: t.id }),
+                          });
+                          const data = await res.json();
+                          if (res.ok) toast.success(data.message || '발송 완료');
+                          else toast.error(data.error || '발송 실패');
+                        }} className="p-1.5 rounded hover:bg-green-50" title="명세서 이메일 발송">
+                          <Mail size={14} className="text-emerald-500" />
+                        </button>
                         <button onClick={() => handleDelete(t.id)} className="p-1.5 rounded hover:bg-red-50">
                           <Trash2 size={14} className="text-red-400" />
                         </button>

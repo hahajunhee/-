@@ -10,6 +10,7 @@ import { Customer } from '@/types';
 const emptyCustomer = {
   company_name: '',
   contact_name: '',
+  email: '',
   address: '',
   tel: '',
   business_type: '',
@@ -61,6 +62,7 @@ export default function CustomersPage() {
     setForm({
       company_name: c.company_name,
       contact_name: c.contact_name,
+      email: c.email || '',
       address: c.address,
       tel: c.tel,
       business_type: c.business_type,
@@ -138,6 +140,7 @@ export default function CustomersPage() {
                 <tr>
                   <th>상호</th>
                   <th>성명</th>
+                  <th>이메일</th>
                   <th>연락처</th>
                   <th>주소</th>
                   <th>업태</th>
@@ -151,6 +154,7 @@ export default function CustomersPage() {
                   <tr key={c.id}>
                     <td className="font-medium">{c.company_name}</td>
                     <td>{c.contact_name}</td>
+                    <td className="text-gray-500">{c.email || '-'}</td>
                     <td className="text-gray-500">{c.tel}</td>
                     <td className="text-gray-500 max-w-[200px] truncate">{c.address}</td>
                     <td className="text-gray-500">{c.business_type}</td>
@@ -170,7 +174,7 @@ export default function CustomersPage() {
                 ))}
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="text-center py-8 text-gray-400">
+                    <td colSpan={9} className="text-center py-8 text-gray-400">
                       {search ? '검색 결과가 없습니다' : '거래처를 추가해주세요'}
                     </td>
                   </tr>
@@ -190,43 +194,48 @@ export default function CustomersPage() {
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="form-label">상호명 *</label>
-            <input type="text" className="form-input" value={form.company_name}
+            <input type="text" className="form-input" placeholder="예: 미식당 성수본점" value={form.company_name}
               onChange={(e) => setForm({ ...form, company_name: e.target.value })} />
           </div>
           <div>
             <label className="form-label">성명</label>
-            <input type="text" className="form-input" value={form.contact_name}
+            <input type="text" className="form-input" placeholder="예: 김도윤" value={form.contact_name}
               onChange={(e) => setForm({ ...form, contact_name: e.target.value })} />
           </div>
           <div className="col-span-2">
+            <label className="form-label">이메일</label>
+            <input type="email" className="form-input" placeholder="예: partner@company.com" value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })} />
+          </div>
+          <div className="col-span-2">
             <label className="form-label">주소</label>
-            <input type="text" className="form-input" value={form.address}
+            <input type="text" className="form-input" placeholder="예: 서울 성동구 아차산로 17길 25, 1층" value={form.address}
               onChange={(e) => setForm({ ...form, address: e.target.value })} />
           </div>
           <div>
             <label className="form-label">연락처</label>
-            <input type="text" className="form-input" value={form.tel}
+            <input type="text" className="form-input" placeholder="예: 010-1234-5678" value={form.tel}
               onChange={(e) => setForm({ ...form, tel: e.target.value })} />
           </div>
           <div>
             <label className="form-label">FAX</label>
-            <input type="text" className="form-input" value={form.fax}
+            <input type="text" className="form-input" placeholder="예: 02-123-5679" value={form.fax}
               onChange={(e) => setForm({ ...form, fax: e.target.value })} />
           </div>
           <div>
             <label className="form-label">업태</label>
-            <input type="text" className="form-input" value={form.business_type}
+            <input type="text" className="form-input" placeholder="예: 숙박 및 음식업" value={form.business_type}
               onChange={(e) => setForm({ ...form, business_type: e.target.value })} />
           </div>
           <div>
             <label className="form-label">업종</label>
-            <input type="text" className="form-input" value={form.business_category}
+            <input type="text" className="form-input" placeholder="예: 한식 일반 음식점" value={form.business_category}
               onChange={(e) => setForm({ ...form, business_category: e.target.value })} />
           </div>
           <div className="col-span-2">
             <label className="form-label">사업자등록번호</label>
             <input type="text" className="form-input" value={form.reg_number}
-              placeholder="000-00-00000"
+              placeholder="예: 527-42-01009"
               onChange={(e) => setForm({ ...form, reg_number: e.target.value })} />
           </div>
         </div>

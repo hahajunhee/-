@@ -20,6 +20,7 @@ export interface Customer {
   id: number;
   company_name: string;
   contact_name: string;
+  email: string;
   address: string;
   tel: string;
   business_type: string;

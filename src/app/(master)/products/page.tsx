@@ -248,6 +248,7 @@ export default function ProductsPage() {
             <input
               type="text"
               className="form-input"
+              placeholder="예: 돈가그리살"
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
             />
@@ -269,6 +270,7 @@ export default function ProductsPage() {
             <input
               type="text"
               className="form-input"
+              placeholder="예: kg, ea, 팩"
               value={form.unit}
               onChange={(e) => setForm({ ...form, unit: e.target.value })}
             />
@@ -278,6 +280,7 @@ export default function ProductsPage() {
             <input
               type="text"
               className="form-input"
+              placeholder="예: 200g*4"
               value={form.spec}
               onChange={(e) => setForm({ ...form, spec: e.target.value })}
             />
@@ -287,6 +290,7 @@ export default function ProductsPage() {
             <input
               type="number"
               className="form-input"
+              placeholder="예: 5000"
               value={form.material_cost}
               onChange={(e) => setForm({ ...form, material_cost: Number(e.target.value) })}
             />
@@ -296,6 +300,7 @@ export default function ProductsPage() {
             <input
               type="number"
               className="form-input"
+              placeholder="예: 5000"
               value={form.other_cost}
               onChange={(e) => setForm({ ...form, other_cost: Number(e.target.value) })}
             />
@@ -305,6 +310,7 @@ export default function ProductsPage() {
             <input
               type="number"
               className="form-input"
+              placeholder="예: 30000"
               value={form.selling_price}
               onChange={(e) => setForm({ ...form, selling_price: Number(e.target.value) })}
             />

@@ -1,7 +1,25 @@
 -- =============================================
--- 거래명세서 관리 시스템 - Supabase DB 스키마
--- Supabase SQL Editor에서 실행하세요
+-- 거래명세서 관리 시스템 - Neon DB 스키마
+-- Neon SQL Editor에서 실행하세요
 -- =============================================
+
+-- 0. 사용자 테이블 (인증/권한)
+CREATE TABLE IF NOT EXISTS users (
+  id SERIAL PRIMARY KEY,
+  email TEXT NOT NULL UNIQUE,
+  password_hash TEXT NOT NULL,
+  name TEXT NOT NULL,
+  role TEXT NOT NULL DEFAULT 'partner' CHECK (role IN ('master', 'partner')),
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+  customer_id INTEGER,  -- 협력사 계정은 거래처에 연결
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- 마스터 계정 (비밀번호: admin1234)
+-- bcrypt hash of 'admin1234'
+INSERT INTO users (email, password_hash, name, role, status) VALUES
+  ('admin@goodfood.co.kr', '$2b$10$7d9PE4ErnHckjE5nK3iOw.JrKjEK3aMvftwMq/3v5iT/W/eZjACPe', '김수길', 'master', 'approved')
+ON CONFLICT (email) DO NOTHING;
 
 -- 1. 설정 테이블 (공급자 정보)
 CREATE TABLE IF NOT EXISTS settings (
@@ -20,7 +38,6 @@ CREATE TABLE IF NOT EXISTS settings (
   CONSTRAINT settings_singleton CHECK (id = 1)
 );
 
--- 초기 설정 데이터
 INSERT INTO settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
 
 -- 2. 품목 테이블
@@ -37,7 +54,6 @@ CREATE TABLE IF NOT EXISTS products (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- 샘플 품목 데이터 (엑셀에서 가져온 것)
 INSERT INTO products (name, category, spec, unit, material_cost, other_cost, selling_price, vat_apply) VALUES
   ('돈가그리살', '고기', '200g*4', 'kg', 5000, 5000, 30000, true),
   ('한우 등심(1++)', '고기', '냉장/진공', 'kg', 65000, 5000, 98000, false),
@@ -50,11 +66,12 @@ INSERT INTO products (name, category, spec, unit, material_cost, other_cost, sel
   ('무라벨 생수(500ml)', '음료', '20병/박스', 'box', 3800, 1200, 7500, true)
 ON CONFLICT DO NOTHING;
 
--- 3. 거래처 테이블
+-- 3. 거래처 테이블 (= 협력사)
 CREATE TABLE IF NOT EXISTS customers (
   id SERIAL PRIMARY KEY,
   company_name TEXT NOT NULL,
   contact_name TEXT NOT NULL DEFAULT '',
+  email TEXT NOT NULL DEFAULT '',
   address TEXT NOT NULL DEFAULT '',
   tel TEXT NOT NULL DEFAULT '',
   business_type TEXT NOT NULL DEFAULT '',
@@ -64,14 +81,16 @@ CREATE TABLE IF NOT EXISTS customers (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- 샘플 거래처 데이터
-INSERT INTO customers (company_name, contact_name, address, tel, business_type, business_category, fax, reg_number) VALUES
-  ('미식당 성수본점', '김도윤', '서울 성동구 아차산로 17길 25, 1층', '010-1234-5678', '숙박 및 음식업', '한식 일반 음식점', '02-123-5679', '527-42-01009'),
-  ('청담 갈비 가든', '이서준', '서울 강남구 삼성로 120길 48, 2층', '010-9876-5432', '숙박 및 음식업', '육류 구이 전문점', '02-987-5433', '527-42-01010'),
-  ('더 스테이크 종로', '박민아', '서울 종로구 인사동5길 11, B1', '010-2233-4455', '숙박 및 음식업', '서양식 음식점', '02-223-4456', '527-42-01011'),
-  ('한남 테이블', '최지원', '서울 용산구 이태원로 222, 103호', '010-5566-7788', '숙박 및 음식업', '이탈리안 레스토랑', '02-556-7789', '527-42-01012'),
-  ('연남동 소바집', '정해인', '서울 마포구 동교로 38길 15', '010-9988-1122', '숙박 및 음식업', '일식 면 요리 전문', '02-998-1123', '527-42-01013')
+INSERT INTO customers (company_name, contact_name, email, address, tel, business_type, business_category, fax, reg_number) VALUES
+  ('미식당 성수본점', '김도윤', 'misicdang@example.com', '서울 성동구 아차산로 17길 25, 1층', '010-1234-5678', '숙박 및 음식업', '한식 일반 음식점', '02-123-5679', '527-42-01009'),
+  ('청담 갈비 가든', '이서준', 'cheongdam@example.com', '서울 강남구 삼성로 120길 48, 2층', '010-9876-5432', '숙박 및 음식업', '육류 구이 전문점', '02-987-5433', '527-42-01010'),
+  ('더 스테이크 종로', '박민아', 'steak@example.com', '서울 종로구 인사동5길 11, B1', '010-2233-4455', '숙박 및 음식업', '서양식 음식점', '02-223-4456', '527-42-01011'),
+  ('한남 테이블', '최지원', 'hannam@example.com', '서울 용산구 이태원로 222, 103호', '010-5566-7788', '숙박 및 음식업', '이탈리안 레스토랑', '02-556-7789', '527-42-01012'),
+  ('연남동 소바집', '정해인', 'soba@example.com', '서울 마포구 동교로 38길 15', '010-9988-1122', '숙박 및 음식업', '일식 면 요리 전문', '02-998-1123', '527-42-01013')
 ON CONFLICT DO NOTHING;
+
+-- users → customers FK
+ALTER TABLE users ADD CONSTRAINT fk_users_customer FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE SET NULL;
 
 -- 4. 거래 헤더 테이블
 CREATE TABLE IF NOT EXISTS transactions (
@@ -105,9 +124,45 @@ CREATE TABLE IF NOT EXISTS transaction_items (
   net_profit NUMERIC(12,0) NOT NULL DEFAULT 0
 );
 
+-- 6. 발주서 테이블 (협력사가 작성)
+CREATE TABLE IF NOT EXISTS orders (
+  id SERIAL PRIMARY KEY,
+  order_number TEXT NOT NULL UNIQUE,
+  customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE RESTRICT,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+  date DATE NOT NULL DEFAULT CURRENT_DATE,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'rejected', 'completed')),
+  notes TEXT NOT NULL DEFAULT '',
+  supply_total NUMERIC(12,0) NOT NULL DEFAULT 0,
+  vat_total NUMERIC(12,0) NOT NULL DEFAULT 0,
+  grand_total NUMERIC(12,0) NOT NULL DEFAULT 0,
+  email_sent BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- 7. 발주서 상세 테이블
+CREATE TABLE IF NOT EXISTS order_items (
+  id SERIAL PRIMARY KEY,
+  order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
+  product_name TEXT NOT NULL,
+  category TEXT NOT NULL DEFAULT '',
+  spec TEXT NOT NULL DEFAULT '',
+  unit TEXT NOT NULL DEFAULT 'ea',
+  qty NUMERIC(10,2) NOT NULL DEFAULT 0,
+  unit_price NUMERIC(12,0) NOT NULL DEFAULT 0,
+  amount NUMERIC(12,0) NOT NULL DEFAULT 0,
+  vat_apply BOOLEAN NOT NULL DEFAULT true,
+  vat_amount NUMERIC(12,0) NOT NULL DEFAULT 0
+);
+
 -- 인덱스
 CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date);
 CREATE INDEX IF NOT EXISTS idx_transactions_customer ON transactions(customer_id);
 CREATE INDEX IF NOT EXISTS idx_transaction_items_txn ON transaction_items(transaction_id);
 CREATE INDEX IF NOT EXISTS idx_products_category ON products(category);
-
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_status ON users(status);
+CREATE INDEX IF NOT EXISTS idx_orders_customer ON orders(customer_id);
+CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
+CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items(order_id);

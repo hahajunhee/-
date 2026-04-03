@@ -62,47 +62,47 @@ export default function SettingsPage() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="form-label">상호명</label>
-              <input type="text" className="form-input" value={settings.company_name}
+              <input type="text" className="form-input" placeholder="예: (주)굿푸드시스템" value={settings.company_name}
                 onChange={(e) => update('company_name', e.target.value)} />
             </div>
             <div>
               <label className="form-label">대표자</label>
-              <input type="text" className="form-input" value={settings.rep_name}
+              <input type="text" className="form-input" placeholder="예: 김수길" value={settings.rep_name}
                 onChange={(e) => update('rep_name', e.target.value)} />
             </div>
             <div>
               <label className="form-label">사업자등록번호</label>
-              <input type="text" className="form-input" value={settings.reg_number}
+              <input type="text" className="form-input" placeholder="예: 132-81-60911" value={settings.reg_number}
                 onChange={(e) => update('reg_number', e.target.value)} />
             </div>
             <div>
               <label className="form-label">업태</label>
-              <input type="text" className="form-input" value={settings.business_type}
+              <input type="text" className="form-input" placeholder="예: 제조,도소매,서비스" value={settings.business_type}
                 onChange={(e) => update('business_type', e.target.value)} />
             </div>
             <div className="col-span-2">
               <label className="form-label">주소</label>
-              <input type="text" className="form-input" value={settings.address}
+              <input type="text" className="form-input" placeholder="예: 경기 구리시 동구릉로460번길 95 1층, 3층" value={settings.address}
                 onChange={(e) => update('address', e.target.value)} />
             </div>
             <div>
               <label className="form-label">전화번호</label>
-              <input type="text" className="form-input" value={settings.tel}
+              <input type="text" className="form-input" placeholder="예: 031-555-6663" value={settings.tel}
                 onChange={(e) => update('tel', e.target.value)} />
             </div>
             <div>
               <label className="form-label">FAX</label>
-              <input type="text" className="form-input" value={settings.fax}
+              <input type="text" className="form-input" placeholder="예: 031-555-7774" value={settings.fax}
                 onChange={(e) => update('fax', e.target.value)} />
             </div>
             <div className="col-span-2">
               <label className="form-label">계좌 정보</label>
-              <input type="text" className="form-input" value={settings.bank_info}
+              <input type="text" className="form-input" placeholder="예: 하나: 486-910008-32704 / 국민: 442801-01-132431" value={settings.bank_info}
                 onChange={(e) => update('bank_info', e.target.value)} />
             </div>
             <div>
               <label className="form-label">출력 담당자</label>
-              <input type="text" className="form-input" value={settings.print_operator}
+              <input type="text" className="form-input" placeholder="예: 신현숙" value={settings.print_operator}
                 onChange={(e) => update('print_operator', e.target.value)} />
             </div>
           </div>
