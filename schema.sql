@@ -111,16 +111,3 @@ CREATE INDEX IF NOT EXISTS idx_transactions_customer ON transactions(customer_id
 CREATE INDEX IF NOT EXISTS idx_transaction_items_txn ON transaction_items(transaction_id);
 CREATE INDEX IF NOT EXISTS idx_products_category ON products(category);
 
--- RLS (Row Level Security) 비활성화 - 단일 사용자 앱
-ALTER TABLE settings ENABLE ROW LEVEL SECURITY;
-ALTER TABLE products ENABLE ROW LEVEL SECURITY;
-ALTER TABLE customers ENABLE ROW LEVEL SECURITY;
-ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE transaction_items ENABLE ROW LEVEL SECURITY;
-
--- 모든 테이블에 공개 접근 정책 추가
-CREATE POLICY "Allow all on settings" ON settings FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all on products" ON products FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all on customers" ON customers FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all on transactions" ON transactions FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all on transaction_items" ON transaction_items FOR ALL USING (true) WITH CHECK (true);

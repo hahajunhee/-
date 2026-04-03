@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase';
+import { query } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
@@ -8,49 +8,63 @@ export async function GET(request: NextRequest) {
   const customerId = sp.get('customer_id');
   const status = sp.get('status');
 
-  let query = supabase
-    .from('transactions')
-    .select('*, customer:customers(company_name, contact_name), items:transaction_items(*)')
-    .order('date', { ascending: false })
-    .order('id', { ascending: false });
+  let q = `
+    SELECT t.*, c.company_name as customer_name, c.contact_name
+    FROM transactions t
+    JOIN customers c ON t.customer_id = c.id
+    WHERE 1=1`;
+  const params: unknown[] = [];
 
-  if (dateFrom) query = query.gte('date', dateFrom);
-  if (dateTo) query = query.lte('date', dateTo);
-  if (customerId) query = query.eq('customer_id', Number(customerId));
-  if (status) query = query.eq('payment_status', status);
+  if (dateFrom) {
+    params.push(dateFrom);
+    q += ` AND t.date >= $${params.length}`;
+  }
+  if (dateTo) {
+    params.push(dateTo);
+    q += ` AND t.date <= $${params.length}`;
+  }
+  if (customerId) {
+    params.push(Number(customerId));
+    q += ` AND t.customer_id = $${params.length}`;
+  }
+  if (status) {
+    params.push(status);
+    q += ` AND t.payment_status = $${params.length}`;
+  }
+  q += ' ORDER BY t.date DESC, t.id DESC';
 
-  const { data, error } = await query;
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data);
+  const transactions = await query(q, params);
+
+  for (const txn of transactions) {
+    const items = await query(
+      'SELECT * FROM transaction_items WHERE transaction_id = $1 ORDER BY id',
+      [txn.id]
+    );
+    txn.items = items;
+    txn.customer = { company_name: txn.customer_name, contact_name: txn.contact_name };
+  }
+
+  return NextResponse.json(transactions);
 }
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
   const { items, ...header } = body;
 
-  // 거래 헤더 생성
-  const { data: txn, error: txnError } = await supabase
-    .from('transactions')
-    .insert(header)
-    .select()
-    .single();
+  const txnResult = await query(
+    `INSERT INTO transactions (date, customer_id, payment_status, supply_total, vat_total, grand_total)
+     VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+    [header.date, header.customer_id, header.payment_status, header.supply_total, header.vat_total, header.grand_total]
+  );
+  const txn = txnResult[0];
 
-  if (txnError) return NextResponse.json({ error: txnError.message }, { status: 500 });
-
-  // 거래 상세 항목 생성
-  const itemsWithTxnId = items.map((item: Record<string, unknown>) => ({
-    ...item,
-    transaction_id: txn.id,
-  }));
-
-  const { error: itemsError } = await supabase
-    .from('transaction_items')
-    .insert(itemsWithTxnId);
-
-  if (itemsError) {
-    // 롤백: 헤더 삭제
-    await supabase.from('transactions').delete().eq('id', txn.id);
-    return NextResponse.json({ error: itemsError.message }, { status: 500 });
+  for (const item of items) {
+    await query(
+      `INSERT INTO transaction_items
+       (transaction_id, product_id, product_name, category, spec, unit, qty, unit_price, material_cost, other_cost, amount, vat_apply, vat_amount, margin, net_profit)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+      [txn.id, item.product_id, item.product_name, item.category, item.spec, item.unit, item.qty, item.unit_price, item.material_cost, item.other_cost, item.amount, item.vat_apply, item.vat_amount, item.margin, item.net_profit]
+    );
   }
 
   return NextResponse.json(txn, { status: 201 });

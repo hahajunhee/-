@@ -1,27 +1,33 @@
-import { supabase } from '@/lib/supabase';
+import { query } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
   const category = request.nextUrl.searchParams.get('category');
   const search = request.nextUrl.searchParams.get('search');
 
-  let query = supabase.from('products').select('*').order('id');
+  let q = 'SELECT * FROM products WHERE 1=1';
+  const params: unknown[] = [];
 
   if (category) {
-    query = query.eq('category', category);
+    params.push(category);
+    q += ` AND category = $${params.length}`;
   }
   if (search) {
-    query = query.ilike('name', `%${search}%`);
+    params.push(`%${search}%`);
+    q += ` AND name ILIKE $${params.length}`;
   }
+  q += ' ORDER BY id';
 
-  const { data, error } = await query;
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  const data = await query(q, params);
   return NextResponse.json(data);
 }
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const { data, error } = await supabase.from('products').insert(body).select().single();
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data, { status: 201 });
+  const data = await query(
+    `INSERT INTO products (name, category, spec, unit, material_cost, other_cost, selling_price, vat_apply)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+    [body.name, body.category, body.spec, body.unit, body.material_cost, body.other_cost, body.selling_price, body.vat_apply]
+  );
+  return NextResponse.json(data[0], { status: 201 });
 }

@@ -16,7 +16,7 @@
 
 - **Frontend**: Next.js 16 + TypeScript + Tailwind CSS
 - **Backend**: Next.js API Routes
-- **Database**: Supabase (PostgreSQL)
+- **Database**: Neon (Serverless PostgreSQL)
 - **Charts**: Recharts
 - **Deployment**: Vercel
 
@@ -27,13 +27,14 @@
 npm install
 ```
 
-### 2. Supabase 설정
-1. [Supabase](https://supabase.com)에서 프로젝트 생성
-2. `supabase_schema.sql`의 SQL을 Supabase SQL Editor에서 실행
-3. `.env.example`을 `.env.local`로 복사 후 Supabase URL/Key 입력
+### 2. Neon DB 설정
+1. [neon.tech](https://neon.tech)에서 프로젝트 생성 (무료, 프로젝트 수 무제한)
+2. SQL Editor에서 `schema.sql` 실행
+3. `.env.example`을 `.env.local`로 복사 후 Connection String 입력
 
 ```bash
 cp .env.example .env.local
+# DATABASE_URL 값을 Neon 대시보드에서 복사
 ```
 
 ### 3. 개발 서버 실행
@@ -47,5 +48,5 @@ http://localhost:3000 에서 확인
 
 1. GitHub에 push
 2. Vercel에서 Import Repository
-3. Environment Variables에 Supabase URL/Key 추가
+3. Environment Variables에 `DATABASE_URL` 추가
 4. Deploy
