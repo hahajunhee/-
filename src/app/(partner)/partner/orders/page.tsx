@@ -10,7 +10,8 @@ interface Order {
   id: number;
   order_number: string;
   date: string;
-  status: string;
+  date_formatted: string;
+  order_status: string;
   notes: string;
   grand_total: number;
   email_sent: boolean;
@@ -71,10 +72,10 @@ export default function PartnerOrdersPage() {
               <div className="flex items-center gap-3">
                 <Package size={20} className="text-emerald-500" />
                 <span className="font-bold">{order.order_number}</span>
-                <span className="text-gray-400 text-sm">{order.date}</span>
+                <span className="text-gray-400 text-sm">{order.date_formatted || order.date?.split('T')[0]}</span>
               </div>
               <div className="flex items-center gap-3">
-                {statusBadge(order.status)}
+                {statusBadge(order.order_status)}
                 <span className="text-lg font-bold">{formatKRW(Number(order.grand_total))}원</span>
               </div>
             </div>

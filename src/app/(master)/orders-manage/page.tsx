@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { CheckCircle, XCircle, Clock, Package } from 'lucide-react';
+import { CheckCircle, XCircle, Package } from 'lucide-react';
 import toast from 'react-hot-toast';
 import PageHeader from '@/components/PageHeader';
 import { formatKRW } from '@/lib/calculator';
@@ -12,7 +12,8 @@ interface Order {
   customer_name: string;
   user_name: string;
   date: string;
-  status: string;
+  date_formatted: string;
+  order_status: string;
   notes: string;
   supply_total: number;
   vat_total: number;
@@ -86,11 +87,11 @@ export default function OrdersManagePage() {
                 <div>
                   <span className="font-bold">{order.order_number}</span>
                   <span className="text-gray-500 ml-2">{order.customer_name}</span>
-                  <span className="text-gray-400 ml-2 text-sm">({order.user_name})</span>
+                  <span className="text-gray-400 ml-2 text-sm">({order.user_name || '-'})</span>
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                {statusBadge(order.status)}
+                {statusBadge(order.order_status)}
                 <span className="text-lg font-bold text-blue-600">{formatKRW(Number(order.grand_total))}원</span>
               </div>
             </div>
@@ -104,6 +105,9 @@ export default function OrdersManagePage() {
                     <th className="text-right">수량</th>
                     <th className="text-right">단가</th>
                     <th className="text-right">금액</th>
+                    <th className="text-right">마진</th>
+                    <th className="text-right">부가세</th>
+                    <th className="text-right">순익</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -111,9 +115,12 @@ export default function OrdersManagePage() {
                     <tr key={idx}>
                       <td>{item.product_name}</td>
                       <td className="text-gray-500">{item.spec}</td>
-                      <td className="text-right">{item.qty}</td>
+                      <td className="text-right">{Number(item.qty)}</td>
                       <td className="text-right">{formatKRW(Number(item.unit_price))}</td>
                       <td className="text-right font-medium">{formatKRW(Number(item.amount))}</td>
+                      <td className="text-right text-blue-600">{formatKRW(Number(item.margin))}</td>
+                      <td className="text-right text-gray-500">{formatKRW(Number(item.vat_amount))}</td>
+                      <td className="text-right text-emerald-600">{formatKRW(Number(item.net_profit))}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -123,8 +130,10 @@ export default function OrdersManagePage() {
             {order.notes && <p className="text-sm text-gray-500 mb-3">비고: {order.notes}</p>}
 
             <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-400">{order.date} | {order.email_sent ? '이메일 발송됨' : '이메일 미발송'}</span>
-              {order.status === 'pending' && (
+              <span className="text-gray-400">
+                {order.date_formatted || order.date?.split('T')[0]} | {order.email_sent ? '이메일 발송됨' : '이메일 미발송'}
+              </span>
+              {order.order_status === 'pending' && (
                 <div className="flex gap-2">
                   <button onClick={() => updateStatus(order.id, 'confirmed')}
                     className="btn-primary text-xs py-1 px-3"><CheckCircle size={14}/> 확인</button>
@@ -132,7 +141,7 @@ export default function OrdersManagePage() {
                     className="btn-danger text-xs py-1 px-3"><XCircle size={14}/> 거절</button>
                 </div>
               )}
-              {order.status === 'confirmed' && (
+              {order.order_status === 'confirmed' && (
                 <button onClick={() => updateStatus(order.id, 'completed')}
                   className="btn-success text-xs py-1 px-3"><CheckCircle size={14}/> 완료 처리</button>
               )}

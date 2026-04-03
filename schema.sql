@@ -16,7 +16,6 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 -- 마스터 계정 (비밀번호: admin1234)
--- bcrypt hash of 'admin1234'
 INSERT INTO users (email, password_hash, name, role, status) VALUES
   ('admin@goodfood.co.kr', '$2b$10$7d9PE4ErnHckjE5nK3iOw.JrKjEK3aMvftwMq/3v5iT/W/eZjACPe', '김수길', 'master', 'approved')
 ON CONFLICT (email) DO NOTHING;
@@ -90,9 +89,13 @@ INSERT INTO customers (company_name, contact_name, email, address, tel, business
 ON CONFLICT DO NOTHING;
 
 -- users → customers FK
-ALTER TABLE users ADD CONSTRAINT fk_users_customer FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE SET NULL;
+DO $$ BEGIN
+  ALTER TABLE users ADD CONSTRAINT fk_users_customer FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE SET NULL;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
--- 4. 거래 헤더 테이블
+-- 4. 거래 테이블 (거래입력 + 발주 통합)
+-- source: 'manual' = 관리자 수기입력, 'order' = 협력사 발주
 CREATE TABLE IF NOT EXISTS transactions (
   id SERIAL PRIMARY KEY,
   date DATE NOT NULL DEFAULT CURRENT_DATE,
@@ -101,6 +104,12 @@ CREATE TABLE IF NOT EXISTS transactions (
   supply_total NUMERIC(12,0) NOT NULL DEFAULT 0,
   vat_total NUMERIC(12,0) NOT NULL DEFAULT 0,
   grand_total NUMERIC(12,0) NOT NULL DEFAULT 0,
+  source TEXT NOT NULL DEFAULT 'manual',
+  notes TEXT NOT NULL DEFAULT '',
+  order_number TEXT,
+  user_id INTEGER,
+  order_status TEXT NOT NULL DEFAULT 'confirmed',
+  email_sent BOOLEAN NOT NULL DEFAULT false,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -124,45 +133,11 @@ CREATE TABLE IF NOT EXISTS transaction_items (
   net_profit NUMERIC(12,0) NOT NULL DEFAULT 0
 );
 
--- 6. 발주서 테이블 (협력사가 작성)
-CREATE TABLE IF NOT EXISTS orders (
-  id SERIAL PRIMARY KEY,
-  order_number TEXT NOT NULL UNIQUE,
-  customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE RESTRICT,
-  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
-  date DATE NOT NULL DEFAULT CURRENT_DATE,
-  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'rejected', 'completed')),
-  notes TEXT NOT NULL DEFAULT '',
-  supply_total NUMERIC(12,0) NOT NULL DEFAULT 0,
-  vat_total NUMERIC(12,0) NOT NULL DEFAULT 0,
-  grand_total NUMERIC(12,0) NOT NULL DEFAULT 0,
-  email_sent BOOLEAN NOT NULL DEFAULT false,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
--- 7. 발주서 상세 테이블
-CREATE TABLE IF NOT EXISTS order_items (
-  id SERIAL PRIMARY KEY,
-  order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
-  product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
-  product_name TEXT NOT NULL,
-  category TEXT NOT NULL DEFAULT '',
-  spec TEXT NOT NULL DEFAULT '',
-  unit TEXT NOT NULL DEFAULT 'ea',
-  qty NUMERIC(10,2) NOT NULL DEFAULT 0,
-  unit_price NUMERIC(12,0) NOT NULL DEFAULT 0,
-  amount NUMERIC(12,0) NOT NULL DEFAULT 0,
-  vat_apply BOOLEAN NOT NULL DEFAULT true,
-  vat_amount NUMERIC(12,0) NOT NULL DEFAULT 0
-);
-
 -- 인덱스
 CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date);
 CREATE INDEX IF NOT EXISTS idx_transactions_customer ON transactions(customer_id);
+CREATE INDEX IF NOT EXISTS idx_transactions_source ON transactions(source);
 CREATE INDEX IF NOT EXISTS idx_transaction_items_txn ON transaction_items(transaction_id);
 CREATE INDEX IF NOT EXISTS idx_products_category ON products(category);
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_users_status ON users(status);
-CREATE INDEX IF NOT EXISTS idx_orders_customer ON orders(customer_id);
-CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
-CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items(order_id);

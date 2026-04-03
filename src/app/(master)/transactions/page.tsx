@@ -9,7 +9,7 @@ import { Transaction, Customer } from '@/types';
 import { formatKRW } from '@/lib/calculator';
 
 export default function TransactionsPage() {
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [transactions, setTransactions] = useState<any[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
@@ -38,7 +38,7 @@ export default function TransactionsPage() {
   useEffect(() => { fetchCustomers(); }, [fetchCustomers]);
   useEffect(() => { fetchTransactions(); }, [fetchTransactions]);
 
-  const toggleStatus = async (txn: Transaction) => {
+  const toggleStatus = async (txn: any) => {
     const newStatus = txn.payment_status === 'paid' ? 'unpaid' : 'paid';
     const res = await fetch(`/api/transactions/${txn.id}`, {
       method: 'PUT',
@@ -140,6 +140,7 @@ export default function TransactionsPage() {
                 <tr>
                   <th>거래일자</th>
                   <th>거래처</th>
+                  <th className="text-center">구분</th>
                   <th className="text-right">공급가액</th>
                   <th className="text-right">부가세</th>
                   <th className="text-right">합계</th>
@@ -151,9 +152,16 @@ export default function TransactionsPage() {
               <tbody>
                 {transactions.map((t) => (
                   <tr key={t.id}>
-                    <td className="font-mono">{t.date}</td>
+                    <td className="font-mono">{t.date_formatted || t.date?.split('T')[0]}</td>
                     <td className="font-medium">
-                      {(t.customer as unknown as { company_name: string })?.company_name || '-'}
+                      {t.customer?.company_name || t.customer_name || '-'}
+                    </td>
+                    <td className="text-center">
+                      {t.source === 'order' ? (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">발주</span>
+                      ) : (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">수기</span>
+                      )}
                     </td>
                     <td className="text-right">{formatKRW(Number(t.supply_total))}</td>
                     <td className="text-right text-gray-500">{formatKRW(Number(t.vat_total))}</td>
@@ -202,7 +210,7 @@ export default function TransactionsPage() {
                 ))}
                 {transactions.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="text-center py-8 text-gray-400">
+                    <td colSpan={9} className="text-center py-8 text-gray-400">
                       거래 내역이 없습니다
                     </td>
                   </tr>

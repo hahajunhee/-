@@ -6,7 +6,7 @@ import { Plus, Trash2, Send } from 'lucide-react';
 import toast from 'react-hot-toast';
 import PageHeader from '@/components/PageHeader';
 import { Product } from '@/types';
-import { formatKRW } from '@/lib/calculator';
+import { formatKRW, computeItemFields } from '@/lib/calculator';
 
 interface OrderItem {
   product_id: number;
@@ -16,9 +16,13 @@ interface OrderItem {
   unit: string;
   qty: number;
   unit_price: number;
+  material_cost: number;
+  other_cost: number;
   amount: number;
   vat_apply: boolean;
   vat_amount: number;
+  margin: number;
+  net_profit: number;
 }
 
 export default function NewOrderPage() {
@@ -42,8 +46,13 @@ export default function NewOrderPage() {
       toast.error('이미 추가된 품목입니다');
       return;
     }
-    const amount = product.selling_price * 1;
-    const vatAmount = product.vat_apply ? Math.floor(amount * 0.1) : 0;
+    const computed = computeItemFields({
+      unit_price: product.selling_price,
+      material_cost: product.material_cost,
+      other_cost: product.other_cost,
+      qty: 1,
+      vat_apply: product.vat_apply,
+    });
     setItems([...items, {
       product_id: product.id,
       product_name: product.name,
@@ -52,18 +61,24 @@ export default function NewOrderPage() {
       unit: product.unit,
       qty: 1,
       unit_price: product.selling_price,
-      amount,
+      material_cost: product.material_cost,
+      other_cost: product.other_cost,
       vat_apply: product.vat_apply,
-      vat_amount: vatAmount,
+      ...computed,
     }]);
   };
 
   const updateQty = (index: number, qty: number) => {
     const updated = [...items];
     updated[index].qty = qty;
-    updated[index].amount = updated[index].unit_price * qty;
-    updated[index].vat_amount = updated[index].vat_apply
-      ? Math.floor(updated[index].amount * 0.1) : 0;
+    const computed = computeItemFields({
+      unit_price: updated[index].unit_price,
+      material_cost: updated[index].material_cost,
+      other_cost: updated[index].other_cost,
+      qty,
+      vat_apply: updated[index].vat_apply,
+    });
+    updated[index] = { ...updated[index], ...computed };
     setItems(updated);
   };
 
@@ -76,17 +91,27 @@ export default function NewOrderPage() {
   const handleSubmit = async () => {
     if (items.length === 0) { toast.error('품목을 추가하세요'); return; }
     setSaving(true);
-    const res = await fetch('/api/orders', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ items, notes }),
-    });
-    if (res.ok) {
-      toast.success('발주서가 제출되었습니다');
-      router.push('/partner/orders');
-    } else {
-      const data = await res.json();
-      toast.error(data.error || '제출 실패');
+    try {
+      const res = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: items.map(i => ({
+            product_id: i.product_id,
+            qty: i.qty,
+          })),
+          notes,
+        }),
+      });
+      if (res.ok) {
+        toast.success('발주서가 제출되었습니다');
+        router.push('/partner/orders');
+      } else {
+        const data = await res.json();
+        toast.error(data.error || '제출 실패');
+      }
+    } catch {
+      toast.error('서버 연결 오류');
     }
     setSaving(false);
   };
