@@ -46,10 +46,13 @@ export default function NewOrderPage() {
       toast.error('이미 추가된 품목입니다');
       return;
     }
+    const unitPrice = Number(product.selling_price);
+    const materialCost = Number(product.material_cost);
+    const otherCost = Number(product.other_cost);
     const computed = computeItemFields({
-      unit_price: product.selling_price,
-      material_cost: product.material_cost,
-      other_cost: product.other_cost,
+      unit_price: unitPrice,
+      material_cost: materialCost,
+      other_cost: otherCost,
       qty: 1,
       vat_apply: product.vat_apply,
     });
@@ -60,9 +63,9 @@ export default function NewOrderPage() {
       spec: product.spec,
       unit: product.unit,
       qty: 1,
-      unit_price: product.selling_price,
-      material_cost: product.material_cost,
-      other_cost: product.other_cost,
+      unit_price: unitPrice,
+      material_cost: materialCost,
+      other_cost: otherCost,
       vat_apply: product.vat_apply,
       ...computed,
     }]);

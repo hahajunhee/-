@@ -24,8 +24,13 @@ export default function PartnerOrdersPage() {
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
-    const res = await fetch('/api/orders');
-    setOrders(await res.json());
+    try {
+      const res = await fetch('/api/orders');
+      const data = await res.json();
+      setOrders(Array.isArray(data) ? data : []);
+    } catch {
+      setOrders([]);
+    }
     setLoading(false);
   }, []);
 

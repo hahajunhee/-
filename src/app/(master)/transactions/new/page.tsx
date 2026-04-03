@@ -46,11 +46,11 @@ export default function TransactionNewPage() {
       spec: product.spec,
       unit: product.unit,
       qty: 1,
-      unit_price: product.selling_price,
-      material_cost: product.material_cost,
-      other_cost: product.other_cost,
+      unit_price: Number(product.selling_price),
+      material_cost: Number(product.material_cost),
+      other_cost: Number(product.other_cost),
       vat_apply: product.vat_apply,
-      amount: product.selling_price,
+      amount: Number(product.selling_price),
       vat_amount: 0,
       margin: 0,
       net_profit: 0,
@@ -231,7 +231,10 @@ export default function TransactionNewPage() {
                       <th className="text-center w-24">수량</th>
                       <th className="text-right">단가</th>
                       <th className="text-right">금액</th>
+                      <th className="text-center">부가세여부</th>
+                      <th className="text-right">마진</th>
                       <th className="text-right">부가세</th>
+                      <th className="text-right">순익</th>
                       <th className="w-10"></th>
                     </tr>
                   </thead>
@@ -253,7 +256,10 @@ export default function TransactionNewPage() {
                         </td>
                         <td className="text-right">{formatKRW(item.unit_price)}</td>
                         <td className="text-right font-medium">{formatKRW(item.amount)}</td>
+                        <td className="text-center">{item.vat_apply ? 'Y' : 'N'}</td>
+                        <td className="text-right text-blue-600">{formatKRW(item.margin)}</td>
                         <td className="text-right text-gray-500">{formatKRW(item.vat_amount)}</td>
+                        <td className="text-right text-emerald-600">{formatKRW(item.net_profit)}</td>
                         <td>
                           <button onClick={() => removeItem(idx)} className="p-1 rounded hover:bg-red-50">
                             <Trash2 size={14} className="text-red-400" />

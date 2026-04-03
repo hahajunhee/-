@@ -29,9 +29,14 @@ export default function OrdersManagePage() {
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
-    const params = statusFilter ? `?status=${statusFilter}` : '';
-    const res = await fetch(`/api/orders${params}`);
-    setOrders(await res.json());
+    try {
+      const params = statusFilter ? `?status=${statusFilter}` : '';
+      const res = await fetch(`/api/orders${params}`);
+      const data = await res.json();
+      setOrders(Array.isArray(data) ? data : []);
+    } catch {
+      setOrders([]);
+    }
     setLoading(false);
   }, [statusFilter]);
 
