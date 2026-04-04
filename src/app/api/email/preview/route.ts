@@ -1,9 +1,9 @@
 import { query } from '@/lib/db';
 import { getSession } from '@/lib/auth';
-import { sendEmail, buildInvoiceEmailHtml } from '@/lib/email';
 import { NextRequest, NextResponse } from 'next/server';
+import { buildInvoiceEmailHtml } from '@/lib/email';
 
-// POST /api/email - 거래명세서 이메일 발송 (일괄)
+// POST /api/email/preview - 이메일 미리보기 HTML 생성
 export async function POST(request: NextRequest) {
   try {
     const session = await getSession();
@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 선택된 거래들 조회
-    const placeholders = transaction_ids.map((_: number, i: number) => `$${i + 1}`).join(',');
+    const placeholders = transaction_ids.map((_, i) => `$${i + 1}`).join(',');
     const txns = await query(
       `SELECT t.*, c.company_name, c.email as customer_email,
        TO_CHAR(t.date, 'YYYY-MM-DD') as date_formatted
@@ -30,6 +30,12 @@ export async function POST(request: NextRequest) {
 
     if (txns.length === 0) {
       return NextResponse.json({ error: '거래를 찾을 수 없습니다' }, { status: 404 });
+    }
+
+    // 같은 거래처인지 확인
+    const customerIds = [...new Set(txns.map(t => t.customer_id))];
+    if (customerIds.length > 1) {
+      return NextResponse.json({ error: '같은 거래처의 거래만 선택하세요' }, { status: 400 });
     }
 
     const customerEmail = txns[0].customer_email;
@@ -79,26 +85,14 @@ export async function POST(request: NextRequest) {
       grandTotal,
     });
 
-    const result = await sendEmail({
+    return NextResponse.json({
+      html,
       to: customerEmail,
       subject: `[거래명세서] ${dateRange} - ${settings?.company_name || '굿푸드시스템'}`,
-      html,
+      txnIds: transaction_ids,
     });
-
-    if (result.success) {
-      for (const txn of txns) {
-        await query('UPDATE transactions SET email_sent = true WHERE id = $1', [txn.id]);
-      }
-      return NextResponse.json({
-        message: result.mock
-          ? `이메일 발송 (테스트모드 - GMAIL 설정 필요). ${txns.length}건`
-          : `${customerEmail}로 거래명세서가 발송되었습니다. (${txns.length}건)`,
-      });
-    } else {
-      return NextResponse.json({ error: '이메일 발송에 실패했습니다' }, { status: 500 });
-    }
   } catch (err) {
-    console.error('Email send error:', err);
+    console.error('Email preview error:', err);
     return NextResponse.json({ error: '서버 오류' }, { status: 500 });
   }
 }
