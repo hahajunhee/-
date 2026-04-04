@@ -247,8 +247,8 @@ export default function TransactionNewPage() {
                         <td>
                           <input
                             type="number"
-                            min="0.01"
-                            step="0.01"
+                            min="0"
+                            step="1"
                             className="form-input text-center w-20"
                             value={item.qty}
                             onChange={(e) => updateQty(idx, Number(e.target.value))}

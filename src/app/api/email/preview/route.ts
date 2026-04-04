@@ -16,10 +16,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '거래를 선택하세요' }, { status: 400 });
     }
 
-    // 선택된 거래들 조회
-    const placeholders = transaction_ids.map((_, i) => `$${i + 1}`).join(',');
+    // 선택된 거래들 조회 (customer 전체 정보 포함)
+    const placeholders = transaction_ids.map((_: any, i: number) => `$${i + 1}`).join(',');
     const txns = await query(
-      `SELECT t.*, c.company_name, c.email as customer_email,
+      `SELECT t.*, c.company_name, c.contact_name, c.address as customer_address,
+       c.tel as customer_tel, c.business_type as customer_business_type,
+       c.business_category as customer_business_category, c.fax as customer_fax,
+       c.reg_number as customer_reg_number, c.email as customer_email,
        TO_CHAR(t.date, 'YYYY-MM-DD') as date_formatted
        FROM transactions t
        JOIN customers c ON t.customer_id = c.id
@@ -54,6 +57,7 @@ export async function POST(request: NextRequest) {
         allItems.push({
           product_name: item.product_name,
           spec: item.spec,
+          unit: item.unit || '',
           qty: Number(item.qty),
           unit_price: Number(item.unit_price),
           amount: Number(item.amount),
@@ -76,8 +80,27 @@ export async function POST(request: NextRequest) {
       : `${txns[0].date_formatted} ~ ${txns[txns.length - 1].date_formatted}`;
 
     const html = buildInvoiceEmailHtml({
-      supplierName: settings?.company_name || '굿푸드시스템',
-      customerName: txns[0].company_name,
+      supplier: {
+        company_name: settings?.company_name || '굿푸드시스템',
+        rep_name: settings?.rep_name || '',
+        reg_number: settings?.reg_number || '',
+        address: settings?.address || '',
+        business_type: settings?.business_type || '',
+        tel: settings?.tel || '',
+        fax: settings?.fax || '',
+        bank_info: settings?.bank_info || '',
+        print_operator: settings?.print_operator || '',
+      },
+      customer: {
+        company_name: txns[0].company_name || '',
+        contact_name: txns[0].contact_name || '',
+        reg_number: txns[0].customer_reg_number || '',
+        address: txns[0].customer_address || '',
+        business_type: txns[0].customer_business_type || '',
+        business_category: txns[0].customer_business_category || '',
+        tel: txns[0].customer_tel || '',
+        fax: txns[0].customer_fax || '',
+      },
       date: dateRange,
       items: allItems,
       supplyTotal,

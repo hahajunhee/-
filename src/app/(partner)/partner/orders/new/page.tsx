@@ -188,7 +188,7 @@ export default function NewOrderPage() {
                       <td className="text-gray-500">{item.spec}</td>
                       <td className="text-gray-500">{item.unit}</td>
                       <td>
-                        <input type="number" min="0.01" step="0.01"
+                        <input type="number" min="0" step="1"
                           className="form-input text-center w-20"
                           value={item.qty}
                           onChange={(e) => updateQty(idx, Number(e.target.value))} />
