@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
-import { FileText, Trash2, CheckCircle, Clock, PlusCircle, Mail } from 'lucide-react';
+import { FileText, Trash2, CheckCircle, Clock, PlusCircle, Mail, Eye, ChevronDown, ChevronUp } from 'lucide-react';
 import toast from 'react-hot-toast';
 import PageHeader from '@/components/PageHeader';
 import { Customer } from '@/types';
@@ -17,6 +17,7 @@ export default function TransactionsPage() {
   const [statusFilter, setStatusFilter] = useState('');
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<number[]>([]);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
 
   const fetchCustomers = useCallback(async () => {
     const res = await fetch('/api/customers');
@@ -87,6 +88,14 @@ export default function TransactionsPage() {
     if (selected.length === 0) { toast.error('거래를 선택하세요'); return; }
     const ids = selected.join(',');
     window.open(`/invoice?ids=${ids}&email=true`, '_blank');
+  };
+
+  // 품목 요약 텍스트 생성: "돈삼겹살 외 2건"
+  const getItemSummary = (items: any[]) => {
+    if (!items || items.length === 0) return '-';
+    const first = items[0]?.product_name || '';
+    if (items.length === 1) return first;
+    return `${first} 외 ${items.length - 1}건`;
   };
 
   const totalSupply = transactions.reduce((s, t) => s + Number(t.supply_total), 0);
@@ -195,14 +204,16 @@ export default function TransactionsPage() {
                   <th className="text-right">공급가액</th>
                   <th className="text-right">부가세</th>
                   <th className="text-right">합계</th>
-                  <th className="text-center">품목수</th>
+                  <th>품목</th>
+                  <th className="text-center">상세</th>
                   <th className="text-center">입금</th>
                   <th className="w-20"></th>
                 </tr>
               </thead>
               <tbody>
                 {transactions.map((t) => (
-                  <tr key={t.id} className={selected.includes(t.id) ? 'bg-blue-50' : ''}>
+                  <React.Fragment key={t.id}>
+                  <tr className={selected.includes(t.id) ? 'bg-blue-50' : ''}>
                     <td>
                       <input type="checkbox" className="w-4 h-4"
                         checked={selected.includes(t.id)}
@@ -222,7 +233,18 @@ export default function TransactionsPage() {
                     <td className="text-right">{formatKRW(Number(t.supply_total))}</td>
                     <td className="text-right text-gray-500">{formatKRW(Number(t.vat_total))}</td>
                     <td className="text-right font-medium">{formatKRW(Number(t.grand_total))}</td>
-                    <td className="text-center">{t.items?.length || 0}건</td>
+                    <td className="text-sm text-gray-700 max-w-[160px] truncate" title={t.items?.map((i: any) => i.product_name).join(', ')}>
+                      {getItemSummary(t.items)}
+                    </td>
+                    <td className="text-center">
+                      <button
+                        onClick={() => setExpandedId(expandedId === t.id ? null : t.id)}
+                        className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg hover:bg-gray-100 text-blue-600"
+                      >
+                        {expandedId === t.id ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                        {expandedId === t.id ? '접기' : '보기'}
+                      </button>
+                    </td>
                     <td className="text-center">
                       <button onClick={() => toggleStatus(t)} className="inline-flex items-center gap-1">
                         {t.payment_status === 'paid' ? (
@@ -242,10 +264,48 @@ export default function TransactionsPage() {
                       </button>
                     </td>
                   </tr>
+                  {/* 펼침 상세 행 */}
+                  {expandedId === t.id && t.items && t.items.length > 0 && (
+                    <tr className="bg-gray-50">
+                      <td colSpan={12} className="p-0">
+                        <div className="px-6 py-3">
+                          <table className="w-full text-xs border-collapse">
+                            <thead>
+                              <tr className="text-gray-500">
+                                <th className="text-left py-1.5 px-2 font-medium border-b border-gray-200">품목명</th>
+                                <th className="text-left py-1.5 px-2 font-medium border-b border-gray-200">규격</th>
+                                <th className="text-center py-1.5 px-2 font-medium border-b border-gray-200">단위</th>
+                                <th className="text-right py-1.5 px-2 font-medium border-b border-gray-200">수량</th>
+                                <th className="text-right py-1.5 px-2 font-medium border-b border-gray-200">단가</th>
+                                <th className="text-right py-1.5 px-2 font-medium border-b border-gray-200">금액</th>
+                                <th className="text-center py-1.5 px-2 font-medium border-b border-gray-200">부가세여부</th>
+                                <th className="text-right py-1.5 px-2 font-medium border-b border-gray-200">부가세</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {t.items.map((item: any, idx: number) => (
+                                <tr key={idx} className="hover:bg-gray-100">
+                                  <td className="py-1.5 px-2 border-b border-gray-100 font-medium">{item.product_name}</td>
+                                  <td className="py-1.5 px-2 border-b border-gray-100 text-gray-500">{item.spec}</td>
+                                  <td className="py-1.5 px-2 border-b border-gray-100 text-center text-gray-500">{item.unit}</td>
+                                  <td className="py-1.5 px-2 border-b border-gray-100 text-right">{Number(item.qty)}</td>
+                                  <td className="py-1.5 px-2 border-b border-gray-100 text-right">{formatKRW(Number(item.unit_price))}</td>
+                                  <td className="py-1.5 px-2 border-b border-gray-100 text-right font-medium">{formatKRW(Number(item.amount))}</td>
+                                  <td className="py-1.5 px-2 border-b border-gray-100 text-center">{item.vat_apply ? 'Y' : 'N'}</td>
+                                  <td className="py-1.5 px-2 border-b border-gray-100 text-right text-gray-500">{formatKRW(Number(item.vat_amount))}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                  </React.Fragment>
                 ))}
                 {transactions.length === 0 && (
                   <tr>
-                    <td colSpan={10} className="text-center py-8 text-gray-400">
+                    <td colSpan={12} className="text-center py-8 text-gray-400">
                       거래 내역이 없습니다
                     </td>
                   </tr>
