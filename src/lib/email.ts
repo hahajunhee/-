@@ -4,9 +4,10 @@ interface SendEmailOptions {
   to: string;
   subject: string;
   html: string;
+  attachments?: { filename: string; content: Buffer; contentType: string }[];
 }
 
-export async function sendEmail({ to, subject, html }: SendEmailOptions) {
+export async function sendEmail({ to, subject, html, attachments }: SendEmailOptions) {
   const user = process.env.GMAIL_USER;
   const pass = process.env.GMAIL_APP_PASSWORD;
 
@@ -26,6 +27,11 @@ export async function sendEmail({ to, subject, html }: SendEmailOptions) {
       to,
       subject,
       html,
+      attachments: attachments?.map(a => ({
+        filename: a.filename,
+        content: a.content,
+        contentType: a.contentType,
+      })),
     });
     console.log('Email sent:', info.messageId);
     return { success: true, messageId: info.messageId };
@@ -62,10 +68,17 @@ export function buildInvoiceEmailHtml(params: {
   supplyTotal: number;
   vatTotal: number;
   grandTotal: number;
+  previousBalance?: number;
+  invoiceNote?: string;
 }) {
   const fmt = (n: number) => new Intl.NumberFormat('ko-KR').format(n);
   const ITEMS_PER_PAGE = 15;
   const { supplier, customer, items } = params;
+  const previousBalance = params.previousBalance || 0;
+  const subtotal = params.supplyTotal + params.vatTotal;
+  const totalAmount = previousBalance + subtotal;
+  const todayBalance = totalAmount;
+  const totalQtyAll = items.reduce((s, i) => s + i.qty, 0);
 
   // 페이지별로 아이템 분할
   const pages: typeof items[] = [];
@@ -202,7 +215,8 @@ export function buildInvoiceEmailHtml(params: {
         </tbody>
         <tfoot>
           <tr style="background:#f3f4f6;font-weight:bold">
-            <td colspan="5" style="${cellStyle}text-align:center">합 계</td>
+            <td colspan="4" style="${cellStyle}text-align:center">총 합 계</td>
+            <td style="${cellStyle}text-align:right">${totalQtyAll}</td>
             <td style="${cellStyle}text-align:right"></td>
             <td style="${cellStyle}text-align:right">${fmt(params.supplyTotal)}</td>
             <td style="${cellStyle}text-align:right">${fmt(params.vatTotal)}</td>
@@ -210,13 +224,34 @@ export function buildInvoiceEmailHtml(params: {
         </tfoot>
       </table>
 
-      <!-- 총액 -->
-      <table style="margin-left:auto;border-collapse:collapse;font-size:12px" cellpadding="0" cellspacing="0">
-        <tr>
-          <td style="border:1px solid #666;padding:5px 16px;background:#f3f4f6;font-weight:bold">총 액 (부가세 포함)</td>
-          <td style="border:1px solid #666;padding:5px 16px;text-align:right;font-weight:bold;font-size:14px;min-width:150px">${fmt(params.grandTotal)}원</td>
-        </tr>
+      ${pageNum === totalPages ? `
+      <!-- 잔액 요약 -->
+      <table style="width:100%;border-collapse:collapse;font-size:11px;margin-top:-1px" cellpadding="0" cellspacing="0">
+        <thead>
+          <tr style="background:#f3f4f6">
+            <th style="${cellStyle}width:14.28%;text-align:center">전일잔액</th>
+            <th style="${cellStyle}width:14.28%;text-align:center">공급가액</th>
+            <th style="${cellStyle}width:14.28%;text-align:center">부가세</th>
+            <th style="${cellStyle}width:14.28%;text-align:center">합계금액</th>
+            <th style="${cellStyle}width:14.28%;text-align:center">총 액</th>
+            <th style="${cellStyle}width:14.28%;text-align:center">금일입금액</th>
+            <th style="${cellStyle}width:14.28%;text-align:center">금일잔액</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="${cellStyle}text-align:right;font-weight:bold">${fmt(previousBalance)}</td>
+            <td style="${cellStyle}text-align:right;font-weight:bold">${fmt(params.supplyTotal)}</td>
+            <td style="${cellStyle}text-align:right;font-weight:bold">${fmt(params.vatTotal)}</td>
+            <td style="${cellStyle}text-align:right;font-weight:bold">${fmt(subtotal)}</td>
+            <td style="${cellStyle}text-align:right;font-weight:bold">${fmt(totalAmount)}</td>
+            <td style="${cellStyle}text-align:right;font-weight:bold">0</td>
+            <td style="${cellStyle}text-align:right;font-weight:bold">${fmt(todayBalance)}</td>
+          </tr>
+        </tbody>
       </table>
+      ${params.invoiceNote ? `<p style="margin-top:8px;font-size:11px;color:#059669;font-weight:bold">${params.invoiceNote}</p>` : ''}
+      ` : ''}
 
       ${totalPages > 1 ? `<p style="text-align:center;font-size:10px;color:#999;margin-top:16px">${pageNum} / ${totalPages}</p>` : ''}
     </div>`;

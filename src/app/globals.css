@@ -139,21 +139,46 @@ body {
 
 /* 인쇄용 거래명세서 스타일 */
 @media print {
-  body * {
-    visibility: hidden;
-  }
-  .invoice-print,
-  .invoice-print * {
-    visibility: visible;
-  }
-  .invoice-print {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-  }
-  .no-print {
+  /* 사이드바, 헤더, 액션바 등 숨기기 */
+  .no-print,
+  nav,
+  aside,
+  header {
     display: none !important;
+  }
+
+  body {
+    background: white !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* 메인 레이아웃 margin/padding 제거 */
+  main,
+  .main-content {
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: none !important;
+  }
+
+  /* 거래명세서 페이지 스타일 */
+  .invoice-page {
+    width: 100% !important;
+    min-height: auto !important;
+    margin: 0 !important;
+    padding: 10mm 15mm !important;
+    border: none !important;
+    box-shadow: none !important;
+    page-break-after: always;
+  }
+
+  .invoice-page:last-child {
+    page-break-after: auto;
+  }
+
+  @page {
+    size: A4;
+    margin: 0;
   }
 }
 

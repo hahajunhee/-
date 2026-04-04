@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '권한이 없습니다' }, { status: 403 });
     }
 
-    const { transaction_ids } = await request.json();
+    const { transaction_ids, pdf_base64 } = await request.json();
     if (!transaction_ids || !Array.isArray(transaction_ids) || transaction_ids.length === 0) {
       return NextResponse.json({ error: '거래를 선택하세요' }, { status: 400 });
     }
@@ -69,6 +69,16 @@ export async function POST(request: NextRequest) {
     const vatTotal = allItems.reduce((s, i) => s + i.vat_amount, 0);
     const grandTotal = supplyTotal + vatTotal;
 
+    // 전일잔액 조회
+    const customerId = txns[0].customer_id;
+    const balPlaceholders = transaction_ids.map((_: number, i: number) => `$${i + 2}`).join(',');
+    const balResult = await query(
+      `SELECT COALESCE(SUM(grand_total), 0) as balance FROM transactions
+       WHERE customer_id = $1 AND payment_status = 'unpaid' AND id NOT IN (${balPlaceholders})`,
+      [customerId, ...transaction_ids]
+    );
+    const previousBalance = Number(balResult[0]?.balance || 0);
+
     const dateRange = txns.length === 1
       ? txns[0].date_formatted
       : `${txns[0].date_formatted} ~ ${txns[txns.length - 1].date_formatted}`;
@@ -100,12 +110,21 @@ export async function POST(request: NextRequest) {
       supplyTotal,
       vatTotal,
       grandTotal,
+      previousBalance,
+      invoiceNote: settings?.invoice_note || '',
     });
+
+    const attachments = pdf_base64 ? [{
+      filename: `거래명세서_${txns[0].company_name}_${dateRange}.pdf`,
+      content: Buffer.from(pdf_base64, 'base64'),
+      contentType: 'application/pdf',
+    }] : [];
 
     const result = await sendEmail({
       to: customerEmail,
       subject: `[거래명세서] ${dateRange} - ${settings?.company_name || '굿푸드시스템'}`,
       html,
+      attachments,
     });
 
     if (result.success) {

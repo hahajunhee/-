@@ -2,10 +2,11 @@
 
 import { useEffect, useState, useCallback, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Printer, ArrowLeft, Download } from 'lucide-react';
+import { Printer, ArrowLeft, Download, Mail } from 'lucide-react';
 import Link from 'next/link';
 import { Settings } from '@/types';
 import { formatKRW } from '@/lib/calculator';
+import toast from 'react-hot-toast';
 
 const ITEMS_PER_PAGE = 15;
 
@@ -22,6 +23,8 @@ interface InvoiceItem {
 
 interface InvoiceData {
   date: string;
+  txnIds: number[];
+  customer_id: number;
   customer: {
     company_name: string;
     contact_name: string;
@@ -31,14 +34,16 @@ interface InvoiceData {
     business_category: string;
     fax: string;
     reg_number: string;
+    email?: string;
   };
   items: InvoiceItem[];
   supply_total: number;
   vat_total: number;
   grand_total: number;
+  previous_balance: number;
 }
 
-// 한 페이지 분량의 거래명세서 렌더링
+// ===== 한 페이지 분량의 거래명세서 =====
 function InvoicePageSheet({
   settings,
   customer,
@@ -47,8 +52,11 @@ function InvoicePageSheet({
   supplyTotal,
   vatTotal,
   grandTotal,
+  previousBalance,
+  totalQtyAll,
   pageNum,
   totalPages,
+  isLastPage,
 }: {
   settings: Settings;
   customer: InvoiceData['customer'];
@@ -57,161 +65,207 @@ function InvoicePageSheet({
   supplyTotal: number;
   vatTotal: number;
   grandTotal: number;
+  previousBalance: number;
+  totalQtyAll: number;
   pageNum: number;
   totalPages: number;
+  isLastPage: boolean;
 }) {
-  // 빈 행으로 15줄 채우기
   const emptyRows = Math.max(0, ITEMS_PER_PAGE - items.length);
 
-  return (
-    <div className="invoice-page bg-white w-[210mm] min-h-[297mm] mx-auto p-[15mm] pb-[10mm] border shadow-lg relative"
-      style={{ pageBreakAfter: 'always', boxSizing: 'border-box' }}>
+  // Balance calculations
+  const subtotal = supplyTotal + vatTotal; // 합계금액
+  const totalAmount = previousBalance + subtotal; // 총액
+  const todayPayment = 0; // 금일입금액
+  const todayBalance = totalAmount - todayPayment; // 금일잔액
 
+  const bd = '1px solid #555';
+  const cp = '4px 8px'; // cell padding
+  const hdrBg = '#f3f4f6';
+
+  return (
+    <div
+      className="invoice-page"
+      style={{
+        background: 'white',
+        width: '794px',
+        minHeight: '1123px',
+        margin: '0 auto',
+        padding: '40px 45px 30px 45px',
+        position: 'relative',
+        boxSizing: 'border-box',
+        fontFamily: "'맑은 고딕', 'Malgun Gothic', sans-serif",
+        fontSize: '11px',
+        color: '#000',
+      }}
+    >
       {/* 제목 */}
-      <div className="flex justify-between items-center mb-2">
-        <h1 className="text-[22px] font-bold tracking-[0.3em]">거 래 명 세 서</h1>
-        <span className="text-[11px] text-gray-500">(공급받는자용)</span>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+        <h1 style={{ fontSize: '22px', fontWeight: 'bold', letterSpacing: '0.3em', margin: 0 }}>거 래 명 세 서</h1>
+        <span style={{ fontSize: '11px', color: '#888' }}>(공급받는자용)</span>
       </div>
 
       {/* 날짜 + 계좌 */}
-      <div className="text-[11px] mb-3 border-b pb-2">
-        <div className="flex justify-between">
+      <div style={{ marginBottom: '12px', borderBottom: '1px solid #ccc', paddingBottom: '8px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
           <span>거래일자 : {date}</span>
           <span>출력담당자 : {settings.print_operator}</span>
         </div>
-        <p className="text-gray-600 mt-0.5">{settings.bank_info}</p>
+        <p style={{ color: '#666', margin: '4px 0 0 0' }}>{settings.bank_info}</p>
       </div>
 
       {/* 공급자 / 공급받는자 */}
-      <div className="grid grid-cols-2 gap-0 mb-4 text-[11px]">
+      <div style={{ display: 'flex', marginBottom: '16px' }}>
         {/* 공급자 */}
-        <table className="border-collapse w-full" style={{ borderSpacing: 0 }}>
+        <table style={{ borderCollapse: 'collapse', width: '50%' }} cellPadding={0} cellSpacing={0}>
           <tbody>
             <tr>
-              <td rowSpan={4} className="border border-gray-500 px-1 py-0.5 w-[22px] text-center font-bold bg-gray-100 align-middle text-[10px]">
+              <td rowSpan={4} style={{ border: bd, padding: '2px', width: '22px', textAlign: 'center', fontWeight: 'bold', background: hdrBg, verticalAlign: 'middle', fontSize: '10px', lineHeight: '1.4' }}>
                 공<br/>급<br/>자
               </td>
-              <td className="border border-gray-500 px-2 py-[3px] bg-gray-100 w-[60px]">등록번호</td>
-              <td className="border border-gray-500 px-2 py-[3px]" colSpan={3}>{settings.reg_number}</td>
+              <td style={{ border: bd, padding: cp, background: hdrBg, width: '55px' }}>등록번호</td>
+              <td colSpan={3} style={{ border: bd, padding: cp }}>{settings.reg_number}</td>
             </tr>
             <tr>
-              <td className="border border-gray-500 px-2 py-[3px] bg-gray-100">상 호</td>
-              <td className="border border-gray-500 px-2 py-[3px]">{settings.company_name}</td>
-              <td className="border border-gray-500 px-2 py-[3px] bg-gray-100 w-[40px]">성 명</td>
-              <td className="border border-gray-500 px-2 py-[3px]">{settings.rep_name} (인)</td>
+              <td style={{ border: bd, padding: cp, background: hdrBg }}>상 호</td>
+              <td style={{ border: bd, padding: cp }}>{settings.company_name}</td>
+              <td style={{ border: bd, padding: cp, background: hdrBg, width: '40px' }}>성 명</td>
+              <td style={{ border: bd, padding: cp }}>{settings.rep_name} (인)</td>
             </tr>
             <tr>
-              <td className="border border-gray-500 px-2 py-[3px] bg-gray-100">주 소</td>
-              <td className="border border-gray-500 px-2 py-[3px] text-[10px]" colSpan={3}>{settings.address}</td>
+              <td style={{ border: bd, padding: cp, background: hdrBg }}>주 소</td>
+              <td colSpan={3} style={{ border: bd, padding: cp, fontSize: '10px' }}>{settings.address}</td>
             </tr>
             <tr>
-              <td className="border border-gray-500 px-2 py-[3px] bg-gray-100">업 태</td>
-              <td className="border border-gray-500 px-2 py-[3px]">{settings.business_type}</td>
-              <td className="border border-gray-500 px-2 py-[3px] bg-gray-100">TEL</td>
-              <td className="border border-gray-500 px-2 py-[3px]">{settings.tel}</td>
+              <td style={{ border: bd, padding: cp, background: hdrBg }}>업 태</td>
+              <td style={{ border: bd, padding: cp }}>{settings.business_type}</td>
+              <td style={{ border: bd, padding: cp, background: hdrBg }}>TEL</td>
+              <td style={{ border: bd, padding: cp }}>{settings.tel}</td>
             </tr>
           </tbody>
         </table>
 
         {/* 공급받는자 */}
-        <table className="border-collapse w-full -ml-px" style={{ borderSpacing: 0 }}>
+        <table style={{ borderCollapse: 'collapse', width: '50%', marginLeft: '-1px' }} cellPadding={0} cellSpacing={0}>
           <tbody>
             <tr>
-              <td rowSpan={4} className="border border-gray-500 px-1 py-0.5 w-[22px] text-center font-bold bg-gray-100 align-middle text-[10px]">
+              <td rowSpan={4} style={{ border: bd, padding: '2px', width: '22px', textAlign: 'center', fontWeight: 'bold', background: hdrBg, verticalAlign: 'middle', fontSize: '10px', lineHeight: '1.2' }}>
                 공<br/>급<br/>받<br/>는<br/>자
               </td>
-              <td className="border border-gray-500 px-2 py-[3px] bg-gray-100 w-[60px]">등록번호</td>
-              <td className="border border-gray-500 px-2 py-[3px]" colSpan={3}>{customer.reg_number}</td>
+              <td style={{ border: bd, padding: cp, background: hdrBg, width: '55px' }}>등록번호</td>
+              <td colSpan={3} style={{ border: bd, padding: cp }}>{customer.reg_number}</td>
             </tr>
             <tr>
-              <td className="border border-gray-500 px-2 py-[3px] bg-gray-100">상 호</td>
-              <td className="border border-gray-500 px-2 py-[3px]">{customer.company_name}</td>
-              <td className="border border-gray-500 px-2 py-[3px] bg-gray-100 w-[40px]">성 명</td>
-              <td className="border border-gray-500 px-2 py-[3px]">{customer.contact_name} 귀하</td>
+              <td style={{ border: bd, padding: cp, background: hdrBg }}>상 호</td>
+              <td style={{ border: bd, padding: cp }}>{customer.company_name}</td>
+              <td style={{ border: bd, padding: cp, background: hdrBg, width: '40px' }}>성 명</td>
+              <td style={{ border: bd, padding: cp }}>{customer.contact_name} 귀하</td>
             </tr>
             <tr>
-              <td className="border border-gray-500 px-2 py-[3px] bg-gray-100">주 소</td>
-              <td className="border border-gray-500 px-2 py-[3px] text-[10px]" colSpan={3}>{customer.address}</td>
+              <td style={{ border: bd, padding: cp, background: hdrBg }}>주 소</td>
+              <td colSpan={3} style={{ border: bd, padding: cp, fontSize: '10px' }}>{customer.address}</td>
             </tr>
             <tr>
-              <td className="border border-gray-500 px-2 py-[3px] bg-gray-100">업 태</td>
-              <td className="border border-gray-500 px-2 py-[3px]">{customer.business_type}</td>
-              <td className="border border-gray-500 px-2 py-[3px] bg-gray-100">TEL</td>
-              <td className="border border-gray-500 px-2 py-[3px]">{customer.tel}</td>
+              <td style={{ border: bd, padding: cp, background: hdrBg }}>업 태</td>
+              <td style={{ border: bd, padding: cp }}>{customer.business_type}</td>
+              <td style={{ border: bd, padding: cp, background: hdrBg }}>TEL</td>
+              <td style={{ border: bd, padding: cp }}>{customer.tel}</td>
             </tr>
           </tbody>
         </table>
       </div>
 
       {/* 품목 테이블 */}
-      <table className="border-collapse w-full text-[11px] mb-3" style={{ borderSpacing: 0 }}>
+      <table style={{ borderCollapse: 'collapse', width: '100%', marginBottom: '0' }} cellPadding={0} cellSpacing={0}>
         <thead>
-          <tr className="bg-gray-100">
-            <th className="border border-gray-500 px-2 py-[5px] w-[5%]">No</th>
-            <th className="border border-gray-500 px-2 py-[5px] w-[28%]">품 목 명</th>
-            <th className="border border-gray-500 px-2 py-[5px] w-[13%]">규 격</th>
-            <th className="border border-gray-500 px-2 py-[5px] w-[6%]">단위</th>
-            <th className="border border-gray-500 px-2 py-[5px] w-[8%]">수 량</th>
-            <th className="border border-gray-500 px-2 py-[5px] w-[13%]">단 가</th>
-            <th className="border border-gray-500 px-2 py-[5px] w-[15%]">금 액</th>
-            <th className="border border-gray-500 px-2 py-[5px] w-[12%]">부가세</th>
+          <tr style={{ background: hdrBg }}>
+            <th style={{ border: bd, padding: '5px 8px', width: '5%', textAlign: 'center' }}>No</th>
+            <th style={{ border: bd, padding: '5px 8px', width: '28%', textAlign: 'center' }}>품 목 명</th>
+            <th style={{ border: bd, padding: '5px 8px', width: '13%', textAlign: 'center' }}>규 격</th>
+            <th style={{ border: bd, padding: '5px 8px', width: '6%', textAlign: 'center' }}>단위</th>
+            <th style={{ border: bd, padding: '5px 8px', width: '8%', textAlign: 'center' }}>수 량</th>
+            <th style={{ border: bd, padding: '5px 8px', width: '13%', textAlign: 'center' }}>단 가</th>
+            <th style={{ border: bd, padding: '5px 8px', width: '15%', textAlign: 'center' }}>금 액</th>
+            <th style={{ border: bd, padding: '5px 8px', width: '12%', textAlign: 'center' }}>부가세</th>
           </tr>
         </thead>
         <tbody>
           {items.map((item, idx) => (
             <tr key={idx}>
-              <td className="border border-gray-500 px-2 py-[4px] text-center">{(pageNum - 1) * ITEMS_PER_PAGE + idx + 1}</td>
-              <td className="border border-gray-500 px-2 py-[4px]">{item.product_name}</td>
-              <td className="border border-gray-500 px-2 py-[4px] text-center">{item.spec}</td>
-              <td className="border border-gray-500 px-2 py-[4px] text-center">{item.unit}</td>
-              <td className="border border-gray-500 px-2 py-[4px] text-right">{item.qty}</td>
-              <td className="border border-gray-500 px-2 py-[4px] text-right">{formatKRW(item.unit_price)}</td>
-              <td className="border border-gray-500 px-2 py-[4px] text-right">{formatKRW(item.amount)}</td>
-              <td className="border border-gray-500 px-2 py-[4px] text-right">{item.vat_apply ? formatKRW(item.vat_amount) : '-'}</td>
+              <td style={{ border: bd, padding: cp, textAlign: 'center' }}>{(pageNum - 1) * ITEMS_PER_PAGE + idx + 1}</td>
+              <td style={{ border: bd, padding: cp }}>{item.product_name}</td>
+              <td style={{ border: bd, padding: cp, textAlign: 'center' }}>{item.spec}</td>
+              <td style={{ border: bd, padding: cp, textAlign: 'center' }}>{item.unit}</td>
+              <td style={{ border: bd, padding: cp, textAlign: 'right' }}>{item.qty}</td>
+              <td style={{ border: bd, padding: cp, textAlign: 'right' }}>{formatKRW(item.unit_price)}</td>
+              <td style={{ border: bd, padding: cp, textAlign: 'right' }}>{formatKRW(item.amount)}</td>
+              <td style={{ border: bd, padding: cp, textAlign: 'right' }}>{item.vat_apply ? formatKRW(item.vat_amount) : '-'}</td>
             </tr>
           ))}
-          {/* 빈 행 */}
           {Array.from({ length: emptyRows }).map((_, i) => (
             <tr key={`e-${i}`}>
-              <td className="border border-gray-500 px-2 py-[4px]">&nbsp;</td>
-              <td className="border border-gray-500 px-2 py-[4px]"></td>
-              <td className="border border-gray-500 px-2 py-[4px]"></td>
-              <td className="border border-gray-500 px-2 py-[4px]"></td>
-              <td className="border border-gray-500 px-2 py-[4px]"></td>
-              <td className="border border-gray-500 px-2 py-[4px]"></td>
-              <td className="border border-gray-500 px-2 py-[4px]"></td>
-              <td className="border border-gray-500 px-2 py-[4px]"></td>
+              <td style={{ border: bd, padding: cp }}>&nbsp;</td>
+              <td style={{ border: bd, padding: cp }}></td>
+              <td style={{ border: bd, padding: cp }}></td>
+              <td style={{ border: bd, padding: cp }}></td>
+              <td style={{ border: bd, padding: cp }}></td>
+              <td style={{ border: bd, padding: cp }}></td>
+              <td style={{ border: bd, padding: cp }}></td>
+              <td style={{ border: bd, padding: cp }}></td>
             </tr>
           ))}
         </tbody>
-        {/* 합계 행 (마지막 페이지만) */}
         <tfoot>
-          <tr className="font-bold bg-gray-100">
-            <td colSpan={5} className="border border-gray-500 px-2 py-[5px] text-center">합 계</td>
-            <td className="border border-gray-500 px-2 py-[5px] text-right"></td>
-            <td className="border border-gray-500 px-2 py-[5px] text-right">{formatKRW(supplyTotal)}</td>
-            <td className="border border-gray-500 px-2 py-[5px] text-right">{formatKRW(vatTotal)}</td>
+          <tr style={{ background: hdrBg, fontWeight: 'bold' }}>
+            <td colSpan={4} style={{ border: bd, padding: '5px 8px', textAlign: 'center' }}>총 합 계</td>
+            <td style={{ border: bd, padding: '5px 8px', textAlign: 'right' }}>{totalQtyAll}</td>
+            <td style={{ border: bd, padding: '5px 8px', textAlign: 'right' }}></td>
+            <td style={{ border: bd, padding: '5px 8px', textAlign: 'right' }}>{formatKRW(supplyTotal)}</td>
+            <td style={{ border: bd, padding: '5px 8px', textAlign: 'right' }}>{formatKRW(vatTotal)}</td>
           </tr>
         </tfoot>
       </table>
 
-      {/* 총액 */}
-      <div className="flex justify-end mb-4">
-        <table className="border-collapse text-[12px]" style={{ borderSpacing: 0 }}>
-          <tbody>
-            <tr>
-              <td className="border border-gray-500 px-4 py-[5px] bg-gray-100 font-bold">총 액 (부가세 포함)</td>
-              <td className="border border-gray-500 px-4 py-[5px] text-right font-bold text-[14px] min-w-[150px]">
-                {formatKRW(grandTotal)}원
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      {/* 하단 잔액 요약 (마지막 페이지만) */}
+      {isLastPage && (
+        <>
+          <table style={{ borderCollapse: 'collapse', width: '100%', marginTop: '-1px' }} cellPadding={0} cellSpacing={0}>
+            <thead>
+              <tr style={{ background: hdrBg }}>
+                <th style={{ border: bd, padding: '5px 4px', width: '14.28%', textAlign: 'center' }}>전일잔액</th>
+                <th style={{ border: bd, padding: '5px 4px', width: '14.28%', textAlign: 'center' }}>공급가액</th>
+                <th style={{ border: bd, padding: '5px 4px', width: '14.28%', textAlign: 'center' }}>부가세</th>
+                <th style={{ border: bd, padding: '5px 4px', width: '14.28%', textAlign: 'center' }}>합계금액</th>
+                <th style={{ border: bd, padding: '5px 4px', width: '14.28%', textAlign: 'center' }}>총 액</th>
+                <th style={{ border: bd, padding: '5px 4px', width: '14.28%', textAlign: 'center' }}>금일입금액</th>
+                <th style={{ border: bd, padding: '5px 4px', width: '14.28%', textAlign: 'center' }}>금일잔액</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style={{ border: bd, padding: '6px 4px', textAlign: 'right', fontWeight: 'bold' }}>{formatKRW(previousBalance)}</td>
+                <td style={{ border: bd, padding: '6px 4px', textAlign: 'right', fontWeight: 'bold' }}>{formatKRW(supplyTotal)}</td>
+                <td style={{ border: bd, padding: '6px 4px', textAlign: 'right', fontWeight: 'bold' }}>{formatKRW(vatTotal)}</td>
+                <td style={{ border: bd, padding: '6px 4px', textAlign: 'right', fontWeight: 'bold' }}>{formatKRW(subtotal)}</td>
+                <td style={{ border: bd, padding: '6px 4px', textAlign: 'right', fontWeight: 'bold' }}>{formatKRW(totalAmount)}</td>
+                <td style={{ border: bd, padding: '6px 4px', textAlign: 'right', fontWeight: 'bold' }}>{formatKRW(todayPayment)}</td>
+                <td style={{ border: bd, padding: '6px 4px', textAlign: 'right', fontWeight: 'bold' }}>{formatKRW(todayBalance)}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          {/* 하단 메모 */}
+          {settings.invoice_note && (
+            <p style={{ marginTop: '8px', fontSize: '11px', color: '#059669', fontWeight: 'bold' }}>
+              {settings.invoice_note}
+            </p>
+          )}
+        </>
+      )}
 
       {/* 페이지 번호 */}
       {totalPages > 1 && (
-        <div className="absolute bottom-[8mm] left-0 right-0 text-center text-[10px] text-gray-400">
+        <div style={{ position: 'absolute', bottom: '20px', left: 0, right: 0, textAlign: 'center', fontSize: '10px', color: '#999' }}>
           {pageNum} / {totalPages}
         </div>
       )}
@@ -219,67 +273,127 @@ function InvoicePageSheet({
   );
 }
 
+// ===== 메인 거래명세서 컨텐츠 =====
 function InvoiceContent() {
   const searchParams = useSearchParams();
   const singleId = searchParams.get('id');
   const multiIds = searchParams.get('ids');
+  const emailMode = searchParams.get('email') === 'true';
   const [invoiceData, setInvoiceData] = useState<InvoiceData | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [loading, setLoading] = useState(true);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [emailSending, setEmailSending] = useState(false);
   const invoiceRef = useRef<HTMLDivElement>(null);
 
   const fetchData = useCallback(async () => {
-    const ids = multiIds ? multiIds.split(',') : singleId ? [singleId] : [];
+    const ids = multiIds ? multiIds.split(',').map(Number) : singleId ? [Number(singleId)] : [];
     if (ids.length === 0) return;
 
-    const sRes = await fetch('/api/settings');
-    setSettings(await sRes.json());
+    try {
+      const sRes = await fetch('/api/settings');
+      setSettings(await sRes.json());
 
-    const allItems: InvoiceItem[] = [];
-    let customer: InvoiceData['customer'] | null = null;
-    let dateMin = '', dateMax = '';
+      const allItems: InvoiceItem[] = [];
+      let customer: InvoiceData['customer'] | null = null;
+      let customerId = 0;
+      let dateMin = '', dateMax = '';
 
-    for (const id of ids) {
-      const res = await fetch(`/api/transactions/${id}`);
-      if (!res.ok) continue;
-      const txn = await res.json();
-      if (!customer) customer = txn.customer;
-      const txnDate = txn.date_formatted || txn.date?.split('T')[0] || '';
-      if (!dateMin || txnDate < dateMin) dateMin = txnDate;
-      if (!dateMax || txnDate > dateMax) dateMax = txnDate;
-      if (txn.items) {
-        for (const item of txn.items) {
-          allItems.push({
-            product_name: item.product_name,
-            spec: item.spec,
-            unit: item.unit,
-            qty: Number(item.qty),
-            unit_price: Number(item.unit_price),
-            amount: Number(item.amount),
-            vat_apply: item.vat_apply,
-            vat_amount: Number(item.vat_amount),
-          });
+      for (const id of ids) {
+        const res = await fetch(`/api/transactions/${id}`);
+        if (!res.ok) continue;
+        const txn = await res.json();
+        if (!customer) {
+          customer = txn.customer;
+          customerId = txn.customer_id;
+        }
+        const txnDate = txn.date_formatted || txn.date?.split('T')[0] || '';
+        if (!dateMin || txnDate < dateMin) dateMin = txnDate;
+        if (!dateMax || txnDate > dateMax) dateMax = txnDate;
+        if (txn.items) {
+          for (const item of txn.items) {
+            allItems.push({
+              product_name: item.product_name,
+              spec: item.spec,
+              unit: item.unit || '',
+              qty: Number(item.qty),
+              unit_price: Number(item.unit_price),
+              amount: Number(item.amount),
+              vat_apply: item.vat_apply,
+              vat_amount: Number(item.vat_amount),
+            });
+          }
         }
       }
-    }
 
-    if (customer && allItems.length > 0) {
-      const supplyTotal = allItems.reduce((s, i) => s + i.amount, 0);
-      const vatTotal = allItems.reduce((s, i) => s + i.vat_amount, 0);
-      setInvoiceData({
-        date: dateMin === dateMax ? dateMin : `${dateMin} ~ ${dateMax}`,
-        customer,
-        items: allItems,
-        supply_total: supplyTotal,
-        vat_total: vatTotal,
-        grand_total: supplyTotal + vatTotal,
-      });
+      // 전일잔액 조회
+      let previousBalance = 0;
+      if (customerId) {
+        try {
+          const balRes = await fetch(`/api/customers/${customerId}/balance?exclude_ids=${ids.join(',')}`);
+          const balData = await balRes.json();
+          previousBalance = Number(balData.balance) || 0;
+        } catch {}
+      }
+
+      if (customer && allItems.length > 0) {
+        const supplyTotal = allItems.reduce((s, i) => s + i.amount, 0);
+        const vatTotal = allItems.reduce((s, i) => s + i.vat_amount, 0);
+        setInvoiceData({
+          date: dateMin === dateMax ? dateMin : `${dateMin} ~ ${dateMax}`,
+          txnIds: ids,
+          customer_id: customerId,
+          customer,
+          items: allItems,
+          supply_total: supplyTotal,
+          vat_total: vatTotal,
+          grand_total: supplyTotal + vatTotal,
+          previous_balance: previousBalance,
+        });
+      }
+    } catch (err) {
+      console.error('Invoice fetch error:', err);
     }
     setLoading(false);
   }, [singleId, multiIds]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // PDF 생성 (base64 반환)
+  const generatePdfBase64 = async (): Promise<string | null> => {
+    if (!invoiceRef.current) return null;
+    try {
+      const html2canvas = (await import('html2canvas')).default;
+      const { jsPDF } = await import('jspdf');
+
+      const pages = invoiceRef.current.querySelectorAll('.invoice-page');
+      if (pages.length === 0) return null;
+
+      const pdf = new jsPDF('p', 'mm', 'a4');
+
+      for (let i = 0; i < pages.length; i++) {
+        const canvas = await html2canvas(pages[i] as HTMLElement, {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          backgroundColor: '#ffffff',
+          width: 794,
+          windowWidth: 794,
+        });
+        const imgData = canvas.toDataURL('image/jpeg', 0.95);
+        const pdfWidth = 210;
+        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
+        if (i > 0) pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+      }
+
+      return pdf.output('datauristring').split(',')[1]; // base64 only
+    } catch (err) {
+      console.error('PDF generation error:', err);
+      return null;
+    }
+  };
 
   // PDF 다운로드
   const downloadPdf = async () => {
@@ -290,6 +404,8 @@ function InvoiceContent() {
       const { jsPDF } = await import('jspdf');
 
       const pages = invoiceRef.current.querySelectorAll('.invoice-page');
+      if (pages.length === 0) { setPdfLoading(false); return; }
+
       const pdf = new jsPDF('p', 'mm', 'a4');
 
       for (let i = 0; i < pages.length; i++) {
@@ -297,13 +413,16 @@ function InvoiceContent() {
           scale: 2,
           useCORS: true,
           logging: false,
+          backgroundColor: '#ffffff',
+          width: 794,
+          windowWidth: 794,
         });
-        const imgData = canvas.toDataURL('image/png');
+        const imgData = canvas.toDataURL('image/jpeg', 0.95);
         const pdfWidth = 210;
         const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
         if (i > 0) pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+        pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
       }
 
       const customerName = invoiceData?.customer.company_name || '거래처';
@@ -311,13 +430,51 @@ function InvoiceContent() {
       pdf.save(`거래명세서_${customerName}_${date}.pdf`);
     } catch (err) {
       console.error('PDF generation error:', err);
-      alert('PDF 생성에 실패했습니다');
+      toast.error('PDF 생성에 실패했습니다');
     }
     setPdfLoading(false);
   };
 
-  if (loading) return <div className="p-8 text-center text-gray-400">불러오는 중...</div>;
-  if (!invoiceData || !settings) return <div className="p-8 text-center text-red-500">거래 데이터를 찾을 수 없습니다</div>;
+  // 이메일 발송 (PDF 첨부)
+  const sendEmail = async () => {
+    if (!invoiceData) return;
+    setEmailSending(true);
+    try {
+      // PDF 생성
+      toast('PDF 생성 중...', { icon: '📄' });
+      const pdfBase64 = await generatePdfBase64();
+      if (!pdfBase64) {
+        toast.error('PDF 생성에 실패했습니다');
+        setEmailSending(false);
+        return;
+      }
+
+      // 이메일 발송
+      toast('이메일 발송 중...', { icon: '📧' });
+      const res = await fetch('/api/email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          transaction_ids: invoiceData.txnIds,
+          pdf_base64: pdfBase64,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(data.message || '이메일이 발송되었습니다');
+      } else {
+        toast.error(data.error || '이메일 발송 실패');
+      }
+    } catch (err) {
+      console.error('Email send error:', err);
+      toast.error('서버 연결 오류');
+    }
+    setEmailSending(false);
+  };
+
+  if (loading) return <div style={{ padding: '32px', textAlign: 'center', color: '#9ca3af' }}>불러오는 중...</div>;
+  if (!invoiceData || !settings) return <div style={{ padding: '32px', textAlign: 'center', color: '#ef4444' }}>거래 데이터를 찾을 수 없습니다</div>;
 
   // 페이지별로 아이템 분할
   const pages: InvoiceItem[][] = [];
@@ -326,38 +483,47 @@ function InvoiceContent() {
   }
   if (pages.length === 0) pages.push([]);
 
+  const totalQtyAll = invoiceData.items.reduce((s, i) => s + i.qty, 0);
+
   return (
     <>
       {/* 액션 바 */}
-      <div className="flex items-center justify-between mb-6 no-print">
+      <div className="no-print" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
         <Link href="/transactions" className="btn-secondary">
           <ArrowLeft size={16} /> 목록으로
         </Link>
-        <div className="flex gap-2">
-          <button onClick={downloadPdf} disabled={pdfLoading} className="btn-success">
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button onClick={downloadPdf} disabled={pdfLoading} className="btn-primary">
             <Download size={16} /> {pdfLoading ? 'PDF 생성 중...' : 'PDF 다운로드'}
           </button>
-          <button onClick={() => window.print()} className="btn-primary">
+          <button onClick={() => window.print()} className="btn-secondary">
             <Printer size={16} /> 인쇄
+          </button>
+          <button onClick={sendEmail} disabled={emailSending} className="btn-success">
+            <Mail size={16} /> {emailSending ? '발송 중...' : '이메일 발송 (PDF 첨부)'}
           </button>
         </div>
       </div>
 
       {/* 명세서 페이지들 */}
-      <div ref={invoiceRef} className="space-y-6 print:space-y-0">
+      <div ref={invoiceRef} id="invoice-pages">
         {pages.map((pageItems, idx) => (
-          <InvoicePageSheet
-            key={idx}
-            settings={settings}
-            customer={invoiceData.customer}
-            date={invoiceData.date}
-            items={pageItems}
-            supplyTotal={invoiceData.supply_total}
-            vatTotal={invoiceData.vat_total}
-            grandTotal={invoiceData.grand_total}
-            pageNum={idx + 1}
-            totalPages={pages.length}
-          />
+          <div key={idx} style={{ marginBottom: idx < pages.length - 1 ? '24px' : '0' }}>
+            <InvoicePageSheet
+              settings={settings}
+              customer={invoiceData.customer}
+              date={invoiceData.date}
+              items={pageItems}
+              supplyTotal={invoiceData.supply_total}
+              vatTotal={invoiceData.vat_total}
+              grandTotal={invoiceData.grand_total}
+              previousBalance={invoiceData.previous_balance}
+              totalQtyAll={totalQtyAll}
+              pageNum={idx + 1}
+              totalPages={pages.length}
+              isLastPage={idx === pages.length - 1}
+            />
+          </div>
         ))}
       </div>
     </>
@@ -366,7 +532,7 @@ function InvoiceContent() {
 
 export default function InvoicePage() {
   return (
-    <Suspense fallback={<div className="p-8 text-center text-gray-400">불러오는 중...</div>}>
+    <Suspense fallback={<div style={{ padding: '32px', textAlign: 'center', color: '#9ca3af' }}>불러오는 중...</div>}>
       <InvoiceContent />
     </Suspense>
   );

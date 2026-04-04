@@ -105,6 +105,13 @@ export default function SettingsPage() {
               <input type="text" className="form-input" placeholder="예: 신현숙" value={settings.print_operator}
                 onChange={(e) => update('print_operator', e.target.value)} />
             </div>
+            <div className="col-span-2">
+              <label className="form-label">거래명세서 하단 메모</label>
+              <input type="text" className="form-input"
+                placeholder="예: ★★D-2발주부탁드립니다. **발주폰-010-4078-0692** **택배폰-010-2043-4983**"
+                value={settings.invoice_note || ''}
+                onChange={(e) => update('invoice_note', e.target.value)} />
+            </div>
           </div>
         </div>
       </div>

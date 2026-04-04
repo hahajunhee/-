@@ -75,6 +75,7 @@ export interface Settings {
   fax: string;
   bank_info: string;
   print_operator: string;
+  invoice_note: string;
   categories: string[];
 }
 

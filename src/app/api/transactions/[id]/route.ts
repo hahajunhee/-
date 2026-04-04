@@ -9,7 +9,8 @@ export async function GET(
 
   const txnResult = await query(
     `SELECT t.*,
-     c.company_name, c.contact_name,
+     TO_CHAR(t.date, 'YYYY-MM-DD') as date_formatted,
+     c.company_name, c.contact_name, c.email as customer_email,
      c.address as customer_address,
      c.tel as customer_tel,
      c.business_type as customer_business_type,
@@ -35,6 +36,7 @@ export async function GET(
   return NextResponse.json({
     id: row.id,
     date: row.date,
+    date_formatted: row.date_formatted,
     customer_id: row.customer_id,
     payment_status: row.payment_status,
     supply_total: row.supply_total,
@@ -44,6 +46,7 @@ export async function GET(
     customer: {
       company_name: row.company_name,
       contact_name: row.contact_name,
+      email: row.customer_email,
       address: row.customer_address,
       tel: row.customer_tel,
       business_type: row.customer_business_type,

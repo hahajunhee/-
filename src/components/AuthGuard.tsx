@@ -60,12 +60,14 @@ export default function AuthGuard({
 
   return (
     <div className="h-full flex">
-      {requiredRole === 'master' ? (
-        <MasterSidebar userName={user.name} />
-      ) : (
-        <PartnerSidebar userName={user.name} companyName={companyName} />
-      )}
-      <main className="flex-1 overflow-y-auto">
+      <div className="no-print">
+        {requiredRole === 'master' ? (
+          <MasterSidebar userName={user.name} />
+        ) : (
+          <PartnerSidebar userName={user.name} companyName={companyName} />
+        )}
+      </div>
+      <main className="flex-1 overflow-y-auto main-content">
         <div className="p-6 max-w-7xl mx-auto">{children}</div>
       </main>
     </div>
