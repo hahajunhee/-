@@ -22,14 +22,23 @@ export default function PartnerOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [error, setError] = useState('');
+
   const fetchOrders = useCallback(async () => {
     setLoading(true);
+    setError('');
     try {
       const res = await fetch('/api/orders');
       const data = await res.json();
-      setOrders(Array.isArray(data) ? data : []);
-    } catch {
+      if (Array.isArray(data)) {
+        setOrders(data);
+      } else {
+        setOrders([]);
+        setError(data.error || '데이터를 불러올 수 없습니다');
+      }
+    } catch (e) {
       setOrders([]);
+      setError('서버 연결 오류');
     }
     setLoading(false);
   }, []);
@@ -61,9 +70,12 @@ export default function PartnerOrdersPage() {
       />
 
       <div className="space-y-4">
+        {error && (
+          <div className="card bg-red-50 text-red-600 text-sm">{error}</div>
+        )}
         {loading ? (
           <div className="card text-center text-gray-400">불러오는 중...</div>
-        ) : orders.length === 0 ? (
+        ) : orders.length === 0 && !error ? (
           <div className="card text-center text-gray-400 py-12">
             <Package size={48} className="mx-auto mb-4 text-gray-300" />
             <p>아직 발주 내역이 없습니다</p>
