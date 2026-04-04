@@ -224,8 +224,7 @@ export function buildInvoiceEmailHtml(params: {
         </tfoot>
       </table>
 
-      ${pageNum === totalPages ? `
-      <!-- 잔액 요약 -->
+      <!-- 잔액 요약 (모든 페이지 동일) -->
       <table style="width:100%;border-collapse:collapse;font-size:11px;margin-top:-1px" cellpadding="0" cellspacing="0">
         <thead>
           <tr style="background:#f3f4f6">
@@ -251,7 +250,6 @@ export function buildInvoiceEmailHtml(params: {
         </tbody>
       </table>
       ${params.invoiceNote ? `<p style="margin-top:8px;font-size:11px;color:#059669;font-weight:bold">${params.invoiceNote}</p>` : ''}
-      ` : ''}
 
       ${totalPages > 1 ? `<p style="text-align:center;font-size:10px;color:#999;margin-top:16px">${pageNum} / ${totalPages}</p>` : ''}
     </div>`;

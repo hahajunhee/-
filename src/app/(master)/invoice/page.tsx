@@ -56,7 +56,6 @@ function InvoicePageSheet({
   totalQtyAll,
   pageNum,
   totalPages,
-  isLastPage,
 }: {
   settings: Settings;
   customer: InvoiceData['customer'];
@@ -69,7 +68,6 @@ function InvoicePageSheet({
   totalQtyAll: number;
   pageNum: number;
   totalPages: number;
-  isLastPage: boolean;
 }) {
   const emptyRows = Math.max(0, ITEMS_PER_PAGE - items.length);
 
@@ -226,41 +224,37 @@ function InvoicePageSheet({
         </tfoot>
       </table>
 
-      {/* 하단 잔액 요약 (마지막 페이지만) */}
-      {isLastPage && (
-        <>
-          <table style={{ borderCollapse: 'collapse', width: '100%', marginTop: '-1px' }} cellPadding={0} cellSpacing={0}>
-            <thead>
-              <tr style={{ background: hdrBg }}>
-                <th style={{ border: bd, padding: '5px 4px', width: '14.28%', textAlign: 'center' }}>전일잔액</th>
-                <th style={{ border: bd, padding: '5px 4px', width: '14.28%', textAlign: 'center' }}>공급가액</th>
-                <th style={{ border: bd, padding: '5px 4px', width: '14.28%', textAlign: 'center' }}>부가세</th>
-                <th style={{ border: bd, padding: '5px 4px', width: '14.28%', textAlign: 'center' }}>합계금액</th>
-                <th style={{ border: bd, padding: '5px 4px', width: '14.28%', textAlign: 'center' }}>총 액</th>
-                <th style={{ border: bd, padding: '5px 4px', width: '14.28%', textAlign: 'center' }}>금일입금액</th>
-                <th style={{ border: bd, padding: '5px 4px', width: '14.28%', textAlign: 'center' }}>금일잔액</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td style={{ border: bd, padding: '6px 4px', textAlign: 'right', fontWeight: 'bold' }}>{formatKRW(previousBalance)}</td>
-                <td style={{ border: bd, padding: '6px 4px', textAlign: 'right', fontWeight: 'bold' }}>{formatKRW(supplyTotal)}</td>
-                <td style={{ border: bd, padding: '6px 4px', textAlign: 'right', fontWeight: 'bold' }}>{formatKRW(vatTotal)}</td>
-                <td style={{ border: bd, padding: '6px 4px', textAlign: 'right', fontWeight: 'bold' }}>{formatKRW(subtotal)}</td>
-                <td style={{ border: bd, padding: '6px 4px', textAlign: 'right', fontWeight: 'bold' }}>{formatKRW(totalAmount)}</td>
-                <td style={{ border: bd, padding: '6px 4px', textAlign: 'right', fontWeight: 'bold' }}>{formatKRW(todayPayment)}</td>
-                <td style={{ border: bd, padding: '6px 4px', textAlign: 'right', fontWeight: 'bold' }}>{formatKRW(todayBalance)}</td>
-              </tr>
-            </tbody>
-          </table>
+      {/* 하단 잔액 요약 (모든 페이지 동일) */}
+      <table style={{ borderCollapse: 'collapse', width: '100%', marginTop: '-1px' }} cellPadding={0} cellSpacing={0}>
+        <thead>
+          <tr style={{ background: hdrBg }}>
+            <th style={{ border: bd, padding: '5px 4px', width: '14.28%', textAlign: 'center' }}>전일잔액</th>
+            <th style={{ border: bd, padding: '5px 4px', width: '14.28%', textAlign: 'center' }}>공급가액</th>
+            <th style={{ border: bd, padding: '5px 4px', width: '14.28%', textAlign: 'center' }}>부가세</th>
+            <th style={{ border: bd, padding: '5px 4px', width: '14.28%', textAlign: 'center' }}>합계금액</th>
+            <th style={{ border: bd, padding: '5px 4px', width: '14.28%', textAlign: 'center' }}>총 액</th>
+            <th style={{ border: bd, padding: '5px 4px', width: '14.28%', textAlign: 'center' }}>금일입금액</th>
+            <th style={{ border: bd, padding: '5px 4px', width: '14.28%', textAlign: 'center' }}>금일잔액</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style={{ border: bd, padding: '6px 4px', textAlign: 'right', fontWeight: 'bold' }}>{formatKRW(previousBalance)}</td>
+            <td style={{ border: bd, padding: '6px 4px', textAlign: 'right', fontWeight: 'bold' }}>{formatKRW(supplyTotal)}</td>
+            <td style={{ border: bd, padding: '6px 4px', textAlign: 'right', fontWeight: 'bold' }}>{formatKRW(vatTotal)}</td>
+            <td style={{ border: bd, padding: '6px 4px', textAlign: 'right', fontWeight: 'bold' }}>{formatKRW(subtotal)}</td>
+            <td style={{ border: bd, padding: '6px 4px', textAlign: 'right', fontWeight: 'bold' }}>{formatKRW(totalAmount)}</td>
+            <td style={{ border: bd, padding: '6px 4px', textAlign: 'right', fontWeight: 'bold' }}>{formatKRW(todayPayment)}</td>
+            <td style={{ border: bd, padding: '6px 4px', textAlign: 'right', fontWeight: 'bold' }}>{formatKRW(todayBalance)}</td>
+          </tr>
+        </tbody>
+      </table>
 
-          {/* 하단 메모 */}
-          {settings.invoice_note && (
-            <p style={{ marginTop: '8px', fontSize: '11px', color: '#059669', fontWeight: 'bold' }}>
-              {settings.invoice_note}
-            </p>
-          )}
-        </>
+      {/* 하단 메모 (모든 페이지 동일) */}
+      {settings.invoice_note && (
+        <p style={{ marginTop: '8px', fontSize: '11px', color: '#059669', fontWeight: 'bold' }}>
+          {settings.invoice_note}
+        </p>
       )}
 
       {/* 페이지 번호 */}
@@ -521,7 +515,6 @@ function InvoiceContent() {
               totalQtyAll={totalQtyAll}
               pageNum={idx + 1}
               totalPages={pages.length}
-              isLastPage={idx === pages.length - 1}
             />
           </div>
         ))}
