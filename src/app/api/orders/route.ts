@@ -78,16 +78,19 @@ export async function POST(request: NextRequest) {
       if (!product) continue;
 
       const qty = Number(item.qty);
-      const unitPrice = Number(product.selling_price);
       const materialCost = Number(product.material_cost);
       const otherCost = Number(product.other_cost);
       const vatApply = product.vat_apply;
+      // 재료원가 적용(Y) → 단가 = 재료원가
+      const unitPrice = product.apply_material_cost
+        ? materialCost
+        : Number(product.selling_price);
 
-      const amount = unitPrice * qty;                                    // 금액 = 납품가 × 수량
-      const marginPerUnit = calcMargin(unitPrice, materialCost, otherCost); // 단위 마진 = 납품가 - (재료원가 + 기타원가)
-      const margin = marginPerUnit * qty;                                // 총 마진 = 단위마진 × 수량
-      const vatAmount = calcVat(margin, vatApply);                       // 부가세 = 마진 × 10%
-      const netProfit = calcNetProfit(margin, vatAmount);                // 순익 = 마진 - 부가세
+      const amount = unitPrice * qty;                                     // 금액 = 단가 × 수량
+      const vatAmount = calcVat(unitPrice, vatApply) * qty;               // 부가세 = 단가 × 10% × 수량
+      const marginPerUnit = unitPrice - materialCost - otherCost;
+      const margin = marginPerUnit * qty;
+      const netProfit = calcNetProfit(margin, vatAmount);
 
       supplyTotal += amount;
       vatTotal += vatAmount;

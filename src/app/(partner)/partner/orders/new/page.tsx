@@ -46,7 +46,10 @@ export default function NewOrderPage() {
       toast.error('이미 추가된 품목입니다');
       return;
     }
-    const unitPrice = Number(product.selling_price);
+    // 재료원가 적용(Y) → 단가 = 재료원가
+    const unitPrice = product.apply_material_cost
+      ? Number(product.material_cost)
+      : Number(product.selling_price);
     const materialCost = Number(product.material_cost);
     const otherCost = Number(product.other_cost);
     const computed = computeItemFields({

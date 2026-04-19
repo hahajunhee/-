@@ -8,6 +8,7 @@ export interface Product {
   other_cost: number;
   selling_price: number;
   vat_apply: boolean;
+  apply_material_cost: boolean;  // Y: 거래 시 단가=재료원가 사용, N: 단가(납품가) 사용
   created_at?: string;
   // computed fields
   margin?: number;

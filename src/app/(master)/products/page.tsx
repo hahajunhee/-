@@ -19,6 +19,7 @@ const emptyProduct = {
   other_cost: 0,
   selling_price: 0,
   vat_apply: true,
+  apply_material_cost: false,
 };
 
 export default function ProductsPage() {
@@ -72,6 +73,7 @@ export default function ProductsPage() {
       other_cost: p.other_cost,
       selling_price: p.selling_price,
       vat_apply: p.vat_apply,
+      apply_material_cost: !!p.apply_material_cost,
     });
     setModalOpen(true);
   };
@@ -181,11 +183,13 @@ export default function ProductsPage() {
                   <th>단위</th>
                   <th className="text-right">재료원가</th>
                   <th className="text-right">기타원가</th>
-                  <th className="text-right">납품가</th>
-                  <th className="text-center">부가세</th>
+                  <th className="text-right">단가(납품가)</th>
+                  <th className="text-center">부가세여부</th>
+                  <th className="text-center">재료원가적용</th>
                   <th className="text-right">마진</th>
+                  <th className="text-right">부가세</th>
+                  <th className="text-right">최종순익</th>
                   <th className="text-right">마진율</th>
-                  <th className="text-right">순익</th>
                   <th className="w-20"></th>
                 </tr>
               </thead>
@@ -205,10 +209,20 @@ export default function ProductsPage() {
                       <td className="text-right">{formatKRW(p.material_cost)}</td>
                       <td className="text-right">{formatKRW(p.other_cost)}</td>
                       <td className="text-right font-medium">{formatKRW(p.selling_price)}</td>
-                      <td className="text-center">{p.vat_apply ? 'Y' : 'N'}</td>
+                      <td className="text-center">
+                        <span className={p.vat_apply ? 'text-emerald-600 font-semibold' : 'text-gray-400'}>
+                          {p.vat_apply ? 'Y' : 'N'}
+                        </span>
+                      </td>
+                      <td className="text-center">
+                        <span className={p.apply_material_cost ? 'text-amber-600 font-semibold' : 'text-gray-400'}>
+                          {p.apply_material_cost ? 'Y' : 'N'}
+                        </span>
+                      </td>
                       <td className="text-right text-blue-600">{formatKRW(c.margin)}</td>
-                      <td className="text-right">{formatPercent(c.margin_rate)}</td>
+                      <td className="text-right text-gray-500">{formatKRW(c.vat_amount)}</td>
                       <td className="text-right text-emerald-600 font-medium">{formatKRW(c.net_profit)}</td>
+                      <td className="text-right">{formatPercent(c.margin_rate)}</td>
                       <td>
                         <div className="flex gap-1">
                           <button onClick={() => openEdit(p)} className="p-1.5 rounded hover:bg-gray-100">
@@ -224,7 +238,7 @@ export default function ProductsPage() {
                 })}
                 {filteredProducts.length === 0 && (
                   <tr>
-                    <td colSpan={12} className="text-center py-8 text-gray-400">
+                    <td colSpan={13} className="text-center py-8 text-gray-400">
                       {search || categoryFilter ? '검색 결과가 없습니다' : '품목을 추가해주세요'}
                     </td>
                   </tr>
@@ -323,7 +337,21 @@ export default function ProductsPage() {
                 checked={form.vat_apply}
                 onChange={(e) => setForm({ ...form, vat_apply: e.target.checked })}
               />
-              <span className="text-sm">부가세 적용</span>
+              <span className="text-sm">부가세 적용 (Y)</span>
+            </label>
+          </div>
+          <div className="col-span-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                className="w-4 h-4 rounded"
+                checked={form.apply_material_cost}
+                onChange={(e) => setForm({ ...form, apply_material_cost: e.target.checked })}
+              />
+              <span className="text-sm">
+                <span className="font-semibold text-amber-700">재료원가 적용 (Y)</span>
+                <span className="text-gray-600 ml-2">체크 시 거래명세서 단가에 <strong>재료원가</strong>가 들어가고, 부가세 = 재료원가 × 10%</span>
+              </span>
             </label>
           </div>
         </div>

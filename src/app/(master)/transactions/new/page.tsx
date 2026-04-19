@@ -39,6 +39,10 @@ export default function TransactionNewPage() {
       toast.error('이미 추가된 품목입니다');
       return;
     }
+    // 재료원가 적용(Y) → 거래 단가 = 재료원가, 아니면 단가(납품가)
+    const effectiveUnitPrice = product.apply_material_cost
+      ? Number(product.material_cost)
+      : Number(product.selling_price);
     const newItem: TransactionItem = {
       product_id: product.id,
       product_name: product.name,
@@ -46,11 +50,11 @@ export default function TransactionNewPage() {
       spec: product.spec,
       unit: product.unit,
       qty: 1,
-      unit_price: Number(product.selling_price),
+      unit_price: effectiveUnitPrice,
       material_cost: Number(product.material_cost),
       other_cost: Number(product.other_cost),
       vat_apply: product.vat_apply,
-      amount: Number(product.selling_price),
+      amount: effectiveUnitPrice,
       vat_amount: 0,
       margin: 0,
       net_profit: 0,
@@ -170,8 +174,13 @@ export default function TransactionNewPage() {
                       <div>
                         <span className="font-medium">{p.name}</span>
                         <span className="text-gray-400 ml-2 text-xs">{p.spec}</span>
+                        {p.apply_material_cost && (
+                          <span className="ml-1 text-[10px] px-1 py-0.5 rounded bg-amber-100 text-amber-700">원가</span>
+                        )}
                       </div>
-                      <span className="text-gray-500 text-xs">{formatKRW(p.selling_price)}원</span>
+                      <span className="text-gray-500 text-xs">
+                        {formatKRW(p.apply_material_cost ? p.material_cost : p.selling_price)}원
+                      </span>
                     </div>
                   </button>
                 );
