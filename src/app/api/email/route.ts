@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
 
     const html = buildInvoiceEmailHtml({
       supplier: {
-        company_name: settings?.company_name || '굿푸드시스템',
+        company_name: settings?.company_name || 'SOYANG F&C',
         rep_name: settings?.rep_name || '',
         reg_number: settings?.reg_number || '',
         address: settings?.address || '',
@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
 
     const result = await sendEmail({
       to: customerEmail,
-      subject: `[거래명세서] ${dateRange} - ${settings?.company_name || '굿푸드시스템'}`,
+      subject: `[거래명세서] ${dateRange} - ${settings?.company_name || 'SOYANG F&C'}`,
       html,
       attachments,
     });

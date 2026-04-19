@@ -144,7 +144,7 @@ export async function POST(request: NextRequest) {
       });
       await sendEmail({
         to: custResult[0].email,
-        subject: `[발주확인] ${orderNumber} - 굿푸드시스템`,
+        subject: `[발주확인] ${orderNumber} - SOYANG F&C`,
         html: emailHtml,
       });
       await query('UPDATE transactions SET email_sent = true WHERE id = $1', [txn.id]);

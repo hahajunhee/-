@@ -26,7 +26,7 @@ export default function LoginPage() {
 
       const data = await res.json();
       if (res.ok) {
-        if (data.user.role === 'master') {
+        if (data.user.role === 'master' || data.user.role === 'manager') {
           router.push('/');
         } else {
           router.push('/partner/orders');
@@ -48,17 +48,17 @@ export default function LoginPage() {
             <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-2xl mb-4">
               <LogIn size={28} className="text-white" />
             </div>
-            <h1 className="text-2xl font-bold">거래관리 시스템</h1>
-            <p className="text-gray-500 mt-1">(주)굿푸드시스템</p>
+            <h1 className="text-2xl font-bold">SOYANG F&C</h1>
+            <p className="text-gray-500 mt-1">거래관리 시스템</p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="form-label">이메일</label>
+              <label className="form-label">아이디</label>
               <input
-                type="email"
+                type="text"
                 className="form-input"
-                placeholder="admin@goodfood.co.kr"
+                placeholder="아이디를 입력하세요"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required

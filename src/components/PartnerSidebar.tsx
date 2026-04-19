@@ -27,7 +27,7 @@ export default function PartnerSidebar({ userName, companyName }: { userName: st
   return (
     <aside className={`${collapsed ? 'w-16' : 'w-60'} bg-emerald-900 text-white flex flex-col transition-all duration-200 shrink-0`}>
       <div className="flex items-center justify-between px-4 h-16 border-b border-emerald-700">
-        {!collapsed && <h1 className="text-lg font-bold tracking-tight">협력사 포털</h1>}
+        {!collapsed && <h1 className="text-lg font-bold tracking-tight">SOYANG F&amp;C 발주</h1>}
         <button onClick={() => setCollapsed(!collapsed)} className="p-1 rounded hover:bg-emerald-700">
           {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
         </button>

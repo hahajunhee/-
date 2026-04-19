@@ -27,7 +27,7 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const { id, action, customer_id } = await request.json();
+  const { id, action, customer_id, role, allowed_tabs } = await request.json();
 
   if (action === 'approve') {
     await query('UPDATE users SET status = $1, customer_id = $2 WHERE id = $3', ['approved', customer_id, id]);
@@ -39,6 +39,20 @@ export async function PUT(request: NextRequest) {
   }
   if (action === 'delete') {
     await query('DELETE FROM users WHERE id = $1 AND role != $2', [id, 'master']);
+    return NextResponse.json({ success: true });
+  }
+  if (action === 'update_role') {
+    // 매니저 권한 설정 (master ↔ manager ↔ partner 변경 포함)
+    if (!['master', 'manager', 'partner'].includes(role)) {
+      return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
+    }
+    await query('UPDATE users SET role = $1 WHERE id = $2 AND role != $3', [role, id, 'master']);
+    return NextResponse.json({ success: true });
+  }
+  if (action === 'update_tabs') {
+    // 매니저 탭 권한 설정 (JSONB 배열)
+    const tabs = Array.isArray(allowed_tabs) ? JSON.stringify(allowed_tabs) : null;
+    await query('UPDATE users SET allowed_tabs = $1::jsonb WHERE id = $2 AND role = $3', [tabs, id, 'manager']);
     return NextResponse.json({ success: true });
   }
 

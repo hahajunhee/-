@@ -9,17 +9,28 @@ import {
 import { useState } from 'react';
 
 const navItems = [
-  { href: '/', label: '대시보드', icon: LayoutDashboard },
-  { href: '/products', label: '품목 관리', icon: Package },
-  { href: '/customers', label: '거래처 관리', icon: Building2 },
-  { href: '/transactions/new', label: '거래 입력', icon: PlusCircle },
-  { href: '/transactions', label: '거래 내역', icon: FileText },
-  { href: '/orders-manage', label: '발주 관리', icon: ShoppingCart },
-  { href: '/members', label: '회원 관리', icon: Users },
-  { href: '/settings', label: '설정', icon: Settings },
+  { key: 'dashboard', href: '/', label: '대시보드', icon: LayoutDashboard },
+  { key: 'products', href: '/products', label: '품목 관리', icon: Package },
+  { key: 'customers', href: '/customers', label: '거래처 관리', icon: Building2 },
+  { key: 'transactions_new', href: '/transactions/new', label: '거래 입력', icon: PlusCircle },
+  { key: 'transactions', href: '/transactions', label: '거래 내역', icon: FileText },
+  { key: 'orders', href: '/orders-manage', label: '발주 관리', icon: ShoppingCart },
+  { key: 'members', href: '/members', label: '회원 관리', icon: Users },
+  { key: 'settings', href: '/settings', label: '설정', icon: Settings },
 ];
 
-export default function MasterSidebar({ userName }: { userName: string }) {
+// 매니저 기본 차단 탭 (관리자 전용)
+const MANAGER_ONLY_HIDDEN = ['members', 'settings'];
+
+export default function MasterSidebar({
+  userName,
+  userRole = 'master',
+  allowedTabs = null,
+}: {
+  userName: string;
+  userRole?: 'master' | 'manager';
+  allowedTabs?: string[] | null;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
@@ -36,31 +47,42 @@ export default function MasterSidebar({ userName }: { userName: string }) {
   return (
     <aside className={`${collapsed ? 'w-16' : 'w-60'} bg-slate-900 text-white flex flex-col transition-all duration-200 shrink-0`}>
       <div className="flex items-center justify-between px-4 h-16 border-b border-slate-700">
-        {!collapsed && <h1 className="text-lg font-bold tracking-tight">거래관리</h1>}
+        {!collapsed && <h1 className="text-lg font-bold tracking-tight">SOYANG F&amp;C</h1>}
         <button onClick={() => setCollapsed(!collapsed)} className="p-1 rounded hover:bg-slate-700">
           {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
         </button>
       </div>
 
       <nav className="flex-1 py-4">
-        {navItems.map((item) => {
-          const isActive = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
-          return (
-            <Link key={item.href} href={item.href} title={item.label}
-              className={`flex items-center gap-3 px-4 py-3 text-sm transition-colors ${
-                isActive ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-              }`}>
-              <item.icon size={20} className="shrink-0" />
-              {!collapsed && <span>{item.label}</span>}
-            </Link>
-          );
-        })}
+        {navItems
+          .filter((item) => {
+            if (userRole === 'master') return true;
+            // 매니저: 관리자 전용 탭 숨김
+            if (MANAGER_ONLY_HIDDEN.includes(item.key)) return false;
+            // allowed_tabs가 설정되어 있으면 그 목록에 포함된 것만
+            if (allowedTabs && allowedTabs.length > 0) return allowedTabs.includes(item.key);
+            return true;
+          })
+          .map((item) => {
+            const isActive = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
+            return (
+              <Link key={item.href} href={item.href} title={item.label}
+                className={`flex items-center gap-3 px-4 py-3 text-sm transition-colors ${
+                  isActive ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                }`}>
+                <item.icon size={20} className="shrink-0" />
+                {!collapsed && <span>{item.label}</span>}
+              </Link>
+            );
+          })}
       </nav>
 
       <div className="border-t border-slate-700">
         {!collapsed && (
           <div className="px-4 py-2 text-xs text-slate-400">
-            <span className="text-blue-400">관리자</span> {userName}
+            <span className={userRole === 'master' ? 'text-blue-400' : 'text-amber-400'}>
+              {userRole === 'master' ? '관리자' : '매니저'}
+            </span> {userName}
           </div>
         )}
         <button onClick={handleLogout}

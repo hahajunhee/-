@@ -9,8 +9,9 @@ interface AuthUser {
   id: number;
   email: string;
   name: string;
-  role: 'master' | 'partner';
+  role: 'master' | 'manager' | 'partner';
   customer_id: number | null;
+  allowed_tabs?: string[] | null;
 }
 
 export default function AuthGuard({
@@ -29,12 +30,16 @@ export default function AuthGuard({
     fetch('/api/auth')
       .then((r) => r.json())
       .then(async (data) => {
-        if (!data.user || data.user.role !== requiredRole) {
+        // master 페이지는 master와 manager 모두 접근 가능
+        const allowed =
+          requiredRole === 'master'
+            ? data.user && (data.user.role === 'master' || data.user.role === 'manager')
+            : data.user && data.user.role === requiredRole;
+        if (!allowed) {
           router.push('/login');
           return;
         }
         setUser(data.user);
-        // 협력사면 회사명 가져오기
         if (data.user.role === 'partner' && data.user.customer_id) {
           try {
             const custRes = await fetch('/api/customers');
@@ -62,7 +67,7 @@ export default function AuthGuard({
     <div className="h-full flex">
       <div className="no-print">
         {requiredRole === 'master' ? (
-          <MasterSidebar userName={user.name} />
+          <MasterSidebar userName={user.name} userRole={user.role as 'master' | 'manager'} allowedTabs={user.allowed_tabs || null} />
         ) : (
           <PartnerSidebar userName={user.name} companyName={companyName} />
         )}

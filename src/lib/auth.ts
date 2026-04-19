@@ -10,9 +10,10 @@ export interface AuthUser {
   id: number;
   email: string;
   name: string;
-  role: 'master' | 'partner';
+  role: 'master' | 'manager' | 'partner';
   status: string;
   customer_id: number | null;
+  allowed_tabs?: string[] | null;
 }
 
 export async function hashPassword(password: string): Promise<string> {
@@ -25,7 +26,7 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
 
 export function createToken(user: AuthUser): string {
   return jwt.sign(
-    { id: user.id, email: user.email, name: user.name, role: user.role, customer_id: user.customer_id },
+    { id: user.id, email: user.email, name: user.name, role: user.role, customer_id: user.customer_id, allowed_tabs: user.allowed_tabs ?? null },
     JWT_SECRET,
     { expiresIn: '7d' }
   );
@@ -68,6 +69,7 @@ export async function login(email: string, password: string): Promise<{ token: s
     role: user.role,
     status: user.status,
     customer_id: user.customer_id,
+    allowed_tabs: user.allowed_tabs || null,
   };
 
   return { token: createToken(authUser), user: authUser };
