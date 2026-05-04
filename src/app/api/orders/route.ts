@@ -2,7 +2,7 @@ import { query } from '@/lib/db';
 import { getSession } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
 import { sendEmail, buildOrderEmailHtml } from '@/lib/email';
-import { calcMargin, calcVat, calcNetProfit } from '@/lib/calculator';
+import { calcSalesVat, calcPurchaseVat } from '@/lib/calculator';
 
 // GET /api/orders - 발주 내역 조회 (transactions 테이블에서 source='order'인 것)
 export async function GET(request: NextRequest) {
@@ -88,11 +88,14 @@ export async function POST(request: NextRequest) {
         : Number(product.selling_price);
 
       const amount = unitPrice * qty;                                     // 금액 = 단가 × 수량
-      const vatAmount = calcVat(unitPrice, vatApply) * qty;               // 부가세 = 단가 × 10% × 수량
+      // 거래명세서 표시 부가세 = 매출부가세 (단가 × 10% × 수량)
+      const vatAmount = calcSalesVat(unitPrice, vatApply) * qty;
+      // 손익 계산용 납부부가세 = (매출 - 매입) × 수량
+      const netVatPerUnit = calcSalesVat(unitPrice, vatApply) - calcPurchaseVat(materialCost, vatApply);
       const marginPerUnit = unitPrice - materialCost - otherCost;
       const margin = marginPerUnit * qty;
-      // 순익 = 마진 - 부가세 + 수량 × 장려금
-      const netProfit = calcNetProfit(margin, vatAmount) + qty * incentive;
+      // 순익 = 마진 - 납부부가세 + 수량 × 장려금
+      const netProfit = margin - netVatPerUnit * qty + qty * incentive;
 
       supplyTotal += amount;
       vatTotal += vatAmount;

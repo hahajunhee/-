@@ -190,7 +190,7 @@ export default function ProductsPage() {
                   <th className="text-center">재료원가적용</th>
                   <th className="text-right">장려금</th>
                   <th className="text-right">마진</th>
-                  <th className="text-right">부가세</th>
+                  <th className="text-right" title="매출부가세 - 매입부가세 = 실제 납부할 부가세">납부부가세</th>
                   <th className="text-right">최종순익</th>
                   <th className="text-right">마진율</th>
                   <th className="w-20"></th>
@@ -385,7 +385,7 @@ export default function ProductsPage() {
               <p className="font-semibold text-blue-600">{formatKRW(computed.margin)}원</p>
             </div>
             <div>
-              <span className="text-gray-500">부가세</span>
+              <span className="text-gray-500" title="매출부가세 - 매입부가세">납부부가세</span>
               <p className="font-semibold">{formatKRW(computed.vat_amount)}원</p>
             </div>
             <div>

@@ -3,17 +3,32 @@ export function calcMargin(sellingPrice: number | string, materialCost: number |
   return Number(sellingPrice) - (Number(materialCost) + Number(otherCost));
 }
 
-// 부가세 = 단가 × 10% (부가세여부 Y인 경우만)  — 엑셀 공식 G×10%
-export function calcVat(sellingPrice: number | string, vatApply: boolean): number {
+// 매출부가세 = 단가(납품가) × 10% (거래명세서에 표시되는 부가세, 거래처가 납부)
+export function calcSalesVat(sellingPrice: number | string, vatApply: boolean): number {
   return vatApply ? Math.floor(Number(sellingPrice) * 0.1) : 0;
 }
 
-// 최종순익 = 마진 - 부가세
-export function calcNetProfit(margin: number, vat: number): number {
-  return margin - vat;
+// 매입부가세 = 재료원가 × 10% (자재 매입 시 이미 낸 부가세 - 환급/공제됨)
+export function calcPurchaseVat(materialCost: number | string, vatApply: boolean): number {
+  return vatApply ? Math.floor(Number(materialCost) * 0.1) : 0;
 }
 
-// 마진율 = 최종순익 / 단가  — 엑셀 공식 (J-부가세)/G
+// 납부부가세 = 매출부가세 - 매입부가세 (실제 납부할 부가세)
+export function calcNetVat(sellingPrice: number | string, materialCost: number | string, vatApply: boolean): number {
+  return calcSalesVat(sellingPrice, vatApply) - calcPurchaseVat(materialCost, vatApply);
+}
+
+// (legacy 호환) 부가세 = 단가 × 10%
+export function calcVat(sellingPrice: number | string, vatApply: boolean): number {
+  return calcSalesVat(sellingPrice, vatApply);
+}
+
+// 최종순익 = 마진 - 납부부가세
+export function calcNetProfit(margin: number, netVat: number): number {
+  return margin - netVat;
+}
+
+// 마진율 = 최종순익 / 단가
 export function calcMarginRate(netProfit: number, sellingPrice: number | string): number {
   const sp = Number(sellingPrice);
   if (sp === 0) return 0;
@@ -25,7 +40,9 @@ export function calcAmount(unitPrice: number | string, qty: number | string): nu
   return Number(unitPrice) * Number(qty);
 }
 
-// 품목의 계산된 필드 산출 (엑셀 공식과 동일)
+// 품목의 계산된 필드 산출
+// vat_amount = 납부부가세 (매출-매입)
+// net_profit = 마진 - 납부부가세
 export function computeProductFields(product: {
   selling_price: number | string;
   material_cost: number | string;
@@ -33,17 +50,17 @@ export function computeProductFields(product: {
   vat_apply: boolean;
 }) {
   const margin = calcMargin(product.selling_price, product.material_cost, product.other_cost);
-  const vat_amount = calcVat(product.selling_price, product.vat_apply);
+  const vat_amount = calcNetVat(product.selling_price, product.material_cost, product.vat_apply);  // 납부부가세
   const net_profit = calcNetProfit(margin, vat_amount);
   const margin_rate = calcMarginRate(net_profit, product.selling_price);
   return { margin, vat_amount, net_profit, margin_rate };
 }
 
 // 거래 항목의 계산된 필드 산출
-// apply_material_cost=true인 경우 단가로 재료원가를 사용함 (line의 unit_price가 이미 재료원가로 세팅되어 있음)
-// 장려금(incentive)은 수량 × 장려금만큼 순익에 가산됨 (재료원가=납품가일 때 공장에서 받는 장려금 반영)
+// - vat_amount (거래명세서 표시용): 매출부가세 = 단가 × 10% × 수량
+// - net_profit (내부 손익): 마진 - 납부부가세 + 수량 × 장려금
 export function computeItemFields(item: {
-  unit_price: number | string;          // 이미 apply_material_cost에 따라 재료원가 또는 납품가로 선택된 값
+  unit_price: number | string;          // 거래 단가 (apply_material_cost에 따라 결정됨)
   material_cost: number | string;
   other_cost: number | string;
   qty: number | string;
@@ -56,18 +73,22 @@ export function computeItemFields(item: {
   const otherCost = Number(item.other_cost);
   const incentive = Number(item.incentive || 0);
 
-  // 단위 부가세 = 단가 × 10% (vat_apply=Y일 때)
-  const vatPerUnit = item.vat_apply ? Math.floor(unitPrice * 0.1) : 0;
+  // 매출부가세 (거래명세서 표시용)
+  const salesVatPerUnit = item.vat_apply ? Math.floor(unitPrice * 0.1) : 0;
+  // 매입부가세 (손익 계산에 차감)
+  const purchaseVatPerUnit = item.vat_apply ? Math.floor(materialCost * 0.1) : 0;
+  // 납부부가세
+  const netVatPerUnit = salesVatPerUnit - purchaseVatPerUnit;
 
   // 공급가액(금액) = 단가 × 수량
   const amount = unitPrice * qty;
-  const vat_amount = vatPerUnit * qty;
+  // 거래명세서에 표시되는 부가세는 매출부가세
+  const vat_amount = salesVatPerUnit * qty;
 
-  // 마진/순익 계산
+  // 손익 계산 = 마진 - 납부부가세 + 수량 × 장려금
   const marginPerUnit = unitPrice - materialCost - otherCost;
   const margin = marginPerUnit * qty;
-  // 순익 = (마진 - 부가세) + 수량 × 장려금
-  const net_profit = margin - vat_amount + qty * incentive;
+  const net_profit = margin - netVatPerUnit * qty + qty * incentive;
 
   return { amount, margin, vat_amount, net_profit };
 }

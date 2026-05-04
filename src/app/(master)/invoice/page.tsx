@@ -99,13 +99,7 @@ function InvoicePageSheet({
     >
       {/* 제목 */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <h1 style={{ fontSize: '22px', fontWeight: 'bold', letterSpacing: '0.3em', margin: 0 }}>거 래 명 세 서</h1>
-          {settings.seal_image && (
-            <img src={settings.seal_image} alt="법인 도장"
-              style={{ width: '50px', height: '50px', objectFit: 'contain' }} />
-          )}
-        </div>
+        <h1 style={{ fontSize: '22px', fontWeight: 'bold', letterSpacing: '0.3em', margin: 0 }}>거 래 명 세 서</h1>
         <span style={{ fontSize: '11px', color: '#888' }}>(공급받는자용)</span>
       </div>
 
@@ -134,7 +128,15 @@ function InvoicePageSheet({
               <td style={{ border: bd, padding: cp, background: hdrBg }}>상 호</td>
               <td style={{ border: bd, padding: cp }}>{settings.company_name}</td>
               <td style={{ border: bd, padding: cp, background: hdrBg, width: '40px' }}>성 명</td>
-              <td style={{ border: bd, padding: cp }}>{settings.rep_name} (인)</td>
+              <td style={{ border: bd, padding: cp, position: 'relative' }}>
+                <span>{settings.rep_name}</span>
+                {settings.seal_image ? (
+                  <img src={settings.seal_image} alt="인" crossOrigin="anonymous"
+                    style={{ display: 'inline-block', width: '32px', height: '32px', objectFit: 'contain', marginLeft: '6px', verticalAlign: 'middle' }} />
+                ) : (
+                  <span style={{ marginLeft: '4px' }}>(인)</span>
+                )}
+              </td>
             </tr>
             <tr>
               <td style={{ border: bd, padding: cp, background: hdrBg }}>주 소</td>
