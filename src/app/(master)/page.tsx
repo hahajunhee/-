@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell,
@@ -37,6 +38,17 @@ interface VatSummary {
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
 
 export default function DashboardPage() {
+  const router = useRouter();
+  // 매니저는 대시보드 차단 → 거래내역으로 리다이렉트
+  useEffect(() => {
+    fetch('/api/auth')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data?.user?.role === 'manager') router.replace('/transactions');
+      })
+      .catch(() => {});
+  }, [router]);
+
   const [monthly, setMonthly] = useState<DashboardSummary[]>([]);
   const [customerSummary, setCustomerSummary] = useState<CustomerVatSummary[]>([]);
   const [productSummary, setProductSummary] = useState<ProductVatSummary[]>([]);

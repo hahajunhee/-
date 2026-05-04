@@ -26,8 +26,10 @@ export default function LoginPage() {
 
       const data = await res.json();
       if (res.ok) {
-        if (data.user.role === 'master' || data.user.role === 'manager') {
+        if (data.user.role === 'master') {
           router.push('/');
+        } else if (data.user.role === 'manager') {
+          router.push('/transactions');
         } else {
           router.push('/partner/orders');
         }
