@@ -17,15 +17,24 @@ export default function TransactionNewPage() {
   const [categoryFilter, setCategoryFilter] = useState('');
   const [items, setItems] = useState<TransactionItem[]>([]);
   const [saving, setSaving] = useState(false);
+  const [userRole, setUserRole] = useState<'master' | 'manager' | 'partner' | null>(null);
 
   const fetchData = useCallback(async () => {
-    const [pRes, cRes] = await Promise.all([
+    const [pRes, cRes, aRes] = await Promise.all([
       fetch('/api/products'),
       fetch('/api/customers'),
+      fetch('/api/auth'),
     ]);
     setProducts(await pRes.json());
     setCustomers(await cRes.json());
+    try {
+      const auth = await aRes.json();
+      setUserRole(auth?.user?.role || null);
+    } catch {}
   }, []);
+
+  // 매니저는 마진/순익 비공개
+  const showProfit = userRole !== 'manager';
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -247,9 +256,9 @@ export default function TransactionNewPage() {
                       <th className="text-right">단가</th>
                       <th className="text-right">금액</th>
                       <th className="text-center">부가세여부</th>
-                      <th className="text-right">마진</th>
+                      {showProfit && <th className="text-right">마진</th>}
                       <th className="text-right">부가세</th>
-                      <th className="text-right">순익</th>
+                      {showProfit && <th className="text-right">순익</th>}
                       <th className="w-10"></th>
                     </tr>
                   </thead>
@@ -272,9 +281,9 @@ export default function TransactionNewPage() {
                         <td className="text-right">{formatKRW(item.unit_price)}</td>
                         <td className="text-right font-medium">{formatKRW(item.amount)}</td>
                         <td className="text-center">{item.vat_apply ? 'Y' : 'N'}</td>
-                        <td className="text-right text-blue-600">{formatKRW(item.margin)}</td>
+                        {showProfit && <td className="text-right text-blue-600">{formatKRW(item.margin)}</td>}
                         <td className="text-right text-gray-500">{formatKRW(item.vat_amount)}</td>
-                        <td className="text-right text-emerald-600">{formatKRW(item.net_profit)}</td>
+                        {showProfit && <td className="text-right text-emerald-600">{formatKRW(item.net_profit)}</td>}
                         <td>
                           <button onClick={() => removeItem(idx)} className="p-1 rounded hover:bg-red-50">
                             <Trash2 size={14} className="text-red-400" />
@@ -291,7 +300,7 @@ export default function TransactionNewPage() {
           {/* 합계 */}
           {items.length > 0 && (
             <div className="card">
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
+              <div className={`grid grid-cols-2 ${showProfit ? 'md:grid-cols-5' : 'md:grid-cols-3'} gap-4 text-center`}>
                 <div>
                   <p className="text-xs text-gray-500">공급가액</p>
                   <p className="text-lg font-bold">{formatKRW(supplyTotal)}원</p>
@@ -304,14 +313,18 @@ export default function TransactionNewPage() {
                   <p className="text-xs text-gray-500">합계</p>
                   <p className="text-lg font-bold text-blue-600">{formatKRW(grandTotal)}원</p>
                 </div>
-                <div>
-                  <p className="text-xs text-gray-500">총 마진</p>
-                  <p className="text-lg font-bold text-orange-500">{formatKRW(totalMargin)}원</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">총 순익</p>
-                  <p className="text-lg font-bold text-emerald-600">{formatKRW(totalNetProfit)}원</p>
-                </div>
+                {showProfit && (
+                  <>
+                    <div>
+                      <p className="text-xs text-gray-500">총 마진</p>
+                      <p className="text-lg font-bold text-orange-500">{formatKRW(totalMargin)}원</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">총 순익</p>
+                      <p className="text-lg font-bold text-emerald-600">{formatKRW(totalNetProfit)}원</p>
+                    </div>
+                  </>
+                )}
               </div>
 
               <div className="flex justify-end gap-2 mt-4 pt-4 border-t">
