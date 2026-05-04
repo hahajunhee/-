@@ -1,0 +1,1029 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Instagram Card News - 맞춤형 거래관리 시스템</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800;900&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Noto Sans KR', sans-serif;
+    background: #1a1a2e;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 40px;
+    padding: 40px 20px;
+  }
+
+  .slide-label {
+    color: #888;
+    font-size: 14px;
+    margin-bottom: -30px;
+    letter-spacing: 1px;
+  }
+
+  .card {
+    width: 1080px;
+    height: 1080px;
+    position: relative;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+
+  /* ===== SLIDE 1: COVER ===== */
+  .slide-1 {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 80px;
+  }
+
+  .slide-1 .top-badge {
+    background: linear-gradient(135deg, #3b82f6, #6366f1);
+    color: white;
+    padding: 12px 36px;
+    border-radius: 50px;
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    margin-bottom: 50px;
+  }
+
+  .slide-1 .main-title {
+    color: white;
+    font-size: 72px;
+    font-weight: 900;
+    text-align: center;
+    line-height: 1.3;
+    margin-bottom: 30px;
+  }
+
+  .slide-1 .main-title .highlight {
+    background: linear-gradient(135deg, #3b82f6, #60a5fa);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .slide-1 .sub-text {
+    color: #94a3b8;
+    font-size: 28px;
+    text-align: center;
+    line-height: 1.6;
+    margin-bottom: 50px;
+    font-weight: 400;
+  }
+
+  .slide-1 .divider {
+    width: 80px;
+    height: 4px;
+    background: linear-gradient(90deg, #3b82f6, #6366f1);
+    border-radius: 2px;
+    margin-bottom: 50px;
+  }
+
+  .slide-1 .cta-text {
+    color: #64748b;
+    font-size: 20px;
+    letter-spacing: 3px;
+    font-weight: 500;
+  }
+
+  .slide-1 .swipe-hint {
+    position: absolute;
+    bottom: 50px;
+    right: 60px;
+    color: #475569;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .slide-1 .swipe-hint .arrow {
+    font-size: 24px;
+    animation: slideRight 1.5s ease-in-out infinite;
+  }
+
+  @keyframes slideRight {
+    0%, 100% { transform: translateX(0); }
+    50% { transform: translateX(8px); }
+  }
+
+  /* Decorative elements */
+  .slide-1::before {
+    content: '';
+    position: absolute;
+    top: -200px;
+    right: -200px;
+    width: 500px;
+    height: 500px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(59,130,246,0.08) 0%, transparent 70%);
+  }
+
+  .slide-1::after {
+    content: '';
+    position: absolute;
+    bottom: -150px;
+    left: -150px;
+    width: 400px;
+    height: 400px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(99,102,241,0.06) 0%, transparent 70%);
+  }
+
+  /* ===== SLIDE 2: PROBLEM ===== */
+  .slide-2 {
+    background: linear-gradient(180deg, #0f172a 0%, #1e1b4b 100%);
+    display: flex;
+    flex-direction: column;
+    padding: 80px;
+  }
+
+  .slide-2 .section-tag {
+    color: #f97316;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    margin-bottom: 30px;
+  }
+
+  .slide-2 .title {
+    color: white;
+    font-size: 52px;
+    font-weight: 800;
+    line-height: 1.35;
+    margin-bottom: 60px;
+  }
+
+  .slide-2 .pain-list {
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+    flex: 1;
+    justify-content: center;
+  }
+
+  .slide-2 .pain-item {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 20px;
+    padding: 28px 36px;
+    transition: all 0.3s;
+  }
+
+  .slide-2 .pain-icon {
+    font-size: 42px;
+    flex-shrink: 0;
+    width: 70px;
+    text-align: center;
+  }
+
+  .slide-2 .pain-text {
+    color: #e2e8f0;
+    font-size: 26px;
+    font-weight: 500;
+    line-height: 1.4;
+  }
+
+  .slide-2 .pain-text strong {
+    color: #f97316;
+    font-weight: 700;
+  }
+
+  /* ===== SLIDE 3: SOLUTION INTRO ===== */
+  .slide-3 {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 80px;
+    text-align: center;
+  }
+
+  .slide-3 .icon-wrap {
+    width: 120px;
+    height: 120px;
+    border-radius: 30px;
+    background: linear-gradient(135deg, #3b82f6, #6366f1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 56px;
+    margin-bottom: 50px;
+    box-shadow: 0 20px 60px rgba(59,130,246,0.3);
+  }
+
+  .slide-3 .title {
+    color: white;
+    font-size: 56px;
+    font-weight: 800;
+    line-height: 1.35;
+    margin-bottom: 30px;
+  }
+
+  .slide-3 .title .blue {
+    color: #60a5fa;
+  }
+
+  .slide-3 .desc {
+    color: #94a3b8;
+    font-size: 26px;
+    line-height: 1.7;
+    max-width: 800px;
+    margin-bottom: 60px;
+  }
+
+  .slide-3 .features-row {
+    display: flex;
+    gap: 24px;
+  }
+
+  .slide-3 .feature-chip {
+    background: rgba(59,130,246,0.1);
+    border: 1px solid rgba(59,130,246,0.2);
+    color: #93c5fd;
+    padding: 16px 32px;
+    border-radius: 50px;
+    font-size: 22px;
+    font-weight: 600;
+  }
+
+  /* ===== SLIDE 4: FEATURES GRID ===== */
+  .slide-4 {
+    background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+    display: flex;
+    flex-direction: column;
+    padding: 70px;
+  }
+
+  .slide-4 .section-tag {
+    color: #3b82f6;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    margin-bottom: 20px;
+  }
+
+  .slide-4 .title {
+    color: white;
+    font-size: 46px;
+    font-weight: 800;
+    margin-bottom: 45px;
+  }
+
+  .slide-4 .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    flex: 1;
+  }
+
+  .slide-4 .grid-item {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 24px;
+    padding: 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .slide-4 .grid-item .icon {
+    font-size: 36px;
+    margin-bottom: 4px;
+  }
+
+  .slide-4 .grid-item .name {
+    color: white;
+    font-size: 24px;
+    font-weight: 700;
+  }
+
+  .slide-4 .grid-item .detail {
+    color: #94a3b8;
+    font-size: 19px;
+    line-height: 1.5;
+    font-weight: 400;
+  }
+
+  /* ===== SLIDE 5: DASHBOARD PREVIEW ===== */
+  .slide-5 {
+    background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+    display: flex;
+    flex-direction: column;
+    padding: 70px;
+  }
+
+  .slide-5 .section-tag {
+    color: #10b981;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    margin-bottom: 20px;
+  }
+
+  .slide-5 .title {
+    color: white;
+    font-size: 46px;
+    font-weight: 800;
+    margin-bottom: 16px;
+  }
+
+  .slide-5 .subtitle {
+    color: #94a3b8;
+    font-size: 24px;
+    margin-bottom: 40px;
+    font-weight: 400;
+  }
+
+  .slide-5 .dashboard-mock {
+    flex: 1;
+    background: #1e293b;
+    border-radius: 20px;
+    border: 1px solid rgba(255,255,255,0.08);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .slide-5 .dash-header {
+    background: rgba(0,0,0,0.3);
+    padding: 20px 30px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .slide-5 .dash-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+  }
+
+  .slide-5 .dash-dot.r { background: #ef4444; }
+  .slide-5 .dash-dot.y { background: #f59e0b; }
+  .slide-5 .dash-dot.g { background: #10b981; }
+
+  .slide-5 .dash-body {
+    padding: 30px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    flex: 1;
+  }
+
+  .slide-5 .stat-row {
+    display: flex;
+    gap: 16px;
+  }
+
+  .slide-5 .stat-card {
+    flex: 1;
+    background: rgba(255,255,255,0.04);
+    border-radius: 14px;
+    padding: 22px;
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .slide-5 .stat-card .label {
+    color: #64748b;
+    font-size: 15px;
+    margin-bottom: 8px;
+    font-weight: 500;
+  }
+
+  .slide-5 .stat-card .value {
+    font-size: 28px;
+    font-weight: 800;
+  }
+
+  .slide-5 .stat-card .value.blue { color: #60a5fa; }
+  .slide-5 .stat-card .value.green { color: #34d399; }
+  .slide-5 .stat-card .value.amber { color: #fbbf24; }
+  .slide-5 .stat-card .value.red { color: #f87171; }
+
+  .slide-5 .chart-area {
+    flex: 1;
+    background: rgba(255,255,255,0.02);
+    border-radius: 14px;
+    border: 1px solid rgba(255,255,255,0.06);
+    display: flex;
+    align-items: flex-end;
+    padding: 24px 20px 20px;
+    gap: 12px;
+  }
+
+  .slide-5 .bar-group {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .slide-5 .bar-wrapper {
+    display: flex;
+    gap: 4px;
+    align-items: flex-end;
+    height: 200px;
+  }
+
+  .slide-5 .bar {
+    width: 28px;
+    border-radius: 6px 6px 0 0;
+  }
+
+  .slide-5 .bar.revenue { background: linear-gradient(180deg, #3b82f6, #1d4ed8); }
+  .slide-5 .bar.profit { background: linear-gradient(180deg, #10b981, #059669); }
+
+  .slide-5 .bar-label {
+    color: #64748b;
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  /* ===== SLIDE 6: PROCESS ===== */
+  .slide-6 {
+    background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+    display: flex;
+    flex-direction: column;
+    padding: 80px;
+  }
+
+  .slide-6 .section-tag {
+    color: #8b5cf6;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    margin-bottom: 20px;
+  }
+
+  .slide-6 .title {
+    color: white;
+    font-size: 48px;
+    font-weight: 800;
+    margin-bottom: 55px;
+  }
+
+  .slide-6 .steps {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    flex: 1;
+    justify-content: center;
+  }
+
+  .slide-6 .step {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    padding: 10px 0;
+  }
+
+  .slide-6 .step-num {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    font-weight: 800;
+    color: white;
+    flex-shrink: 0;
+  }
+
+  .slide-6 .step:nth-child(1) .step-num { background: linear-gradient(135deg, #8b5cf6, #6d28d9); }
+  .slide-6 .step:nth-child(2) .step-num { background: linear-gradient(135deg, #3b82f6, #2563eb); }
+  .slide-6 .step:nth-child(3) .step-num { background: linear-gradient(135deg, #10b981, #059669); }
+  .slide-6 .step:nth-child(4) .step-num { background: linear-gradient(135deg, #f59e0b, #d97706); }
+
+  .slide-6 .step-connector {
+    position: absolute;
+    left: 111px;
+    width: 2px;
+    height: 24px;
+    background: rgba(255,255,255,0.1);
+  }
+
+  .slide-6 .step-content {
+    flex: 1;
+  }
+
+  .slide-6 .step-title {
+    color: white;
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+
+  .slide-6 .step-desc {
+    color: #94a3b8;
+    font-size: 21px;
+    font-weight: 400;
+  }
+
+  .slide-6 .step-arrow {
+    color: #475569;
+    font-size: 28px;
+    margin-left: -8px;
+    margin-right: -8px;
+    align-self: center;
+  }
+
+  /* ===== SLIDE 7: BENEFITS / INDUSTRIES ===== */
+  .slide-7 {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    display: flex;
+    flex-direction: column;
+    padding: 70px;
+  }
+
+  .slide-7 .section-tag {
+    color: #f59e0b;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    margin-bottom: 20px;
+  }
+
+  .slide-7 .title {
+    color: white;
+    font-size: 46px;
+    font-weight: 800;
+    margin-bottom: 50px;
+    line-height: 1.3;
+  }
+
+  .slide-7 .industry-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 20px;
+    flex: 1;
+    align-content: center;
+  }
+
+  .slide-7 .industry-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 20px;
+    padding: 36px 28px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .slide-7 .industry-card .icon {
+    font-size: 48px;
+  }
+
+  .slide-7 .industry-card .name {
+    color: white;
+    font-size: 22px;
+    font-weight: 700;
+  }
+
+  .slide-7 .industry-card .examples {
+    color: #94a3b8;
+    font-size: 17px;
+    line-height: 1.5;
+  }
+
+  /* ===== SLIDE 8: CTA ===== */
+  .slide-8 {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 80px;
+    text-align: center;
+    position: relative;
+  }
+
+  .slide-8::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 600px;
+    height: 600px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(59,130,246,0.08) 0%, transparent 70%);
+  }
+
+  .slide-8 .top-text {
+    color: #64748b;
+    font-size: 22px;
+    letter-spacing: 4px;
+    font-weight: 600;
+    margin-bottom: 40px;
+    position: relative;
+  }
+
+  .slide-8 .main-title {
+    color: white;
+    font-size: 58px;
+    font-weight: 900;
+    line-height: 1.35;
+    margin-bottom: 30px;
+    position: relative;
+  }
+
+  .slide-8 .main-title .highlight {
+    background: linear-gradient(135deg, #3b82f6, #60a5fa);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .slide-8 .divider {
+    width: 80px;
+    height: 4px;
+    background: linear-gradient(90deg, #3b82f6, #6366f1);
+    border-radius: 2px;
+    margin-bottom: 40px;
+    position: relative;
+  }
+
+  .slide-8 .cta-button {
+    background: linear-gradient(135deg, #3b82f6, #6366f1);
+    color: white;
+    padding: 22px 60px;
+    border-radius: 60px;
+    font-size: 26px;
+    font-weight: 700;
+    margin-bottom: 40px;
+    position: relative;
+    box-shadow: 0 16px 48px rgba(59,130,246,0.3);
+  }
+
+  .slide-8 .contact-info {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .slide-8 .contact-row {
+    color: #94a3b8;
+    font-size: 22px;
+    font-weight: 400;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    justify-content: center;
+  }
+
+  .slide-8 .contact-row .icon {
+    font-size: 20px;
+  }
+
+  /* Pagination dots */
+  .page-indicator {
+    position: absolute;
+    bottom: 40px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 10px;
+  }
+
+  .page-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.15);
+  }
+
+  .page-dot.active {
+    background: #3b82f6;
+    width: 30px;
+    border-radius: 5px;
+  }
+
+  /* Print helper */
+  @media print {
+    body { background: white; }
+    .card { page-break-after: always; }
+    .slide-label { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== SLIDE 1: COVER ===== -->
+<div class="slide-label">SLIDE 1 / 8 — COVER</div>
+<div class="card slide-1">
+  <div class="top-badge">맞춤형 솔루션</div>
+  <div class="main-title">
+    사장님 사업에 딱 맞는<br>
+    <span class="highlight">거래관리 시스템</span>
+  </div>
+  <div class="sub-text">
+    엑셀은 이제 그만.<br>
+    우리 가게만의 전용 관리 프로그램을 만들어드립니다.
+  </div>
+  <div class="divider"></div>
+  <div class="cta-text">CUSTOM BUSINESS SOLUTION</div>
+  <div class="swipe-hint">밀어서 더 보기 <span class="arrow">→</span></div>
+</div>
+
+<!-- ===== SLIDE 2: PROBLEM ===== -->
+<div class="slide-label">SLIDE 2 / 8 — PROBLEM</div>
+<div class="card slide-2">
+  <div class="section-tag">PROBLEM</div>
+  <div class="title">혹시 이런 고민,<br>하고 계시지 않나요?</div>
+  <div class="pain-list">
+    <div class="pain-item">
+      <div class="pain-icon">📊</div>
+      <div class="pain-text"><strong>엑셀</strong>로 거래내역 관리하다 파일이 꼬이거나 날아간 적 있다</div>
+    </div>
+    <div class="pain-item">
+      <div class="pain-icon">📝</div>
+      <div class="pain-text">거래명세서를 <strong>수기로 작성</strong>하느라 시간이 너무 오래 걸린다</div>
+    </div>
+    <div class="pain-item">
+      <div class="pain-icon">💰</div>
+      <div class="pain-text">이번 달 <strong>매출/수익</strong>이 얼마인지 한눈에 파악이 안 된다</div>
+    </div>
+    <div class="pain-item">
+      <div class="pain-icon">📱</div>
+      <div class="pain-text"><strong>발주</strong>를 카톡/전화로 받다보니 빠지는 건이 생긴다</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SLIDE 3: SOLUTION INTRO ===== -->
+<div class="slide-label">SLIDE 3 / 8 — SOLUTION</div>
+<div class="card slide-3">
+  <div class="icon-wrap">💻</div>
+  <div class="title">
+    사장님 사업에 맞춰<br>
+    <span class="blue">직접 만들어드립니다</span>
+  </div>
+  <div class="desc">
+    범용 프로그램이 아닙니다.<br>
+    사장님의 업무 방식, 거래 구조, 품목에 맞춰<br>
+    오직 우리 가게만을 위한 시스템을 제작합니다.
+  </div>
+  <div class="features-row">
+    <div class="feature-chip">💯 맞춤 제작</div>
+    <div class="feature-chip">📱 어디서든 접속</div>
+    <div class="feature-chip">🔒 데이터 보안</div>
+  </div>
+</div>
+
+<!-- ===== SLIDE 4: FEATURES ===== -->
+<div class="slide-label">SLIDE 4 / 8 — FEATURES</div>
+<div class="card slide-4">
+  <div class="section-tag">FEATURES</div>
+  <div class="title">이런 기능이 들어갑니다</div>
+  <div class="grid">
+    <div class="grid-item">
+      <div class="icon">📈</div>
+      <div class="name">매출 대시보드</div>
+      <div class="detail">월별 매출·순이익을 그래프로<br>한눈에 확인</div>
+    </div>
+    <div class="grid-item">
+      <div class="icon">🧾</div>
+      <div class="name">자동 거래명세서</div>
+      <div class="detail">거래 입력만 하면<br>명세서가 자동 생성 & 출력</div>
+    </div>
+    <div class="grid-item">
+      <div class="icon">📦</div>
+      <div class="name">품목 관리</div>
+      <div class="detail">원가·마진·판매가를<br>체계적으로 관리</div>
+    </div>
+    <div class="grid-item">
+      <div class="icon">👥</div>
+      <div class="name">거래처 관리</div>
+      <div class="detail">거래처별 미수금·<br>거래이력 한번에 조회</div>
+    </div>
+    <div class="grid-item">
+      <div class="icon">🛒</div>
+      <div class="name">온라인 발주</div>
+      <div class="detail">거래처가 직접 발주 가능한<br>전용 포털 제공</div>
+    </div>
+    <div class="grid-item">
+      <div class="icon">🔐</div>
+      <div class="name">권한 관리</div>
+      <div class="detail">직원별 접근 권한을<br>세밀하게 설정</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SLIDE 5: DASHBOARD PREVIEW ===== -->
+<div class="slide-label">SLIDE 5 / 8 — PREVIEW</div>
+<div class="card slide-5">
+  <div class="section-tag">REAL PREVIEW</div>
+  <div class="title">실제 제작된 화면입니다</div>
+  <div class="subtitle">식자재 유통업체 사장님을 위해 제작한 대시보드</div>
+  <div class="dashboard-mock">
+    <div class="dash-header">
+      <div class="dash-dot r"></div>
+      <div class="dash-dot y"></div>
+      <div class="dash-dot g"></div>
+    </div>
+    <div class="dash-body">
+      <div class="stat-row">
+        <div class="stat-card">
+          <div class="label">총 매출</div>
+          <div class="value blue">₩48,520,000</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">순이익</div>
+          <div class="value green">₩12,380,000</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">거래건수</div>
+          <div class="value amber">127건</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">미수금</div>
+          <div class="value red">₩3,200,000</div>
+        </div>
+      </div>
+      <div class="chart-area">
+        <div class="bar-group">
+          <div class="bar-wrapper">
+            <div class="bar revenue" style="height:100px;"></div>
+            <div class="bar profit" style="height:45px;"></div>
+          </div>
+          <div class="bar-label">1월</div>
+        </div>
+        <div class="bar-group">
+          <div class="bar-wrapper">
+            <div class="bar revenue" style="height:120px;"></div>
+            <div class="bar profit" style="height:55px;"></div>
+          </div>
+          <div class="bar-label">2월</div>
+        </div>
+        <div class="bar-group">
+          <div class="bar-wrapper">
+            <div class="bar revenue" style="height:90px;"></div>
+            <div class="bar profit" style="height:38px;"></div>
+          </div>
+          <div class="bar-label">3월</div>
+        </div>
+        <div class="bar-group">
+          <div class="bar-wrapper">
+            <div class="bar revenue" style="height:150px;"></div>
+            <div class="bar profit" style="height:68px;"></div>
+          </div>
+          <div class="bar-label">4월</div>
+        </div>
+        <div class="bar-group">
+          <div class="bar-wrapper">
+            <div class="bar revenue" style="height:130px;"></div>
+            <div class="bar profit" style="height:60px;"></div>
+          </div>
+          <div class="bar-label">5월</div>
+        </div>
+        <div class="bar-group">
+          <div class="bar-wrapper">
+            <div class="bar revenue" style="height:170px;"></div>
+            <div class="bar profit" style="height:80px;"></div>
+          </div>
+          <div class="bar-label">6월</div>
+        </div>
+        <div class="bar-group">
+          <div class="bar-wrapper">
+            <div class="bar revenue" style="height:140px;"></div>
+            <div class="bar profit" style="height:65px;"></div>
+          </div>
+          <div class="bar-label">7월</div>
+        </div>
+        <div class="bar-group">
+          <div class="bar-wrapper">
+            <div class="bar revenue" style="height:160px;"></div>
+            <div class="bar profit" style="height:72px;"></div>
+          </div>
+          <div class="bar-label">8월</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SLIDE 6: PROCESS ===== -->
+<div class="slide-label">SLIDE 6 / 8 — PROCESS</div>
+<div class="card slide-6">
+  <div class="section-tag">PROCESS</div>
+  <div class="title">이렇게 진행됩니다</div>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <div class="step-title">무료 상담</div>
+        <div class="step-desc">사장님의 업종, 업무 방식, 필요한 기능을 파악합니다</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <div class="step-title">맞춤 설계</div>
+        <div class="step-desc">사업 구조에 딱 맞는 시스템을 설계하고 견적을 안내합니다</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <div class="step-title">개발 & 피드백</div>
+        <div class="step-desc">개발 과정을 공유하며 사장님의 피드백을 반영합니다</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-content">
+        <div class="step-title">납품 & 교육</div>
+        <div class="step-desc">완성된 시스템을 전달하고 사용법을 안내합니다</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SLIDE 7: INDUSTRIES ===== -->
+<div class="slide-label">SLIDE 7 / 8 — INDUSTRIES</div>
+<div class="card slide-7">
+  <div class="section-tag">FOR YOU</div>
+  <div class="title">이런 업종 사장님께<br>추천드립니다</div>
+  <div class="industry-grid">
+    <div class="industry-card">
+      <div class="icon">🥩</div>
+      <div class="name">정육 · 축산</div>
+      <div class="examples">정육점, 축산 도매,<br>식자재 납품</div>
+    </div>
+    <div class="industry-card">
+      <div class="icon">🐟</div>
+      <div class="name">수산 · 해산물</div>
+      <div class="examples">수산시장, 활어,<br>횟집 납품</div>
+    </div>
+    <div class="industry-card">
+      <div class="icon">🥬</div>
+      <div class="name">농산 · 청과</div>
+      <div class="examples">과일도매, 채소납품,<br>로컬푸드</div>
+    </div>
+    <div class="industry-card">
+      <div class="icon">🍱</div>
+      <div class="name">식당 · 외식</div>
+      <div class="examples">프랜차이즈, 단체급식,<br>케이터링</div>
+    </div>
+    <div class="industry-card">
+      <div class="icon">🏭</div>
+      <div class="name">제조 · 가공</div>
+      <div class="examples">식품가공, 소스제조,<br>OEM 납품</div>
+    </div>
+    <div class="industry-card">
+      <div class="icon">🚚</div>
+      <div class="name">유통 · 도매</div>
+      <div class="examples">식자재유통, 도소매,<br>물류대행</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SLIDE 8: CTA ===== -->
+<div class="slide-label">SLIDE 8 / 8 — CTA</div>
+<div class="card slide-8">
+  <div class="top-text">지금 바로 시작하세요</div>
+  <div class="main-title">
+    무료 상담으로<br>
+    <span class="highlight">우리 가게 맞춤 시스템</span><br>
+    알아보세요
+  </div>
+  <div class="divider"></div>
+  <div class="cta-button">무료 상담 신청하기</div>
+  <div class="contact-info">
+    <div class="contact-row">
+      <span class="icon">💬</span>
+      카카오톡 상담: @여기에_ID_입력
+    </div>
+    <div class="contact-row">
+      <span class="icon">📞</span>
+      전화 문의: 010-0000-0000
+    </div>
+    <div class="contact-row">
+      <span class="icon">📧</span>
+      이메일: hahajunhee@gmail.com
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

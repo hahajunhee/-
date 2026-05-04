@@ -51,32 +51,85 @@ export async function GET(request: NextRequest) {
     };
   }
 
+  // 거래처별 집계 (납부예정 부가세 = 매출부가세 합계 - 매입부가세 합계)
   const customerData = await query(`
     SELECT
       t.customer_id,
       c.company_name as customer_name,
-      COUNT(t.id)::int as transaction_count,
+      COUNT(DISTINCT t.id)::int as transaction_count,
       COALESCE(SUM(t.supply_total), 0)::numeric as supply_total,
       COALESCE(SUM(t.grand_total), 0)::numeric as grand_total,
-      COUNT(CASE WHEN t.payment_status = 'unpaid' THEN 1 END)::int as unpaid_count,
-      COALESCE(SUM(CASE WHEN t.payment_status = 'unpaid' THEN t.grand_total ELSE 0 END), 0)::numeric as unpaid_total
+      COUNT(DISTINCT CASE WHEN t.payment_status = 'unpaid' THEN t.id END)::int as unpaid_count,
+      COALESCE(SUM(CASE WHEN t.payment_status = 'unpaid' THEN t.grand_total ELSE 0 END), 0)::numeric as unpaid_total,
+      COALESCE(SUM(ti.vat_amount), 0)::numeric as sales_vat,
+      COALESCE(SUM(CASE WHEN ti.vat_apply THEN FLOOR(ti.material_cost * 0.1) * ti.qty ELSE 0 END), 0)::numeric as purchase_vat
     FROM transactions t
     JOIN customers c ON t.customer_id = c.id
+    LEFT JOIN transaction_items ti ON t.id = ti.transaction_id
     WHERE EXTRACT(YEAR FROM t.date) = $1
     GROUP BY t.customer_id, c.company_name
     ORDER BY grand_total DESC
   `, [Number(year)]);
 
+  // 품목별 집계 (납부예정 부가세)
+  const productData = await query(`
+    SELECT
+      ti.product_id,
+      ti.product_name,
+      ti.category,
+      COALESCE(SUM(ti.qty), 0)::numeric as total_qty,
+      COALESCE(SUM(ti.amount), 0)::numeric as total_amount,
+      COALESCE(SUM(ti.vat_amount), 0)::numeric as sales_vat,
+      COALESCE(SUM(CASE WHEN ti.vat_apply THEN FLOOR(ti.material_cost * 0.1) * ti.qty ELSE 0 END), 0)::numeric as purchase_vat,
+      COALESCE(SUM(ti.net_profit), 0)::numeric as total_net_profit
+    FROM transaction_items ti
+    JOIN transactions t ON ti.transaction_id = t.id
+    WHERE EXTRACT(YEAR FROM t.date) = $1
+    GROUP BY ti.product_id, ti.product_name, ti.category
+    ORDER BY total_amount DESC
+  `, [Number(year)]);
+
+  // 전체 납부예정 부가세 합계
+  const totalSalesVat = customerData.reduce((s, r) => s + Number(r.sales_vat), 0);
+  const totalPurchaseVat = customerData.reduce((s, r) => s + Number(r.purchase_vat), 0);
+
   return NextResponse.json({
     monthly: Object.values(monthlyMap),
-    customers: customerData.map((r) => ({
-      customer_id: r.customer_id,
-      customer_name: r.customer_name,
-      transaction_count: Number(r.transaction_count),
-      supply_total: Number(r.supply_total),
-      grand_total: Number(r.grand_total),
-      unpaid_count: Number(r.unpaid_count),
-      unpaid_total: Number(r.unpaid_total),
-    })),
+    customers: customerData.map((r) => {
+      const salesVat = Number(r.sales_vat);
+      const purchaseVat = Number(r.purchase_vat);
+      return {
+        customer_id: r.customer_id,
+        customer_name: r.customer_name,
+        transaction_count: Number(r.transaction_count),
+        supply_total: Number(r.supply_total),
+        grand_total: Number(r.grand_total),
+        unpaid_count: Number(r.unpaid_count),
+        unpaid_total: Number(r.unpaid_total),
+        sales_vat: salesVat,
+        purchase_vat: purchaseVat,
+        net_vat: salesVat - purchaseVat,  // 납부예정 부가세
+      };
+    }),
+    products: productData.map((r) => {
+      const salesVat = Number(r.sales_vat);
+      const purchaseVat = Number(r.purchase_vat);
+      return {
+        product_id: r.product_id,
+        product_name: r.product_name,
+        category: r.category,
+        total_qty: Number(r.total_qty),
+        total_amount: Number(r.total_amount),
+        sales_vat: salesVat,
+        purchase_vat: purchaseVat,
+        net_vat: salesVat - purchaseVat,
+        total_net_profit: Number(r.total_net_profit),
+      };
+    }),
+    vat_summary: {
+      sales_vat: totalSalesVat,
+      purchase_vat: totalPurchaseVat,
+      net_vat: totalSalesVat - totalPurchaseVat,
+    },
   });
 }
