@@ -99,7 +99,13 @@ function InvoicePageSheet({
     >
       {/* 제목 */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-        <h1 style={{ fontSize: '22px', fontWeight: 'bold', letterSpacing: '0.3em', margin: 0 }}>거 래 명 세 서</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <h1 style={{ fontSize: '22px', fontWeight: 'bold', letterSpacing: '0.3em', margin: 0 }}>거 래 명 세 서</h1>
+          {settings.seal_image && (
+            <img src={settings.seal_image} alt="법인 도장"
+              style={{ width: '50px', height: '50px', objectFit: 'contain' }} />
+          )}
+        </div>
         <span style={{ fontSize: '11px', color: '#888' }}>(공급받는자용)</span>
       </div>
 

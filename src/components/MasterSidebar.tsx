@@ -19,8 +19,10 @@ const navItems = [
   { key: 'settings', href: '/settings', label: '설정', icon: Settings },
 ];
 
-// 매니저 기본 차단 탭 (관리자 전용)
+// 매니저는 회원관리/설정 영구 차단 (관리자 전용)
 const MANAGER_ONLY_HIDDEN = ['members', 'settings'];
+// 매니저 기본 노출 탭 (관리자가 별도 권한 설정 안 했을 때): 거래처관리, 거래입력, 거래내역, 발주관리
+const MANAGER_DEFAULT_TABS = ['customers', 'transactions_new', 'transactions', 'orders'];
 
 export default function MasterSidebar({
   userName,
@@ -57,11 +59,10 @@ export default function MasterSidebar({
         {navItems
           .filter((item) => {
             if (userRole === 'master') return true;
-            // 매니저: 관리자 전용 탭 숨김
             if (MANAGER_ONLY_HIDDEN.includes(item.key)) return false;
-            // allowed_tabs가 설정되어 있으면 그 목록에 포함된 것만
-            if (allowedTabs && allowedTabs.length > 0) return allowedTabs.includes(item.key);
-            return true;
+            // 관리자가 권한 설정 안 했으면 기본 4개, 설정했으면 그 목록만
+            const tabs = (allowedTabs && allowedTabs.length > 0) ? allowedTabs : MANAGER_DEFAULT_TABS;
+            return tabs.includes(item.key);
           })
           .map((item) => {
             const isActive = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);

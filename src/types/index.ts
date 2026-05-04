@@ -9,6 +9,7 @@ export interface Product {
   selling_price: number;
   vat_apply: boolean;
   apply_material_cost: boolean;  // Y: 거래 시 단가=재료원가 사용, N: 단가(납품가) 사용
+  incentive: number;             // 장려금 (수량 × 장려금만큼 손익에 가산)
   created_at?: string;
   // computed fields
   margin?: number;
@@ -48,6 +49,7 @@ export interface TransactionItem {
   vat_amount: number;
   margin: number;
   net_profit: number;
+  incentive?: number;
 }
 
 export interface Transaction {
@@ -77,6 +79,7 @@ export interface Settings {
   bank_info: string;
   print_operator: string;
   invoice_note: string;
+  seal_image: string;  // 법인 도장 이미지 (data URL 형식)
   categories: string[];
 }
 

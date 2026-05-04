@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { CheckCircle, XCircle, Trash2, Clock, UserCheck, UserX, Shield } from 'lucide-react';
+import { CheckCircle, XCircle, Trash2, Clock, UserCheck, UserX, Shield, UserPlus } from 'lucide-react';
 import toast from 'react-hot-toast';
 import PageHeader from '@/components/PageHeader';
 import Modal from '@/components/Modal';
@@ -35,6 +35,14 @@ export default function MembersPage() {
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
   const [permModal, setPermModal] = useState<User | null>(null);
   const [permTabs, setPermTabs] = useState<string[]>([]);
+  const [createModal, setCreateModal] = useState(false);
+  const [createForm, setCreateForm] = useState({
+    email: '',
+    password: '',
+    name: '',
+    role: 'partner' as 'manager' | 'partner',
+    customer_id: '',
+  });
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -80,10 +88,10 @@ export default function MembersPage() {
 
   const openPermModal = (u: User) => {
     setPermModal(u);
-    // null이면 매니저 기본 권한(거의 전체)을 디폴트로 체크
+    // 기본: 거래처/거래입력/거래내역/발주관리
     const defaults = u.allowed_tabs && u.allowed_tabs.length > 0
       ? u.allowed_tabs
-      : TAB_OPTIONS.map(t => t.key);
+      : ['customers', 'transactions_new', 'transactions', 'orders'];
     setPermTabs(defaults);
   };
 
@@ -121,6 +129,41 @@ export default function MembersPage() {
     }
   };
 
+  const openCreate = () => {
+    setCreateForm({ email: '', password: '', name: '', role: 'partner', customer_id: '' });
+    setCreateModal(true);
+  };
+
+  const handleCreate = async () => {
+    if (!createForm.email || !createForm.password || !createForm.name) {
+      toast.error('아이디/비밀번호/이름은 필수입니다');
+      return;
+    }
+    if (createForm.role === 'partner' && !createForm.customer_id) {
+      toast.error('거래처를 선택하세요');
+      return;
+    }
+    const res = await fetch('/api/members', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: createForm.email,
+        password: createForm.password,
+        name: createForm.name,
+        role: createForm.role,
+        customer_id: createForm.customer_id ? Number(createForm.customer_id) : null,
+      }),
+    });
+    if (res.ok) {
+      toast.success(`${createForm.role === 'manager' ? '매니저' : '거래처'} 계정이 생성되었습니다`);
+      setCreateModal(false);
+      fetchData();
+    } else {
+      const data = await res.json();
+      toast.error(data.error || '생성 실패');
+    }
+  };
+
   const handleDelete = async (id: number) => {
     if (!confirm('이 회원을 삭제하시겠습니까?')) return;
     await fetch('/api/members', {
@@ -144,7 +187,15 @@ export default function MembersPage() {
 
   return (
     <>
-      <PageHeader title="회원 관리" description={`총 ${users.length}명 (승인대기 ${pending.length}명)`} />
+      <PageHeader
+        title="회원 관리"
+        description={`총 ${users.length}명 (승인대기 ${pending.length}명)`}
+        action={
+          <button onClick={openCreate} className="btn-primary">
+            <UserPlus size={16} /> 신규 계정 생성
+          </button>
+        }
+      />
 
       {pending.length > 0 && (
         <div className="card mb-4 border-yellow-300 bg-yellow-50">
@@ -233,6 +284,69 @@ export default function MembersPage() {
           </table>
         )}
       </div>
+
+      <Modal open={createModal} onClose={() => setCreateModal(false)} title="신규 계정 생성">
+        <div className="space-y-4">
+          <div>
+            <label className="form-label">역할 *</label>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setCreateForm({ ...createForm, role: 'partner' })}
+                className={`flex-1 py-2 px-4 rounded-lg border-2 text-sm font-medium transition ${
+                  createForm.role === 'partner'
+                    ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                    : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                }`}
+              >거래처</button>
+              <button
+                onClick={() => setCreateForm({ ...createForm, role: 'manager' })}
+                className={`flex-1 py-2 px-4 rounded-lg border-2 text-sm font-medium transition ${
+                  createForm.role === 'manager'
+                    ? 'border-amber-500 bg-amber-50 text-amber-700'
+                    : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                }`}
+              >매니저</button>
+            </div>
+          </div>
+          <div>
+            <label className="form-label">아이디 *</label>
+            <input type="text" className="form-input" placeholder="예: customer001"
+              value={createForm.email}
+              onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })} />
+          </div>
+          <div>
+            <label className="form-label">비밀번호 *</label>
+            <input type="text" className="form-input" placeholder="배포할 임시 비밀번호"
+              value={createForm.password}
+              onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })} />
+          </div>
+          <div>
+            <label className="form-label">이름 *</label>
+            <input type="text" className="form-input" placeholder="담당자 또는 매니저 이름"
+              value={createForm.name}
+              onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })} />
+          </div>
+          {createForm.role === 'partner' && (
+            <div>
+              <label className="form-label">연결할 거래처 *</label>
+              <select className="form-select" value={createForm.customer_id}
+                onChange={(e) => setCreateForm({ ...createForm, customer_id: e.target.value })}>
+                <option value="">거래처를 선택하세요</option>
+                {customers.map(c => (
+                  <option key={c.id} value={c.id}>{c.company_name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+          <div className="bg-blue-50 p-3 rounded-lg text-xs text-blue-700">
+            💡 생성된 계정은 즉시 사용 가능합니다. 거래처에게 아이디/비밀번호를 안내해주세요.
+          </div>
+          <div className="flex justify-end gap-2">
+            <button onClick={() => setCreateModal(false)} className="btn-secondary">취소</button>
+            <button onClick={handleCreate} className="btn-primary">계정 생성</button>
+          </div>
+        </div>
+      </Modal>
 
       <Modal open={!!permModal} onClose={() => setPermModal(null)} title="매니저 탭 권한 설정">
         {permModal && (

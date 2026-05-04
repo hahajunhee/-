@@ -43,6 +43,7 @@ export default function TransactionNewPage() {
     const effectiveUnitPrice = product.apply_material_cost
       ? Number(product.material_cost)
       : Number(product.selling_price);
+    const incentive = Number(product.incentive) || 0;
     const newItem: TransactionItem = {
       product_id: product.id,
       product_name: product.name,
@@ -58,15 +59,19 @@ export default function TransactionNewPage() {
       vat_amount: 0,
       margin: 0,
       net_profit: 0,
+      incentive,
     };
-    const computed = computeItemFields(newItem);
+    const computed = computeItemFields({ ...newItem, incentive });
     setItems([...items, { ...newItem, ...computed }]);
   };
 
   const updateQty = (index: number, qty: number) => {
     const updated = [...items];
     updated[index].qty = qty;
-    const computed = computeItemFields(updated[index]);
+    const computed = computeItemFields({
+      ...updated[index],
+      incentive: updated[index].incentive || 0,
+    });
     updated[index] = { ...updated[index], ...computed };
     setItems(updated);
   };
@@ -113,6 +118,7 @@ export default function TransactionNewPage() {
         vat_amount: i.vat_amount,
         margin: i.margin,
         net_profit: i.net_profit,
+        incentive: i.incentive || 0,
       })),
     };
 

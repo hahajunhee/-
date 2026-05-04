@@ -68,9 +68,9 @@ export async function POST(request: NextRequest) {
     for (const item of items) {
       await query(
         `INSERT INTO transaction_items
-         (transaction_id, product_id, product_name, category, spec, unit, qty, unit_price, material_cost, other_cost, amount, vat_apply, vat_amount, margin, net_profit)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
-        [txn.id, item.product_id, item.product_name, item.category, item.spec, item.unit, item.qty, item.unit_price, item.material_cost, item.other_cost, item.amount, item.vat_apply, item.vat_amount, item.margin, item.net_profit]
+         (transaction_id, product_id, product_name, category, spec, unit, qty, unit_price, material_cost, other_cost, amount, vat_apply, vat_amount, margin, net_profit, incentive)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
+        [txn.id, item.product_id, item.product_name, item.category, item.spec, item.unit, item.qty, item.unit_price, item.material_cost, item.other_cost, item.amount, item.vat_apply, item.vat_amount, item.margin, item.net_profit, Number(item.incentive) || 0]
       );
     }
 

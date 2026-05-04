@@ -41,17 +41,20 @@ export function computeProductFields(product: {
 
 // 거래 항목의 계산된 필드 산출
 // apply_material_cost=true인 경우 단가로 재료원가를 사용함 (line의 unit_price가 이미 재료원가로 세팅되어 있음)
+// 장려금(incentive)은 수량 × 장려금만큼 순익에 가산됨 (재료원가=납품가일 때 공장에서 받는 장려금 반영)
 export function computeItemFields(item: {
   unit_price: number | string;          // 이미 apply_material_cost에 따라 재료원가 또는 납품가로 선택된 값
   material_cost: number | string;
   other_cost: number | string;
   qty: number | string;
   vat_apply: boolean;
+  incentive?: number | string;
 }) {
   const qty = Number(item.qty);
   const unitPrice = Number(item.unit_price);
   const materialCost = Number(item.material_cost);
   const otherCost = Number(item.other_cost);
+  const incentive = Number(item.incentive || 0);
 
   // 단위 부가세 = 단가 × 10% (vat_apply=Y일 때)
   const vatPerUnit = item.vat_apply ? Math.floor(unitPrice * 0.1) : 0;
@@ -60,10 +63,11 @@ export function computeItemFields(item: {
   const amount = unitPrice * qty;
   const vat_amount = vatPerUnit * qty;
 
-  // 마진/순익 계산 (분석용)
+  // 마진/순익 계산
   const marginPerUnit = unitPrice - materialCost - otherCost;
   const margin = marginPerUnit * qty;
-  const net_profit = margin - vat_amount;
+  // 순익 = (마진 - 부가세) + 수량 × 장려금
+  const net_profit = margin - vat_amount + qty * incentive;
 
   return { amount, margin, vat_amount, net_profit };
 }

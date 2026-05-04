@@ -44,6 +44,25 @@ export default function SettingsPage() {
     setSettings({ ...settings, [field]: value });
   };
 
+  const handleSealUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 1024 * 1024) {
+      toast.error('이미지는 1MB 이하만 업로드 가능합니다');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const result = reader.result as string;
+      setSettings(prev => prev ? { ...prev, seal_image: result } : prev);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const removeSeal = () => {
+    if (settings) setSettings({ ...settings, seal_image: '' });
+  };
+
   return (
     <>
       <PageHeader
@@ -111,6 +130,23 @@ export default function SettingsPage() {
                 placeholder="예: ★★D-2발주부탁드립니다. **발주폰-010-4078-0692** **택배폰-010-2043-4983**"
                 value={settings.invoice_note || ''}
                 onChange={(e) => update('invoice_note', e.target.value)} />
+            </div>
+            <div className="col-span-2">
+              <label className="form-label">법인 도장 (거래명세서 제목 옆에 표시됨)</label>
+              <div className="flex items-start gap-4">
+                <div className="flex-1">
+                  <input type="file" accept="image/png,image/jpeg,image/gif"
+                    onChange={handleSealUpload}
+                    className="block text-sm text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-600 hover:file:bg-blue-100 cursor-pointer" />
+                  <p className="text-xs text-gray-400 mt-1">PNG/JPG/GIF, 1MB 이하 (배경 투명한 PNG 권장)</p>
+                </div>
+                {settings.seal_image && (
+                  <div className="flex flex-col items-center gap-1">
+                    <img src={settings.seal_image} alt="법인 도장" className="w-20 h-20 object-contain border rounded bg-white" />
+                    <button onClick={removeSeal} className="text-xs text-red-500 hover:underline">제거</button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
