@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>카드뉴스 — Before / After</title>
+<style>
+  @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-font-smoothing: antialiased; }
+
+  body {
+    font-family: 'Pretendard', -apple-system, sans-serif;
+    background: #2a2a2a;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 32px;
+    padding: 32px 16px;
+  }
+
+  .label { color: #666; font-size: 12px; letter-spacing: 1px; }
+
+  .card {
+    width: 1080px;
+    height: 1080px;
+    position: relative;
+    overflow: hidden;
+    flex-shrink: 0;
+    font-family: 'Pretendard', sans-serif;
+    letter-spacing: -0.02em;
+    color: white;
+    padding: 90px 80px;
+    display: flex;
+    flex-direction: column;
+    background-size: cover;
+    background-position: center;
+  }
+  .card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.85) 100%);
+    z-index: 1;
+  }
+  .card > * { position: relative; z-index: 2; }
+
+  .pg {
+    position: absolute;
+    top: 56px;
+    right: 64px;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    color: rgba(255,255,255,0.5);
+    z-index: 3;
+  }
+  .signature {
+    position: absolute;
+    bottom: 40px;
+    left: 80px;
+    font-size: 16px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.6);
+    letter-spacing: 1px;
+    z-index: 3;
+  }
+  .signature .dot { color: #FFD93D; }
+
+  /* ============ SLIDE 1: HOOK ============ */
+  .s1 {
+    background-image: url('https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=1200&q=80');
+    justify-content: space-between;
+  }
+  .s1 .top-tag {
+    display: inline-block;
+    align-self: flex-start;
+    background: rgba(255, 217, 61, 0.95);
+    color: #1a1a1a;
+    padding: 10px 22px;
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    margin-bottom: 30px;
+  }
+  .s1 .headline {
+    font-size: 92px;
+    font-weight: 900;
+    line-height: 1.1;
+    letter-spacing: -0.04em;
+    margin-bottom: 32px;
+  }
+  .s1 .headline .strike {
+    text-decoration: line-through;
+    text-decoration-thickness: 6px;
+    text-decoration-color: #FF4757;
+    color: rgba(255,255,255,0.5);
+    font-weight: 700;
+  }
+  .s1 .headline .yellow { color: #FFD93D; }
+  .s1 .sub {
+    font-size: 26px;
+    font-weight: 500;
+    line-height: 1.5;
+    color: rgba(255,255,255,0.85);
+    max-width: 760px;
+  }
+  .s1 .swipe {
+    color: rgba(255,255,255,0.5);
+    font-size: 18px;
+    font-weight: 600;
+    margin-top: 50px;
+  }
+
+  /* ============ SLIDE 2: BEFORE ============ */
+  .s2 {
+    background-image: url('https://images.unsplash.com/photo-1450101499163-c8848c66ca85?w=1200&q=80');
+    justify-content: center;
+  }
+  .s2 .before-tag {
+    display: inline-block;
+    align-self: flex-start;
+    background: #FF4757;
+    color: white;
+    padding: 10px 28px;
+    font-size: 18px;
+    font-weight: 900;
+    letter-spacing: 3px;
+    margin-bottom: 36px;
+  }
+  .s2 .title {
+    font-size: 64px;
+    font-weight: 900;
+    line-height: 1.15;
+    letter-spacing: -0.04em;
+    margin-bottom: 40px;
+    color: rgba(255,255,255,0.95);
+  }
+  .s2 .title .red { color: #FF4757; }
+  .s2 .pain-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    max-width: 800px;
+  }
+  .s2 .pain {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    background: rgba(255,71,87,0.1);
+    border: 1px solid rgba(255,71,87,0.3);
+    backdrop-filter: blur(10px);
+    padding: 18px 24px;
+    border-radius: 12px;
+  }
+  .s2 .pain .x { font-size: 22px; color: #FF4757; font-weight: 900; }
+  .s2 .pain .text {
+    font-size: 22px;
+    color: rgba(255,255,255,0.9);
+    font-weight: 600;
+    line-height: 1.4;
+  }
+
+  /* ============ SLIDE 3: AFTER ============ */
+  .s3 {
+    background-image: url('https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1200&q=80');
+    justify-content: center;
+  }
+  .s3 .after-tag {
+    display: inline-block;
+    align-self: flex-start;
+    background: #FFD93D;
+    color: #1a1a1a;
+    padding: 10px 28px;
+    font-size: 18px;
+    font-weight: 900;
+    letter-spacing: 3px;
+    margin-bottom: 36px;
+  }
+  .s3 .title {
+    font-size: 64px;
+    font-weight: 900;
+    line-height: 1.15;
+    letter-spacing: -0.04em;
+    margin-bottom: 40px;
+  }
+  .s3 .title .yellow { color: #FFD93D; }
+  .s3 .gain-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    max-width: 800px;
+  }
+  .s3 .gain {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    background: rgba(255,217,61,0.1);
+    border: 1px solid rgba(255,217,61,0.4);
+    backdrop-filter: blur(10px);
+    padding: 18px 24px;
+    border-radius: 12px;
+  }
+  .s3 .gain .check { font-size: 22px; color: #FFD93D; font-weight: 900; }
+  .s3 .gain .text {
+    font-size: 22px;
+    color: white;
+    font-weight: 600;
+    line-height: 1.4;
+  }
+  .s3 .gain .text b { color: #FFD93D; font-weight: 800; }
+
+  /* ============ SLIDE 4: KEY DIFFERENCE ============ */
+  .s4 {
+    background-image: url('https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=1200&q=80');
+    justify-content: center;
+  }
+  .s4 .small {
+    font-size: 22px;
+    font-weight: 800;
+    color: #FFD93D;
+    margin-bottom: 16px;
+    letter-spacing: 2px;
+  }
+  .s4 .title {
+    font-size: 60px;
+    font-weight: 900;
+    line-height: 1.2;
+    letter-spacing: -0.04em;
+    margin-bottom: 50px;
+  }
+  .s4 .compare {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .s4 .col {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.15);
+    backdrop-filter: blur(12px);
+    border-radius: 16px;
+    padding: 28px;
+  }
+  .s4 .col.before { border-color: rgba(255,71,87,0.4); }
+  .s4 .col.after { border-color: rgba(255,217,61,0.4); }
+  .s4 .col-label {
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    margin-bottom: 16px;
+  }
+  .s4 .col.before .col-label { color: #FF4757; }
+  .s4 .col.after .col-label { color: #FFD93D; }
+  .s4 .col-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .s4 .col-row {
+    font-size: 19px;
+    font-weight: 600;
+    line-height: 1.4;
+    color: rgba(255,255,255,0.9);
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+  }
+  .s4 .col-row:last-child { border-bottom: none; }
+  .s4 .col.before .col-row { color: rgba(255,255,255,0.7); }
+
+  /* ============ SLIDE 5: WHAT TO LEARN ============ */
+  .s5 {
+    background-image: url('https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=1200&q=80');
+    justify-content: center;
+  }
+  .s5 .small {
+    font-size: 22px;
+    font-weight: 800;
+    color: #FFD93D;
+    margin-bottom: 16px;
+    letter-spacing: 2px;
+  }
+  .s5 .title {
+    font-size: 60px;
+    font-weight: 900;
+    line-height: 1.2;
+    letter-spacing: -0.04em;
+    margin-bottom: 40px;
+  }
+  .s5 .takeaway {
+    background: rgba(255,255,255,0.08);
+    border-left: 4px solid #FFD93D;
+    backdrop-filter: blur(10px);
+    padding: 28px 32px;
+    margin-bottom: 24px;
+    border-radius: 0 12px 12px 0;
+  }
+  .s5 .t-label {
+    font-size: 16px;
+    font-weight: 800;
+    color: #FFD93D;
+    letter-spacing: 2px;
+    margin-bottom: 10px;
+  }
+  .s5 .t-text {
+    font-size: 22px;
+    font-weight: 600;
+    color: white;
+    line-height: 1.5;
+  }
+  .s5 .t-text b { color: #FFD93D; font-weight: 800; }
+
+  /* ============ SLIDE 6: CLOSING ============ */
+  .s6 {
+    background-image: url('https://images.unsplash.com/photo-1499750310107-5fef28a66643?w=1200&q=80');
+    justify-content: center;
+    text-align: center;
+    align-items: center;
+  }
+  .s6 .ico {
+    font-size: 56px;
+    margin-bottom: 24px;
+  }
+  .s6 .closing {
+    font-size: 64px;
+    font-weight: 900;
+    line-height: 1.2;
+    letter-spacing: -0.04em;
+    margin-bottom: 30px;
+    max-width: 850px;
+  }
+  .s6 .closing .yellow { color: #FFD93D; }
+  .s6 .sub {
+    font-size: 22px;
+    font-weight: 500;
+    line-height: 1.6;
+    color: rgba(255,255,255,0.85);
+    margin-bottom: 40px;
+    max-width: 720px;
+  }
+  .s6 .comment-cta {
+    background: rgba(255,255,255,0.1);
+    border: 2px solid #FFD93D;
+    border-radius: 16px;
+    padding: 28px 40px;
+    margin-bottom: 36px;
+    backdrop-filter: blur(10px);
+    max-width: 720px;
+  }
+  .s6 .comment-cta .c-ico { font-size: 32px; margin-bottom: 10px; }
+  .s6 .comment-cta .ct-title {
+    font-size: 24px;
+    font-weight: 800;
+    color: #FFD93D;
+    margin-bottom: 8px;
+    letter-spacing: -0.02em;
+  }
+  .s6 .comment-cta .ct-desc {
+    font-size: 18px;
+    color: rgba(255,255,255,0.9);
+    font-weight: 500;
+    line-height: 1.5;
+  }
+  .s6 .handle {
+    background: rgba(255,217,61,0.95);
+    color: #1a1a1a;
+    padding: 14px 32px;
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    border-radius: 100px;
+  }
+</style>
+</head>
+<body>
+
+<!-- ====================================================
+     Before / After — "엑셀에서 웹 시스템으로"
+     교육 톤: 사람들이 직접 만들 수 있게 인사이트 제공
+     ==================================================== -->
+
+<!-- ============ SLIDE 1: HOOK ============ -->
+<div class="label">01 / 06 — HOOK</div>
+<div class="card s1">
+  <div class="pg">01 / 06</div>
+  <div>
+    <div class="top-tag">BEFORE → AFTER</div>
+    <div class="headline">
+      <span class="strike">엑셀 장부</span><br>
+      <span class="yellow">웹 시스템</span>으로<br>
+      바꿔봤어요.
+    </div>
+    <div class="sub">
+      어떻게 바뀌는지, 무엇이 좋아지는지<br>
+      직접 만들어보면서 느낀 것들을 공유합니다.
+    </div>
+    <div class="swipe">→ 끝까지 보기</div>
+  </div>
+  <div class="signature">CODEFIT<span class="dot">.</span></div>
+</div>
+
+<!-- ============ SLIDE 2: BEFORE ============ -->
+<div class="label">02 / 06 — BEFORE</div>
+<div class="card s2">
+  <div class="pg">02 / 06</div>
+  <div class="before-tag">BEFORE</div>
+  <div class="title">
+    <span class="red">엑셀</span>의 한계
+  </div>
+  <div class="pain-list">
+    <div class="pain">
+      <span class="x">✕</span>
+      <span class="text">셀을 잘못 눌러도 경고가 없어요</span>
+    </div>
+    <div class="pain">
+      <span class="x">✕</span>
+      <span class="text">정산 때마다 수식 깨질까봐 불안</span>
+    </div>
+    <div class="pain">
+      <span class="x">✕</span>
+      <span class="text">PC 앞을 떠나면 데이터를 못 봐요</span>
+    </div>
+    <div class="pain">
+      <span class="x">✕</span>
+      <span class="text">파일 공유는 카톡으로... 버전 관리 카오스</span>
+    </div>
+    <div class="pain">
+      <span class="x">✕</span>
+      <span class="text">백업은 USB? 잃어버리면 끝</span>
+    </div>
+  </div>
+</div>
+
+<!-- ============ SLIDE 3: AFTER ============ -->
+<div class="label">03 / 06 — AFTER</div>
+<div class="card s3">
+  <div class="pg">03 / 06</div>
+  <div class="after-tag">AFTER</div>
+  <div class="title">
+    <span class="yellow">웹 시스템</span>의 가능성
+  </div>
+  <div class="gain-list">
+    <div class="gain">
+      <span class="check">✓</span>
+      <span class="text"><b>입력 검증</b>으로 실수 자동 차단</span>
+    </div>
+    <div class="gain">
+      <span class="check">✓</span>
+      <span class="text"><b>SQL 한 줄</b>로 월 정산 끝</span>
+    </div>
+    <div class="gain">
+      <span class="check">✓</span>
+      <span class="text"><b>스마트폰</b>에서도 실시간 조회</span>
+    </div>
+    <div class="gain">
+      <span class="check">✓</span>
+      <span class="text"><b>권한 관리</b>로 팀원과 안전하게 공유</span>
+    </div>
+    <div class="gain">
+      <span class="check">✓</span>
+      <span class="text"><b>자동 백업</b>으로 데이터 손실 걱정 없음</span>
+    </div>
+  </div>
+</div>
+
+<!-- ============ SLIDE 4: COMPARE ============ -->
+<div class="label">04 / 06 — COMPARE</div>
+<div class="card s4">
+  <div class="pg">04 / 06</div>
+  <div>
+    <div class="small">한 화면 비교</div>
+    <div class="title">이렇게 달라져요</div>
+    <div class="compare">
+      <div class="col before">
+        <div class="col-label">BEFORE</div>
+        <div class="col-list">
+          <div class="col-row">수동 입력</div>
+          <div class="col-row">PC에서만</div>
+          <div class="col-row">파일 단위 공유</div>
+          <div class="col-row">실수 발견 늦음</div>
+          <div class="col-row">백업 수동</div>
+        </div>
+      </div>
+      <div class="col after">
+        <div class="col-label">AFTER</div>
+        <div class="col-list">
+          <div class="col-row">자동 검증 입력</div>
+          <div class="col-row">어디서든 접근</div>
+          <div class="col-row">실시간 동기화</div>
+          <div class="col-row">즉시 알림</div>
+          <div class="col-row">자동 백업</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="signature">CODEFIT<span class="dot">.</span></div>
+</div>
+
+<!-- ============ SLIDE 5: TAKEAWAYS ============ -->
+<div class="label">05 / 06 — TAKEAWAYS</div>
+<div class="card s5">
+  <div class="pg">05 / 06</div>
+  <div>
+    <div class="small">만들면서 배운 점</div>
+    <div class="title">핵심 인사이트</div>
+    <div class="takeaway">
+      <div class="t-label">TAKEAWAY 01</div>
+      <div class="t-text">
+        엑셀이 잘못된 게 아니라 <b>"공유 + 자동화"</b>가 핵심.
+        혼자 쓸 땐 엑셀이 최고지만, 팀이 쓰는 순간 한계가 생깁니다.
+      </div>
+    </div>
+    <div class="takeaway">
+      <div class="t-label">TAKEAWAY 02</div>
+      <div class="t-text">
+        모든 기능을 다 만들 필요 없어요. <b>매일 쓰는 1~2개</b>만
+        먼저 잘 만들고, 사용하면서 추가하는 게 정답입니다.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ SLIDE 6: CLOSING ============ -->
+<div class="label">06 / 06 — CLOSING</div>
+<div class="card s6">
+  <div class="pg">06 / 06</div>
+  <div class="ico">🚀</div>
+  <div class="closing">
+    <span class="yellow">엑셀에서 웹</span>으로,<br>
+    한 단계 도약해보세요.
+  </div>
+  <div class="sub">
+    이 글이 누군가의 업무 자동화 첫걸음에<br>
+    작은 영감이 됐길 바랍니다.
+  </div>
+  <div class="comment-cta">
+    <div class="c-ico">💬</div>
+    <div class="ct-title">실제 시스템이 궁금하다면?</div>
+    <div class="ct-desc">댓글 남겨주시면 만든 결과물 보여드릴게요.</div>
+  </div>
+  <div class="handle">@codefit</div>
+</div>
+
+</body>
+</html>

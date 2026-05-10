@@ -21,6 +21,7 @@ const emptyProduct = {
   vat_apply: true,
   apply_material_cost: false,
   incentive: 0,
+  invoice_hidden: false,
 };
 
 export default function ProductsPage() {
@@ -76,6 +77,7 @@ export default function ProductsPage() {
       vat_apply: p.vat_apply,
       apply_material_cost: !!p.apply_material_cost,
       incentive: Number(p.incentive) || 0,
+      invoice_hidden: !!p.invoice_hidden,
     });
     setModalOpen(true);
   };
@@ -201,7 +203,12 @@ export default function ProductsPage() {
                   const c = computeProductFields(p);
                   return (
                     <tr key={p.id}>
-                      <td className="font-medium">{p.name}</td>
+                      <td className="font-medium">
+                        {p.name}
+                        {p.invoice_hidden && (
+                          <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded bg-purple-100 text-purple-700" title="거래명세서에 표시되지 않음">대시보드 전용</span>
+                        )}
+                      </td>
                       <td>
                         <span className="inline-block px-2 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700">
                           {p.category}
@@ -374,6 +381,20 @@ export default function ProductsPage() {
             <p className="text-xs text-gray-500 mt-1">
               거래명세서에는 표시되지 않고, 손익에만 <strong>수량 × 장려금</strong>이 가산됩니다 (절세용)
             </p>
+          </div>
+          <div className="col-span-2 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                className="w-4 h-4 rounded"
+                checked={form.invoice_hidden}
+                onChange={(e) => setForm({ ...form, invoice_hidden: e.target.checked })}
+              />
+              <span className="text-sm">
+                <span className="font-semibold text-purple-700">거래명세서 미표시 (대시보드 전용)</span>
+                <span className="text-gray-600 ml-2">체크 시 거래처에게 보이는 명세서/이메일/PDF에서 숨김. 대시보드와 손익엔 정상 반영</span>
+              </span>
+            </label>
           </div>
         </div>
 

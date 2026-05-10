@@ -25,9 +25,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const body = await request.json();
   const data = await query(
-    `INSERT INTO products (name, category, spec, unit, material_cost, other_cost, selling_price, vat_apply, apply_material_cost, incentive)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
-    [body.name, body.category, body.spec, body.unit, body.material_cost, body.other_cost, body.selling_price, body.vat_apply, !!body.apply_material_cost, Number(body.incentive) || 0]
+    `INSERT INTO products (name, category, spec, unit, material_cost, other_cost, selling_price, vat_apply, apply_material_cost, incentive, invoice_hidden)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
+    [body.name, body.category, body.spec, body.unit, body.material_cost, body.other_cost, body.selling_price, body.vat_apply, !!body.apply_material_cost, Number(body.incentive) || 0, !!body.invoice_hidden]
   );
   return NextResponse.json(data[0], { status: 201 });
 }

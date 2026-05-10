@@ -19,6 +19,7 @@ interface InvoiceItem {
   amount: number;
   vat_apply: boolean;
   vat_amount: number;
+  invoice_hidden?: boolean;
 }
 
 interface InvoiceData {
@@ -314,6 +315,8 @@ function InvoiceContent() {
         if (!dateMax || txnDate > dateMax) dateMax = txnDate;
         if (txn.items) {
           for (const item of txn.items) {
+            // 거래명세서 미표시 항목은 건너뜀 (대시보드/내부 손익에만 반영)
+            if (item.invoice_hidden) continue;
             allItems.push({
               product_name: item.product_name,
               spec: item.spec,
@@ -323,6 +326,7 @@ function InvoiceContent() {
               amount: Number(item.amount),
               vat_apply: item.vat_apply,
               vat_amount: Number(item.vat_amount),
+              invoice_hidden: false,
             });
           }
         }

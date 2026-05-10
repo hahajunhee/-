@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>카드뉴스 — 팁 & 인사이트</title>
+<style>
+  @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-font-smoothing: antialiased; }
+
+  body {
+    font-family: 'Pretendard', -apple-system, sans-serif;
+    background: #2a2a2a;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 32px;
+    padding: 32px 16px;
+  }
+
+  .label { color: #666; font-size: 12px; letter-spacing: 1px; }
+
+  .card {
+    width: 1080px;
+    height: 1080px;
+    position: relative;
+    overflow: hidden;
+    flex-shrink: 0;
+    font-family: 'Pretendard', sans-serif;
+    letter-spacing: -0.02em;
+    color: white;
+    padding: 90px 80px;
+    display: flex;
+    flex-direction: column;
+    background-size: cover;
+    background-position: center;
+  }
+  .card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.85) 100%);
+    z-index: 1;
+  }
+  .card > * { position: relative; z-index: 2; }
+
+  .pg {
+    position: absolute;
+    top: 56px;
+    right: 64px;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    color: rgba(255,255,255,0.5);
+    z-index: 3;
+  }
+  .signature {
+    position: absolute;
+    bottom: 40px;
+    left: 80px;
+    font-size: 16px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.6);
+    letter-spacing: 1px;
+    z-index: 3;
+  }
+  .signature .dot { color: #FFD93D; }
+
+  /* ============ SLIDE 1: HOOK ============ */
+  .s1 {
+    background-image: url('https://images.unsplash.com/photo-1499951360447-b19be8fe80f5?w=1200&q=80');
+    justify-content: space-between;
+  }
+  .s1 .top-tag {
+    display: inline-block;
+    align-self: flex-start;
+    background: rgba(255, 217, 61, 0.95);
+    color: #1a1a1a;
+    padding: 10px 22px;
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    margin-bottom: 30px;
+  }
+  .s1 .headline {
+    font-size: 96px;
+    font-weight: 900;
+    line-height: 1.05;
+    letter-spacing: -0.04em;
+    margin-bottom: 32px;
+  }
+  .s1 .headline .num {
+    font-size: 150px;
+    color: #FFD93D;
+    line-height: 0.9;
+    display: block;
+    letter-spacing: -0.06em;
+    margin-bottom: 10px;
+  }
+  .s1 .headline .yellow { color: #FFD93D; }
+  .s1 .sub {
+    font-size: 26px;
+    font-weight: 500;
+    line-height: 1.5;
+    color: rgba(255,255,255,0.85);
+    max-width: 760px;
+  }
+  .s1 .swipe {
+    color: rgba(255,255,255,0.5);
+    font-size: 18px;
+    font-weight: 600;
+    margin-top: 50px;
+  }
+
+  /* ============ TIP SLIDES (2-4) ============ */
+  .tip-slide {
+    justify-content: center;
+  }
+  .tip-slide .tip-num {
+    font-size: 140px;
+    font-weight: 900;
+    color: #FFD93D;
+    letter-spacing: -0.06em;
+    line-height: 0.85;
+    margin-bottom: 16px;
+  }
+  .tip-slide .tip-title {
+    font-size: 60px;
+    font-weight: 900;
+    line-height: 1.15;
+    letter-spacing: -0.04em;
+    margin-bottom: 28px;
+  }
+  .tip-slide .tip-desc {
+    font-size: 24px;
+    font-weight: 500;
+    line-height: 1.7;
+    color: rgba(255,255,255,0.85);
+    margin-bottom: 32px;
+    max-width: 780px;
+  }
+  .tip-slide .tip-insight {
+    background: rgba(255,255,255,0.08);
+    border-left: 4px solid #FFD93D;
+    backdrop-filter: blur(10px);
+    padding: 20px 28px;
+    font-size: 19px;
+    font-weight: 600;
+    color: white;
+    line-height: 1.6;
+    border-radius: 0 12px 12px 0;
+    max-width: 780px;
+  }
+  .tip-slide .tip-insight b { color: #FFD93D; font-weight: 800; }
+
+  .s2 { background-image: url('https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=1200&q=80'); }
+  .s3 { background-image: url('https://images.unsplash.com/photo-1486312338219-ce68d2c6f44d?w=1200&q=80'); }
+  .s4 { background-image: url('https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=1200&q=80'); }
+
+  /* ============ SLIDE 5: SUMMARY ============ */
+  .s5 {
+    background-image: url('https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=1200&q=80');
+    justify-content: center;
+  }
+  .s5 .small {
+    font-size: 22px;
+    font-weight: 800;
+    color: #FFD93D;
+    margin-bottom: 16px;
+    letter-spacing: 2px;
+  }
+  .s5 .title {
+    font-size: 64px;
+    font-weight: 900;
+    line-height: 1.2;
+    letter-spacing: -0.04em;
+    margin-bottom: 50px;
+  }
+  .s5 .summary-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    max-width: 820px;
+  }
+  .s5 .sum-item {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding: 22px 0;
+    border-top: 1px solid rgba(255,255,255,0.2);
+  }
+  .s5 .sum-item:last-child { border-bottom: 1px solid rgba(255,255,255,0.2); }
+  .s5 .sum-num {
+    font-size: 40px;
+    font-weight: 900;
+    color: #FFD93D;
+    min-width: 60px;
+    letter-spacing: -0.04em;
+  }
+  .s5 .sum-text {
+    font-size: 22px;
+    font-weight: 700;
+    color: white;
+    letter-spacing: -0.02em;
+    line-height: 1.4;
+  }
+  .s5 .sum-text .hl { color: #FFD93D; }
+
+  /* ============ SLIDE 6: CLOSING ============ */
+  .s6 {
+    background-image: url('https://images.unsplash.com/photo-1499750310107-5fef28a66643?w=1200&q=80');
+    justify-content: center;
+    text-align: center;
+    align-items: center;
+  }
+  .s6 .ico {
+    font-size: 56px;
+    margin-bottom: 24px;
+  }
+  .s6 .closing {
+    font-size: 60px;
+    font-weight: 900;
+    line-height: 1.2;
+    letter-spacing: -0.04em;
+    margin-bottom: 30px;
+    max-width: 850px;
+  }
+  .s6 .closing .yellow { color: #FFD93D; }
+  .s6 .sub {
+    font-size: 22px;
+    font-weight: 500;
+    line-height: 1.6;
+    color: rgba(255,255,255,0.85);
+    margin-bottom: 40px;
+    max-width: 720px;
+  }
+  .s6 .comment-cta {
+    background: rgba(255,255,255,0.1);
+    border: 2px solid #FFD93D;
+    border-radius: 16px;
+    padding: 28px 40px;
+    margin-bottom: 36px;
+    backdrop-filter: blur(10px);
+    max-width: 720px;
+  }
+  .s6 .comment-cta .c-ico { font-size: 32px; margin-bottom: 10px; }
+  .s6 .comment-cta .ct-title {
+    font-size: 24px;
+    font-weight: 800;
+    color: #FFD93D;
+    margin-bottom: 8px;
+    letter-spacing: -0.02em;
+  }
+  .s6 .comment-cta .ct-desc {
+    font-size: 18px;
+    color: rgba(255,255,255,0.9);
+    font-weight: 500;
+    line-height: 1.5;
+  }
+  .s6 .handle {
+    background: rgba(255,217,61,0.95);
+    color: #1a1a1a;
+    padding: 14px 32px;
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    border-radius: 100px;
+  }
+</style>
+</head>
+<body>
+
+<!-- ====================================================
+     팁 & 인사이트 — "엑셀 쓰면 손해보는 3가지"
+     ==================================================== -->
+
+<!-- ============ SLIDE 1: HOOK ============ -->
+<div class="label">01 / 06 — HOOK</div>
+<div class="card s1">
+  <div class="pg">01 / 06</div>
+  <div>
+    <div class="top-tag">INSIGHT</div>
+    <div class="headline">
+      <span class="num">3</span>
+      엑셀로만 일하면<br>
+      <span class="yellow">놓치는 것</span>들
+    </div>
+    <div class="sub">
+      엑셀이 나쁜 게 아니라, 한계가 있다는 이야기.<br>
+      직접 만들어본 경험에서 정리해봤어요.
+    </div>
+    <div class="swipe">→ 끝까지 보기</div>
+  </div>
+  <div class="signature">CODEFIT<span class="dot">.</span></div>
+</div>
+
+<!-- ============ SLIDE 2: TIP 1 ============ -->
+<div class="label">02 / 06 — TIP 1</div>
+<div class="card tip-slide s2">
+  <div class="pg">02 / 06</div>
+  <div>
+    <div class="tip-num">01</div>
+    <div class="tip-title">
+      입력 실수를<br>
+      알 방법이 없어요
+    </div>
+    <div class="tip-desc">
+      엑셀은 한 칸 밀려 적어도, 0이 하나 빠져도 경고가 없습니다.
+      한 달 뒤에 미수금이 안 맞아서야 발견하는 경우가 흔해요.
+    </div>
+    <div class="tip-insight">
+      💡 <b>해결법.</b> 웹 폼은 입력 시점에 검증이 가능해요.
+      "최소값/최대값/형식" 세 가지만 잡아도 실수가 90% 줄어듭니다.
+    </div>
+  </div>
+  <div class="signature">CODEFIT<span class="dot">.</span></div>
+</div>
+
+<!-- ============ SLIDE 3: TIP 2 ============ -->
+<div class="label">03 / 06 — TIP 2</div>
+<div class="card tip-slide s3">
+  <div class="pg">03 / 06</div>
+  <div>
+    <div class="tip-num">02</div>
+    <div class="tip-title">
+      정산 한 번에<br>
+      반나절이 날아가요
+    </div>
+    <div class="tip-desc">
+      월말 정산 때 시트 수십 개를 오가며 수식 검증, 거래처별 합계 맞추기...
+      이 시간이면 영업을 더 할 수 있죠.
+    </div>
+    <div class="tip-insight">
+      💡 <b>해결법.</b> SQL 한 줄로 끝낼 수 있는 일을 엑셀로 한 시간 한다면,
+      그건 도구를 잘못 고른 거예요. 반복 작업은 자동화 후보입니다.
+    </div>
+  </div>
+  <div class="signature">CODEFIT<span class="dot">.</span></div>
+</div>
+
+<!-- ============ SLIDE 4: TIP 3 ============ -->
+<div class="label">04 / 06 — TIP 3</div>
+<div class="card tip-slide s4">
+  <div class="pg">04 / 06</div>
+  <div>
+    <div class="tip-num">03</div>
+    <div class="tip-title">
+      현장에선<br>
+      열어보지도 못해요
+    </div>
+    <div class="tip-desc">
+      거래처가 "지난번 단가가 얼마였죠?" 물으면 사무실로 돌아가야
+      답할 수 있어요. 그 사이 거래를 놓치는 일도 생기죠.
+    </div>
+    <div class="tip-insight">
+      💡 <b>해결법.</b> 데이터를 웹에 올리면 어디서든 조회 가능.
+      반응형만 잘 만들어도 스마트폰이 즉석 조회 단말기가 됩니다.
+    </div>
+  </div>
+  <div class="signature">CODEFIT<span class="dot">.</span></div>
+</div>
+
+<!-- ============ SLIDE 5: SUMMARY ============ -->
+<div class="label">05 / 06 — SUMMARY</div>
+<div class="card s5">
+  <div class="pg">05 / 06</div>
+  <div>
+    <div class="small">SUMMARY</div>
+    <div class="title">정리하면</div>
+    <div class="summary-list">
+      <div class="sum-item">
+        <div class="sum-num">01</div>
+        <div class="sum-text">입력 실수 → <span class="hl">검증 자동화</span></div>
+      </div>
+      <div class="sum-item">
+        <div class="sum-num">02</div>
+        <div class="sum-text">반복 정산 → <span class="hl">쿼리 한 줄</span></div>
+      </div>
+      <div class="sum-item">
+        <div class="sum-num">03</div>
+        <div class="sum-text">현장 조회 → <span class="hl">반응형 웹</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ SLIDE 6: CLOSING ============ -->
+<div class="label">06 / 06 — CLOSING</div>
+<div class="card s6">
+  <div class="pg">06 / 06</div>
+  <div class="ico">💡</div>
+  <div class="closing">
+    <span class="yellow">작은 자동화</span>가<br>
+    하루를 바꿔요.
+  </div>
+  <div class="sub">
+    이 글이 누군가의 업무 자동화 시작점에<br>
+    작은 영감이 됐길 바랍니다.
+  </div>
+  <div class="comment-cta">
+    <div class="c-ico">💬</div>
+    <div class="ct-title">실제 시스템 화면이 궁금하다면?</div>
+    <div class="ct-desc">댓글 남겨주시면 만든 결과물 보여드릴게요.</div>
+  </div>
+  <div class="handle">@codefit</div>
+</div>
+
+</body>
+</html>

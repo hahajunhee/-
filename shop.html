@@ -1,0 +1,1217 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="CODEFIT SHOP — 사업자용 시스템부터 개인용 사이트까지, 맞춤 웹 개발 상품을 한곳에서.">
+<title>CODEFIT SHOP — 맞춤 웹 개발 상품관</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
+<style>
+  :root {
+    --cream: #FFF8E7;
+    --yellow: #FFD93D;
+    --black: #1a1a1a;
+    --red: #C8102E;
+    --blue: #2563eb;
+    --gray-50: #fafafa;
+    --gray-100: #f5f5f5;
+    --gray-200: #e5e5e5;
+    --gray-300: #d4d4d4;
+    --gray-500: #737373;
+    --gray-700: #404040;
+    --kakao: #FEE500;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-font-smoothing: antialiased; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif;
+    color: var(--black);
+    background: white;
+    letter-spacing: -0.02em;
+    line-height: 1.5;
+    padding-bottom: 80px;
+  }
+  .container { max-width: 1280px; margin: 0 auto; padding: 0 24px; }
+
+  /* ============ NAV ============ */
+  nav {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: rgba(255,255,255,0.95);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--gray-200);
+  }
+  nav .nav-inner {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+  }
+  nav .brand {
+    font-size: 22px;
+    font-weight: 900;
+    letter-spacing: -0.04em;
+    color: var(--black);
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  nav .brand .dot { color: var(--red); }
+  nav .brand .shop-tag {
+    background: var(--black);
+    color: var(--yellow);
+    font-size: 11px;
+    font-weight: 800;
+    padding: 3px 8px;
+    border-radius: 4px;
+    letter-spacing: 1.5px;
+    margin-left: 6px;
+  }
+  nav .search-bar {
+    flex: 1;
+    max-width: 480px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--gray-100);
+    border: 2px solid transparent;
+    border-radius: 100px;
+    padding: 10px 18px;
+    transition: all 0.2s;
+  }
+  nav .search-bar:focus-within { background: white; border-color: var(--black); }
+  nav .search-bar input {
+    border: none;
+    background: transparent;
+    flex: 1;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    outline: none;
+    color: var(--black);
+  }
+  nav .search-bar .ico { font-size: 16px; opacity: 0.5; }
+  nav .nav-actions { display: flex; align-items: center; gap: 14px; }
+  nav .nav-actions a {
+    color: var(--gray-700);
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 700;
+    transition: color 0.2s;
+  }
+  nav .nav-actions a:hover { color: var(--black); }
+  nav .nav-cta {
+    background: var(--yellow);
+    color: var(--black) !important;
+    padding: 10px 18px;
+    border-radius: 100px;
+    font-weight: 800 !important;
+    border: 2px solid var(--black);
+    box-shadow: 3px 3px 0 var(--black);
+    transition: all 0.15s;
+  }
+  nav .nav-cta:hover { transform: translate(1px, 1px); box-shadow: 2px 2px 0 var(--black); }
+  @media (max-width: 900px) {
+    nav .search-bar, nav .nav-actions a:not(.nav-cta) { display: none; }
+  }
+
+  /* ============ HERO ============ */
+  .hero {
+    background: linear-gradient(135deg, var(--cream) 0%, #fff5d3 100%);
+    padding: 70px 0 90px;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -120px; right: -120px;
+    width: 400px; height: 400px;
+    background: var(--yellow);
+    border-radius: 50%;
+    opacity: 0.4;
+    z-index: 0;
+  }
+  .hero-content { position: relative; z-index: 1; max-width: 920px; }
+  .hero-badge {
+    display: inline-block;
+    background: var(--black);
+    color: var(--yellow);
+    padding: 8px 18px;
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    border-radius: 100px;
+    margin-bottom: 24px;
+  }
+  .hero h1 {
+    font-size: 64px;
+    font-weight: 900;
+    line-height: 1.1;
+    letter-spacing: -0.04em;
+    margin-bottom: 22px;
+  }
+  .hero h1 .hl {
+    background: var(--yellow);
+    padding: 0 8px;
+    box-shadow: 0 0 0 4px var(--yellow);
+  }
+  .hero p.lead {
+    font-size: 20px;
+    color: var(--gray-700);
+    line-height: 1.6;
+    margin-bottom: 36px;
+    max-width: 680px;
+    font-weight: 500;
+  }
+  .hero-search {
+    background: white;
+    border: 2px solid var(--black);
+    border-radius: 100px;
+    padding: 8px 8px 8px 24px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    max-width: 540px;
+    box-shadow: 4px 4px 0 var(--black);
+  }
+  .hero-search .ico { font-size: 18px; }
+  .hero-search input {
+    border: none;
+    background: transparent;
+    flex: 1;
+    font-family: inherit;
+    font-size: 16px;
+    font-weight: 600;
+    outline: none;
+    padding: 8px 0;
+    color: var(--black);
+  }
+  .hero-search button {
+    background: var(--black);
+    color: var(--yellow);
+    border: none;
+    padding: 12px 22px;
+    font-size: 14px;
+    font-weight: 800;
+    border-radius: 100px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  @media (max-width: 720px) {
+    .hero { padding: 50px 0 60px; }
+    .hero h1 { font-size: 40px; }
+    .hero p.lead { font-size: 17px; }
+  }
+
+  /* ============ FILTER BAR ============ */
+  .filter-bar {
+    background: white;
+    border-bottom: 1px solid var(--gray-200);
+    padding: 16px 0;
+    position: sticky;
+    top: 64px;
+    z-index: 40;
+    backdrop-filter: blur(10px);
+  }
+  .filter-row { display: flex; gap: 8px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .filter-row::-webkit-scrollbar { display: none; }
+  .filter-btn {
+    background: var(--gray-100);
+    border: 2px solid transparent;
+    padding: 10px 22px;
+    font-size: 14px;
+    font-weight: 700;
+    border-radius: 100px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s;
+    white-space: nowrap;
+    color: var(--gray-700);
+  }
+  .filter-btn .count {
+    color: var(--gray-500);
+    font-size: 12px;
+    margin-left: 4px;
+    font-weight: 600;
+  }
+  .filter-btn.active {
+    background: var(--black);
+    color: white;
+    border-color: var(--black);
+  }
+  .filter-btn.active .count { color: var(--yellow); }
+  .filter-btn:not(.active):hover { border-color: var(--black); color: var(--black); }
+
+  /* ============ SECTION ============ */
+  section { padding: 60px 0; }
+  .section-head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    margin-bottom: 36px;
+    gap: 24px;
+  }
+  .section-head h2 {
+    font-size: 36px;
+    font-weight: 900;
+    letter-spacing: -0.04em;
+    line-height: 1.2;
+  }
+  .section-head h2 .red { color: var(--red); }
+  .section-head .sub {
+    font-size: 16px;
+    color: var(--gray-500);
+    font-weight: 600;
+    margin-top: 8px;
+  }
+
+  /* ============ CATALOG GRID ============ */
+  .catalog-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+  }
+  @media (max-width: 900px) { .catalog-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 600px) { .catalog-grid { grid-template-columns: 1fr; } }
+
+  .product-card {
+    background: white;
+    border: 1px solid var(--gray-200);
+    border-radius: 16px;
+    overflow: hidden;
+    transition: all 0.2s;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+  .product-card:hover {
+    transform: translateY(-4px);
+    border-color: var(--black);
+    box-shadow: 0 12px 30px rgba(0,0,0,0.08);
+  }
+  .product-card.hidden { display: none; }
+
+  .pc-thumb {
+    aspect-ratio: 4/3;
+    position: relative;
+    overflow: hidden;
+    background: var(--gray-100);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .pc-thumb .ico {
+    font-size: 80px;
+    filter: drop-shadow(0 4px 12px rgba(0,0,0,0.15));
+  }
+  .pc-thumb.bg-img { background-size: cover; background-position: center; }
+  .pc-thumb.bg-img::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(0,0,0,0) 50%, rgba(0,0,0,0.3) 100%);
+  }
+  .pc-thumb.g-stock { background: linear-gradient(135deg, #134e4a, #14b8a6); }
+  .pc-thumb.g-dash { background: linear-gradient(135deg, #581c87, #a855f7); }
+  .pc-thumb.g-order { background: linear-gradient(135deg, #1e3a8a, #3b82f6); }
+  .pc-thumb.g-crm { background: linear-gradient(135deg, #7c2d12, #f97316); }
+  .pc-thumb.g-acc { background: linear-gradient(135deg, #14532d, #22c55e); }
+  .pc-thumb.g-photo { background: linear-gradient(135deg, #78350f, #f59e0b); }
+  .pc-thumb.g-wedding { background: linear-gradient(135deg, #be185d, #f9a8d4); }
+  .pc-thumb.g-album { background: linear-gradient(135deg, #312e81, #6366f1); }
+  .pc-thumb.g-diary { background: linear-gradient(135deg, #92400e, #d97706); }
+
+  .pc-badges {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    display: flex;
+    gap: 6px;
+    z-index: 2;
+  }
+  .pc-badge {
+    background: var(--black);
+    color: white;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    border-radius: 4px;
+  }
+  .pc-badge.b2b { background: var(--blue); }
+  .pc-badge.b2c { background: var(--red); }
+
+  .pc-body {
+    padding: 20px 22px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+  .pc-cat {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--gray-500);
+    letter-spacing: 1.5px;
+    margin-bottom: 6px;
+  }
+  .pc-title {
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    margin-bottom: 6px;
+    color: var(--black);
+  }
+  .pc-desc {
+    font-size: 14px;
+    color: var(--gray-700);
+    line-height: 1.5;
+    font-weight: 500;
+    margin-bottom: 14px;
+    flex: 1;
+  }
+  .pc-feat {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-bottom: 16px;
+  }
+  .pc-feat .pf {
+    font-size: 11px;
+    background: var(--gray-100);
+    color: var(--gray-700);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+  }
+  .pc-foot {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    padding-top: 14px;
+    border-top: 1px solid var(--gray-200);
+  }
+  .pc-price .ptag {
+    font-size: 11px;
+    color: var(--gray-500);
+    font-weight: 700;
+    letter-spacing: 1px;
+    margin-bottom: 2px;
+  }
+  .pc-price .amount {
+    font-size: 22px;
+    font-weight: 900;
+    color: var(--black);
+    letter-spacing: -0.03em;
+  }
+  .pc-price .unit { font-size: 13px; color: var(--gray-700); font-weight: 700; }
+  .pc-price .quote {
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--red);
+  }
+  .pc-cta {
+    background: var(--black);
+    color: var(--yellow);
+    border: none;
+    padding: 9px 16px;
+    font-size: 13px;
+    font-weight: 800;
+    border-radius: 100px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .pc-cta:hover { background: var(--red); color: white; }
+
+  /* ============ EMPTY / NOT-OPENED STATE ============ */
+  .empty-search {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 60px 20px;
+    background: var(--cream);
+    border-radius: 16px;
+    border: 2px dashed var(--black);
+  }
+  .empty-search .ico { font-size: 48px; margin-bottom: 16px; }
+  .empty-search h3 {
+    font-size: 22px;
+    font-weight: 900;
+    letter-spacing: -0.03em;
+    margin-bottom: 10px;
+    color: var(--black);
+  }
+  .empty-search h3 .keyword {
+    color: var(--red);
+  }
+  .empty-search p {
+    font-size: 15px;
+    color: var(--gray-700);
+    margin-bottom: 24px;
+    line-height: 1.6;
+  }
+  .empty-search .ec-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--black);
+    color: var(--yellow);
+    padding: 14px 28px;
+    border-radius: 100px;
+    text-decoration: none;
+    font-weight: 800;
+    font-size: 15px;
+    border: 2px solid var(--black);
+    box-shadow: 4px 4px 0 var(--red);
+    transition: all 0.15s;
+  }
+  .empty-search .ec-btn:hover {
+    transform: translate(2px, 2px);
+    box-shadow: 2px 2px 0 var(--red);
+  }
+
+  /* ============ HOW IT WORKS ============ */
+  .how { background: var(--cream); }
+  .how-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+  }
+  @media (max-width: 900px) { .how-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 480px) { .how-grid { grid-template-columns: 1fr; } }
+  .how-step {
+    background: white;
+    border: 2px solid var(--black);
+    border-radius: 16px;
+    padding: 28px 24px;
+    position: relative;
+    box-shadow: 4px 4px 0 var(--black);
+  }
+  .how-step .num {
+    position: absolute;
+    top: -16px;
+    left: 20px;
+    background: var(--yellow);
+    border: 2px solid var(--black);
+    color: var(--black);
+    font-size: 16px;
+    font-weight: 900;
+    padding: 4px 14px;
+    letter-spacing: 1px;
+    border-radius: 100px;
+  }
+  .how-step h3 {
+    font-size: 20px;
+    font-weight: 900;
+    letter-spacing: -0.03em;
+    margin: 12px 0 10px;
+  }
+  .how-step p {
+    font-size: 14px;
+    color: var(--gray-700);
+    line-height: 1.6;
+    font-weight: 500;
+  }
+
+  /* ============ FAQ ============ */
+  .faq-list { max-width: 820px; margin: 0 auto; }
+  .faq-item { border-top: 2px solid var(--black); }
+  .faq-item:last-child { border-bottom: 2px solid var(--black); }
+  .faq-q {
+    width: 100%;
+    background: none;
+    border: none;
+    padding: 22px 0;
+    text-align: left;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--black);
+    font-family: inherit;
+    letter-spacing: -0.02em;
+  }
+  .faq-q .plus {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    background: var(--black);
+    color: var(--yellow);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: 900;
+    transition: transform 0.2s;
+  }
+  .faq-item.open .plus { transform: rotate(45deg); background: var(--red); color: white; }
+  .faq-a {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s, padding 0.3s;
+    color: var(--gray-700);
+    font-size: 15px;
+    line-height: 1.7;
+    font-weight: 500;
+  }
+  .faq-item.open .faq-a {
+    max-height: 400px;
+    padding: 0 0 22px;
+  }
+
+  /* ============ FOOTER ============ */
+  footer {
+    background: var(--black);
+    color: rgba(255,255,255,0.7);
+    padding: 50px 0 30px;
+  }
+  .foot-grid {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr 1fr 1fr;
+    gap: 40px;
+    margin-bottom: 36px;
+  }
+  @media (max-width: 720px) { .foot-grid { grid-template-columns: 1fr 1fr; gap: 28px; } }
+  footer h4 {
+    color: white;
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 1.5px;
+    margin-bottom: 14px;
+  }
+  footer ul { list-style: none; }
+  footer ul li { padding: 4px 0; font-size: 14px; }
+  footer ul li a {
+    color: rgba(255,255,255,0.7);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+  footer ul li a:hover { color: var(--yellow); }
+  footer .brand-block .brand {
+    font-size: 22px;
+    font-weight: 900;
+    color: white;
+    letter-spacing: -0.04em;
+    margin-bottom: 8px;
+  }
+  footer .brand-block .brand .dot { color: var(--yellow); }
+  footer .brand-block p { font-size: 14px; line-height: 1.6; margin-bottom: 12px; }
+  footer .biz { font-size: 12px; color: rgba(255,255,255,0.4); line-height: 1.7; }
+  .foot-bottom {
+    border-top: 1px solid rgba(255,255,255,0.15);
+    padding-top: 22px;
+    text-align: center;
+    font-size: 12px;
+    color: rgba(255,255,255,0.4);
+  }
+
+  /* ============ STICKY BOTTOM CTA ============ */
+  .sticky-cta {
+    display: none;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    z-index: 100;
+    background: white;
+    border-top: 1px solid var(--gray-200);
+    padding: 12px 16px;
+    gap: 10px;
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.08);
+  }
+  .sticky-cta a {
+    flex: 1;
+    text-align: center;
+    text-decoration: none;
+    padding: 14px;
+    font-size: 14px;
+    font-weight: 800;
+    border-radius: 100px;
+  }
+  .sticky-cta a.kakao {
+    background: var(--kakao);
+    color: #3C1E1E;
+    border: 2px solid var(--black);
+  }
+  .sticky-cta a.email {
+    background: var(--black);
+    color: var(--yellow);
+  }
+  @media (max-width: 720px) {
+    .sticky-cta { display: flex; }
+    body { padding-bottom: 90px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ NAV ============ -->
+<nav>
+  <div class="nav-inner">
+    <a href="#" class="brand">
+      CODEFIT<span class="dot">.</span>
+      <span class="shop-tag">SHOP</span>
+    </a>
+    <div class="search-bar">
+      <span class="ico">🔍</span>
+      <input type="search" id="searchInput" placeholder="찾는 서비스가 있으세요? (예: 거래관리, 커플)" oninput="filterSearch(this.value)">
+    </div>
+    <div class="nav-actions">
+      <a href="#how">진행 방식</a>
+      <a href="#faq">FAQ</a>
+      <a href="https://open.kakao.com/o/sAVb6yti" target="_blank" rel="noopener" class="nav-cta">💬 1:1 문의</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ============ HERO ============ -->
+<section class="hero">
+  <div class="container">
+    <div class="hero-content">
+      <span class="hero-badge">CODEFIT SHOP</span>
+      <h1>
+        당신만의 웹사이트,<br>
+        <span class="hl">골라서</span> 만나보세요.
+      </h1>
+      <p class="lead">
+        사업자용 시스템부터 개인용 사이트까지, 맞춤 웹 개발 상품을 한곳에.<br>
+        찾는 게 없으면 1:1 문의로 새로 만들어드릴 수도 있어요.
+      </p>
+      <div class="hero-search">
+        <span class="ico">🔍</span>
+        <input type="search" id="heroSearch" placeholder="어떤 사이트가 필요하세요? (예: 거래관리, 커플 편지)" oninput="filterSearch(this.value); document.getElementById('searchInput').value = this.value;">
+        <button onclick="document.getElementById('catalog').scrollIntoView({behavior:'smooth'})">검색</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FILTER BAR ============ -->
+<div class="filter-bar">
+  <div class="container">
+    <div class="filter-row">
+      <button class="filter-btn active" onclick="filterCategory('all', this)">전체 <span class="count">12</span></button>
+      <button class="filter-btn" onclick="filterCategory('b2b', this)">사업자용 <span class="count">6</span></button>
+      <button class="filter-btn" onclick="filterCategory('b2c', this)">개인용 <span class="count">6</span></button>
+      <button class="filter-btn" onclick="filterCategory('main', this)">주요 상품 <span class="count">3</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ CATALOG ============ -->
+<section style="padding-top:40px">
+  <div class="container">
+    <div class="section-head">
+      <div>
+        <h2>전체 상품</h2>
+        <div class="sub" id="resultCount">12개 상품</div>
+      </div>
+    </div>
+    <div class="catalog-grid" id="catalog">
+
+      <!-- ===== B2B ===== -->
+      <article class="product-card" id="p-trade" data-category="b2b main" data-keyword="거래관리 사업자 매출 미수금 거래처">
+        <div class="pc-thumb bg-img" style="background-image:url('https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&q=80')">
+          <div class="pc-badges"><span class="pc-badge b2b">B2B</span></div>
+        </div>
+        <div class="pc-body">
+          <div class="pc-cat">사업자 · 거래관리</div>
+          <h3 class="pc-title">거래관리 시스템</h3>
+          <p class="pc-desc">거래처·매출·미수금을 한눈에. 거래명세서 자동 발행, 모바일 조회.</p>
+          <div class="pc-feat">
+            <span class="pf">매출 대시보드</span>
+            <span class="pf">자동 명세서</span>
+            <span class="pf">미수금 추적</span>
+          </div>
+          <div class="pc-foot">
+            <div class="pc-price">
+              <div class="ptag">월 구독</div>
+              <span class="amount">19,000<span class="unit">원~</span></span>
+            </div>
+            <a href="https://open.kakao.com/o/sAVb6yti" target="_blank" class="pc-cta">상담 →</a>
+          </div>
+        </div>
+      </article>
+
+      <article class="product-card" data-category="b2b" data-keyword="재고관리 사업자 입출고 재고">
+        <div class="pc-thumb g-stock">
+          <span class="ico">📦</span>
+          <div class="pc-badges"><span class="pc-badge b2b">B2B</span></div>
+        </div>
+        <div class="pc-body">
+          <div class="pc-cat">사업자 · 재고관리</div>
+          <h3 class="pc-title">재고관리 시스템</h3>
+          <p class="pc-desc">입출고 추적, 재고 임계치 알림, 카톡 발주 연동.</p>
+          <div class="pc-feat">
+            <span class="pf">실시간 재고</span>
+            <span class="pf">자동 알림</span>
+            <span class="pf">바코드 지원</span>
+          </div>
+          <div class="pc-foot">
+            <div class="pc-price">
+              <div class="ptag">월 구독</div>
+              <span class="amount">25,000<span class="unit">원~</span></span>
+            </div>
+            <a href="https://open.kakao.com/o/sAVb6yti" target="_blank" class="pc-cta">상담 →</a>
+          </div>
+        </div>
+      </article>
+
+      <article class="product-card" data-category="b2b" data-keyword="대시보드 KPI 분석 통계">
+        <div class="pc-thumb g-dash">
+          <span class="ico">📊</span>
+          <div class="pc-badges"><span class="pc-badge b2b">B2B</span></div>
+        </div>
+        <div class="pc-body">
+          <div class="pc-cat">사업자 · 분석</div>
+          <h3 class="pc-title">비즈니스 대시보드</h3>
+          <p class="pc-desc">매출·고객·KPI 시각화. 데이터를 한눈에 확인하실 수 있습니다.</p>
+          <div class="pc-feat">
+            <span class="pf">실시간 차트</span>
+            <span class="pf">맞춤 KPI</span>
+            <span class="pf">엑셀 연동</span>
+          </div>
+          <div class="pc-foot">
+            <div class="pc-price">
+              <div class="ptag">맞춤 견적</div>
+              <span class="quote">상담 후 안내</span>
+            </div>
+            <a href="https://open.kakao.com/o/sAVb6yti" target="_blank" class="pc-cta">상담 →</a>
+          </div>
+        </div>
+      </article>
+
+      <article class="product-card" data-category="b2b" data-keyword="발주 포털 거래처 주문">
+        <div class="pc-thumb g-order">
+          <span class="ico">🛒</span>
+          <div class="pc-badges"><span class="pc-badge b2b">B2B</span></div>
+        </div>
+        <div class="pc-body">
+          <div class="pc-cat">사업자 · 발주 포털</div>
+          <h3 class="pc-title">발주 / 주문 포털</h3>
+          <p class="pc-desc">거래처가 직접 접속해 발주하는 셀프 페이지. 주문 누락을 줄여줍니다.</p>
+          <div class="pc-feat">
+            <span class="pf">셀프 발주</span>
+            <span class="pf">자동 기록</span>
+            <span class="pf">권한 관리</span>
+          </div>
+          <div class="pc-foot">
+            <div class="pc-price">
+              <div class="ptag">월 구독</div>
+              <span class="amount">35,000<span class="unit">원~</span></span>
+            </div>
+            <a href="https://open.kakao.com/o/sAVb6yti" target="_blank" class="pc-cta">상담 →</a>
+          </div>
+        </div>
+      </article>
+
+      <article class="product-card" data-category="b2b" data-keyword="CRM 고객관리 영업">
+        <div class="pc-thumb g-crm">
+          <span class="ico">👥</span>
+          <div class="pc-badges"><span class="pc-badge b2b">B2B</span></div>
+        </div>
+        <div class="pc-body">
+          <div class="pc-cat">사업자 · CRM</div>
+          <h3 class="pc-title">고객관리 (CRM)</h3>
+          <p class="pc-desc">고객 정보·상담 이력·재구매 주기를 한 화면에서 관리.</p>
+          <div class="pc-feat">
+            <span class="pf">고객 DB</span>
+            <span class="pf">상담 이력</span>
+            <span class="pf">알림톡 연동</span>
+          </div>
+          <div class="pc-foot">
+            <div class="pc-price">
+              <div class="ptag">월 구독</div>
+              <span class="amount">29,000<span class="unit">원~</span></span>
+            </div>
+            <a href="https://open.kakao.com/o/sAVb6yti" target="_blank" class="pc-cta">상담 →</a>
+          </div>
+        </div>
+      </article>
+
+      <article class="product-card" data-category="b2b" data-keyword="회계 자동화 부가세 매입매출">
+        <div class="pc-thumb g-acc">
+          <span class="ico">🧾</span>
+          <div class="pc-badges"><span class="pc-badge b2b">B2B</span></div>
+        </div>
+        <div class="pc-body">
+          <div class="pc-cat">사업자 · 회계</div>
+          <h3 class="pc-title">회계 / 부가세 자동화</h3>
+          <p class="pc-desc">매입·매출·부가세 자동 계산. 세무사 보고용 엑셀 자동 생성.</p>
+          <div class="pc-feat">
+            <span class="pf">부가세 자동</span>
+            <span class="pf">매입매출</span>
+            <span class="pf">세무 리포트</span>
+          </div>
+          <div class="pc-foot">
+            <div class="pc-price">
+              <div class="ptag">맞춤 견적</div>
+              <span class="quote">상담 후 안내</span>
+            </div>
+            <a href="https://open.kakao.com/o/sAVb6yti" target="_blank" class="pc-cta">상담 →</a>
+          </div>
+        </div>
+      </article>
+
+      <!-- ===== B2C ===== -->
+      <article class="product-card" id="p-couple" data-category="b2c main" data-keyword="커플 편지 연인 기념일">
+        <div class="pc-thumb bg-img" style="background-image:url('https://images.unsplash.com/photo-1518621736915-f3b1c41bfd00?w=800&q=80')">
+          <div class="pc-badges"><span class="pc-badge b2c">B2C</span></div>
+        </div>
+        <div class="pc-body">
+          <div class="pc-cat">개인 · 커플</div>
+          <h3 class="pc-title">커플 편지 사이트</h3>
+          <p class="pc-desc">둘만의 도메인에 편지를 쓰고 사진을 첨부. 기념일 D-day 기능 포함.</p>
+          <div class="pc-feat">
+            <span class="pf">편지함</span>
+            <span class="pf">추억 갤러리</span>
+            <span class="pf">기념일 D-day</span>
+          </div>
+          <div class="pc-foot">
+            <div class="pc-price">
+              <div class="ptag">선입금</div>
+              <span class="amount">19,000<span class="unit">원</span></span>
+            </div>
+            <a href="https://open.kakao.com/o/sAVb6yti" target="_blank" class="pc-cta">상담 →</a>
+          </div>
+        </div>
+      </article>
+
+      <article class="product-card" data-category="b2c" data-keyword="추억 사진 아카이브 갤러리">
+        <div class="pc-thumb g-photo">
+          <span class="ico">📸</span>
+          <div class="pc-badges"><span class="pc-badge b2c">B2C</span></div>
+        </div>
+        <div class="pc-body">
+          <div class="pc-cat">개인 · 아카이브</div>
+          <h3 class="pc-title">추억 / 사진 아카이브</h3>
+          <p class="pc-desc">사진과 기록을 타임라인으로 정리. 가족·친구와 공유 가능합니다.</p>
+          <div class="pc-feat">
+            <span class="pf">타임라인</span>
+            <span class="pf">사진 업로드</span>
+            <span class="pf">초대 공유</span>
+          </div>
+          <div class="pc-foot">
+            <div class="pc-price">
+              <div class="ptag">선입금</div>
+              <span class="amount">39,000<span class="unit">원</span></span>
+            </div>
+            <a href="https://open.kakao.com/o/sAVb6yti" target="_blank" class="pc-cta">상담 →</a>
+          </div>
+        </div>
+      </article>
+
+      <article class="product-card" id="p-portfolio" data-category="b2c main" data-keyword="포트폴리오 디자이너 개발자 작업물">
+        <div class="pc-thumb bg-img" style="background-image:url('https://images.unsplash.com/photo-1499750310107-5fef28a66643?w=800&q=80')">
+          <div class="pc-badges"><span class="pc-badge b2c">B2C</span></div>
+        </div>
+        <div class="pc-body">
+          <div class="pc-cat">개인 · 포트폴리오</div>
+          <h3 class="pc-title">포트폴리오 사이트</h3>
+          <p class="pc-desc">디자이너·개발자·작가용 작업물 모음 사이트. 반응형 디자인 포함.</p>
+          <div class="pc-feat">
+            <span class="pf">맞춤 디자인</span>
+            <span class="pf">반응형</span>
+            <span class="pf">SEO 기본</span>
+          </div>
+          <div class="pc-foot">
+            <div class="pc-price">
+              <div class="ptag">선입금</div>
+              <span class="amount">49,000<span class="unit">원</span></span>
+            </div>
+            <a href="https://open.kakao.com/o/sAVb6yti" target="_blank" class="pc-cta">상담 →</a>
+          </div>
+        </div>
+      </article>
+
+      <article class="product-card" data-category="b2c" data-keyword="청첩장 결혼 모바일">
+        <div class="pc-thumb g-wedding">
+          <span class="ico">💒</span>
+          <div class="pc-badges"><span class="pc-badge b2c">B2C</span></div>
+        </div>
+        <div class="pc-body">
+          <div class="pc-cat">개인 · 청첩장</div>
+          <h3 class="pc-title">모바일 청첩장</h3>
+          <p class="pc-desc">맞춤 디자인 청첩장. 참석 의사·축의금 계좌·갤러리 포함.</p>
+          <div class="pc-feat">
+            <span class="pf">맞춤 디자인</span>
+            <span class="pf">참석 체크</span>
+            <span class="pf">갤러리</span>
+          </div>
+          <div class="pc-foot">
+            <div class="pc-price">
+              <div class="ptag">선입금</div>
+              <span class="amount">39,000<span class="unit">원</span></span>
+            </div>
+            <a href="https://open.kakao.com/o/sAVb6yti" target="_blank" class="pc-cta">상담 →</a>
+          </div>
+        </div>
+      </article>
+
+      <article class="product-card" data-category="b2c" data-keyword="가족 앨범 아이 성장">
+        <div class="pc-thumb g-album">
+          <span class="ico">👨‍👩‍👧</span>
+          <div class="pc-badges"><span class="pc-badge b2c">B2C</span></div>
+        </div>
+        <div class="pc-body">
+          <div class="pc-cat">개인 · 가족</div>
+          <h3 class="pc-title">가족 앨범 사이트</h3>
+          <p class="pc-desc">아이 성장 기록·가족 사진을 정리. 시니어도 보기 쉬운 디자인.</p>
+          <div class="pc-feat">
+            <span class="pf">월별 정리</span>
+            <span class="pf">간편 업로드</span>
+            <span class="pf">시니어 친화</span>
+          </div>
+          <div class="pc-foot">
+            <div class="pc-price">
+              <div class="ptag">선입금</div>
+              <span class="amount">49,000<span class="unit">원</span></span>
+            </div>
+            <a href="https://open.kakao.com/o/sAVb6yti" target="_blank" class="pc-cta">상담 →</a>
+          </div>
+        </div>
+      </article>
+
+      <article class="product-card" data-category="b2c" data-keyword="일기 디지털 기록">
+        <div class="pc-thumb g-diary">
+          <span class="ico">📔</span>
+          <div class="pc-badges"><span class="pc-badge b2c">B2C</span></div>
+        </div>
+        <div class="pc-body">
+          <div class="pc-cat">개인 · 일기</div>
+          <h3 class="pc-title">디지털 일기장</h3>
+          <p class="pc-desc">하루 한 줄, 사진 한 장. 비공개 일기장 + 연도별 회고 기능.</p>
+          <div class="pc-feat">
+            <span class="pf">비공개</span>
+            <span class="pf">감정 기록</span>
+            <span class="pf">연도별 회고</span>
+          </div>
+          <div class="pc-foot">
+            <div class="pc-price">
+              <div class="ptag">선입금</div>
+              <span class="amount">29,000<span class="unit">원</span></span>
+            </div>
+            <a href="https://open.kakao.com/o/sAVb6yti" target="_blank" class="pc-cta">상담 →</a>
+          </div>
+        </div>
+      </article>
+
+      <!-- ===== EMPTY / NOT-OPENED STATE ===== -->
+      <div class="empty-search" id="emptyState" style="display:none">
+        <div class="ico">🔍</div>
+        <h3>"<span class="keyword" id="emptyKeyword"></span>" 서비스는 아직 정식 오픈하지 않았어요</h3>
+        <p>1:1 문의로 제작 가능한지 상담해보시겠어요?<br>여기 없는 상품도 맞춤 제작 가능합니다.</p>
+        <a href="https://open.kakao.com/o/sAVb6yti" target="_blank" rel="noopener" class="ec-btn">
+          💬 1:1 문의로 상담하기
+        </a>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ============ HOW IT WORKS ============ -->
+<section class="how" id="how">
+  <div class="container">
+    <div class="section-head">
+      <div>
+        <h2>어떻게 <span class="red">진행되나요?</span></h2>
+        <div class="sub">상담부터 납품까지 4단계</div>
+      </div>
+    </div>
+    <div class="how-grid">
+      <div class="how-step">
+        <div class="num">01</div>
+        <h3>상담 신청</h3>
+        <p>오픈채팅으로 어떤 상품에 관심 있는지 편하게 말씀해 주세요. 상담은 무료입니다.</p>
+      </div>
+      <div class="how-step">
+        <div class="num">02</div>
+        <h3>요구사항 정리</h3>
+        <p>필요한 기능과 일정을 함께 정리합니다. 정확한 견적과 일정도 이때 확정됩니다.</p>
+      </div>
+      <div class="how-step">
+        <div class="num">03</div>
+        <h3>선입금 후 제작</h3>
+        <p>일시불 상품은 전액 선입금, 월 구독은 첫 달 결제 후 본격 제작에 들어갑니다.</p>
+      </div>
+      <div class="how-step">
+        <div class="num">04</div>
+        <h3>납품</h3>
+        <p>완성 후 전달드리고, 사용 중 발생하는 오류는 협의된 범위 내에서 대응합니다.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FAQ ============ -->
+<section id="faq">
+  <div class="container">
+    <div class="section-head" style="text-align:center;display:block">
+      <h2 style="text-align:center">자주 묻는 질문</h2>
+      <div class="sub" style="text-align:center">결제 / 환불 / 일정 등</div>
+    </div>
+    <div class="faq-list">
+      <div class="faq-item">
+        <button class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+          <span>월 구독과 일시불은 무엇이 다른가요?</span><span class="plus">+</span>
+        </button>
+        <div class="faq-a">사업용 시스템(B2B)은 데이터·서버 운영이 지속적으로 필요하기 때문에 <b>월 구독</b>으로 운영됩니다. 개인용 사이트(B2C)는 한 번 만들면 큰 변경이 적은 편이라 <b>일시불(선입금)</b> 방식입니다.</div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+          <span>결제는 어떻게 진행되나요?</span><span class="plus">+</span>
+        </button>
+        <div class="faq-a">상담을 통해 견적이 확정되면 계좌이체 또는 카카오페이로 결제하실 수 있습니다. <b>일시불 상품은 모두 전액 선입금</b>으로 진행되고, 입금 확인 후 제작이 시작됩니다. 월 구독은 매달 정기결제 방식입니다.</div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+          <span>환불 정책은 어떻게 되나요?</span><span class="plus">+</span>
+        </button>
+        <div class="faq-a">제작 시작 전이라면 환불 가능합니다. 제작이 시작된 후에는 진행 단계와 작업량에 따라 협의 후 부분 환불이 가능합니다. 월 구독은 언제든 해지 가능하며 위약금이 없습니다. 자세한 내용은 상담 시 안내드립니다.</div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+          <span>여기 없는 상품도 만들어 주시나요?</span><span class="plus">+</span>
+        </button>
+        <div class="faq-a">네, 위 12개 외에도 웹으로 가능한 다른 아이디어가 있다면 <b>1:1 문의로 상담</b> 가능합니다. 상담 후 제작 가능 여부와 견적을 안내드립니다.</div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+          <span>제작 기간은 얼마나 걸리나요?</span><span class="plus">+</span>
+        </button>
+        <div class="faq-a">상품과 요구 기능에 따라 다릅니다. 청첩장·일기장 같은 단순한 사이트는 약 1~2주, 거래관리·CRM 같은 시스템형은 더 길어질 수 있습니다. 정확한 일정은 상담 시 확정됩니다.</div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+          <span>완성 후 직접 수정할 수 있나요?</span><span class="plus">+</span>
+        </button>
+        <div class="faq-a">콘텐츠(텍스트, 사진 등) 수정은 <b>관리자 페이지</b>에서 직접 가능하도록 만들어드립니다. 디자인이나 기능 변경이 필요한 경우는 별도 협의 후 진행됩니다.</div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+          <span>도메인은 어떻게 하나요?</span><span class="plus">+</span>
+        </button>
+        <div class="faq-a">기본 도메인은 무료로 제공됩니다. 본인만의 도메인을 원하시면 가비아·카페24 등에서 직접 구매(연 1~2만원)하시고, 저희가 연결해드립니다.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FOOTER ============ -->
+<footer>
+  <div class="container">
+    <div class="foot-grid">
+      <div class="brand-block">
+        <div class="brand">CODEFIT<span class="dot">.</span></div>
+        <p>당신만의 웹사이트, 맞춤 제작.<br>사업용부터 개인용까지 한 곳에서.</p>
+        <div class="biz">
+          사업자등록번호: 716-39-011223<br>
+          대표: 류준희<br>
+          이메일: hahajunhee@gmail.com
+        </div>
+      </div>
+      <div>
+        <h4>SHOP</h4>
+        <ul>
+          <li><a href="#" onclick="filterCategory('all', null);return false">전체 상품</a></li>
+          <li><a href="#" onclick="filterCategory('b2b', null);return false">사업자용 상품</a></li>
+          <li><a href="#" onclick="filterCategory('b2c', null);return false">개인용 상품</a></li>
+          <li><a href="#" onclick="filterCategory('main', null);return false">주요 상품</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>SUPPORT</h4>
+        <ul>
+          <li><a href="#how">진행 방식</a></li>
+          <li><a href="#faq">자주 묻는 질문</a></li>
+          <li><a href="https://open.kakao.com/o/sAVb6yti" target="_blank">1:1 상담</a></li>
+          <li><a href="mailto:hahajunhee@gmail.com">이메일 문의</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>FOLLOW</h4>
+        <ul>
+          <li><a href="#" target="_blank">Instagram @codefit</a></li>
+          <li><a href="https://open.kakao.com/o/sAVb6yti" target="_blank">오픈채팅 1:1 문의</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-bottom">© 2026 CODEFIT. All rights reserved.</div>
+  </div>
+</footer>
+
+<!-- ============ STICKY BOTTOM CTA ============ -->
+<div class="sticky-cta">
+  <a href="mailto:hahajunhee@gmail.com" class="email">📨 이메일</a>
+  <a href="https://open.kakao.com/o/sAVb6yti" target="_blank" class="kakao">💬 1:1 문의</a>
+</div>
+
+<script>
+  let currentCategory = 'all';
+  let currentSearch = '';
+
+  function filterCategory(cat, btnEl) {
+    currentCategory = cat;
+    document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+    if (btnEl) btnEl.classList.add('active');
+    else {
+      const all = document.querySelectorAll('.filter-btn');
+      all.forEach(b => { if (b.getAttribute('onclick')?.includes(`'${cat}'`)) b.classList.add('active'); });
+    }
+    applyFilters();
+  }
+
+  function filterSearch(q) {
+    currentSearch = (q || '').trim().toLowerCase();
+    // 두 검색 입력창을 동기화
+    const top = document.getElementById('searchInput');
+    const hero = document.getElementById('heroSearch');
+    if (top && top.value !== q) top.value = q;
+    if (hero && hero.value !== q) hero.value = q;
+    applyFilters();
+  }
+
+  function applyFilters() {
+    let visible = 0;
+    document.querySelectorAll('.product-card').forEach(card => {
+      const cats = (card.dataset.category || '').split(' ');
+      const kw = (card.dataset.keyword || '').toLowerCase()
+              + ' ' + (card.querySelector('.pc-title')?.textContent || '').toLowerCase()
+              + ' ' + (card.querySelector('.pc-desc')?.textContent || '').toLowerCase();
+      const matchCat = currentCategory === 'all' || cats.includes(currentCategory);
+      const matchSearch = !currentSearch || kw.includes(currentSearch);
+      if (matchCat && matchSearch) {
+        card.classList.remove('hidden');
+        visible++;
+      } else {
+        card.classList.add('hidden');
+      }
+    });
+    document.getElementById('resultCount').textContent = `${visible}개 상품`;
+
+    // 검색어가 입력됐는데 결과가 없는 경우만 "정식 오픈 안 됨" 안내 표시
+    const empty = document.getElementById('emptyState');
+    const showEmpty = visible === 0 && currentSearch.length > 0;
+    empty.style.display = showEmpty ? 'block' : 'none';
+    if (showEmpty) {
+      document.getElementById('emptyKeyword').textContent = currentSearch;
+    }
+  }
+</script>
+
+</body>
+</html>

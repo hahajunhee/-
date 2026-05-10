@@ -69,6 +69,7 @@ export default function TransactionNewPage() {
       margin: 0,
       net_profit: 0,
       incentive,
+      invoice_hidden: !!product.invoice_hidden,
     };
     const computed = computeItemFields({ ...newItem, incentive });
     setItems([...items, { ...newItem, ...computed }]);
@@ -128,6 +129,7 @@ export default function TransactionNewPage() {
         margin: i.margin,
         net_profit: i.net_profit,
         incentive: i.incentive || 0,
+        invoice_hidden: !!i.invoice_hidden,
       })),
     };
 

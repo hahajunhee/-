@@ -285,7 +285,12 @@ export default function TransactionsPage() {
                             <tbody>
                               {t.items.map((item: any, idx: number) => (
                                 <tr key={idx} className="hover:bg-gray-100">
-                                  <td className="py-1.5 px-2 border-b border-gray-100 font-medium">{item.product_name}</td>
+                                  <td className="py-1.5 px-2 border-b border-gray-100 font-medium">
+                                    {item.product_name}
+                                    {item.invoice_hidden && (
+                                      <span className="ml-1 text-[10px] px-1 py-0.5 rounded bg-purple-100 text-purple-700">대시보드 전용</span>
+                                    )}
+                                  </td>
                                   <td className="py-1.5 px-2 border-b border-gray-100 text-gray-500">{item.spec}</td>
                                   <td className="py-1.5 px-2 border-b border-gray-100 text-center text-gray-500">{item.unit}</td>
                                   <td className="py-1.5 px-2 border-b border-gray-100 text-right">{Number(item.qty)}</td>

@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>카드뉴스 — 제품 쇼케이스</title>
+<style>
+  @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-font-smoothing: antialiased; }
+
+  body {
+    font-family: 'Pretendard', -apple-system, sans-serif;
+    background: #2a2a2a;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 32px;
+    padding: 32px 16px;
+  }
+
+  .label { color: #666; font-size: 12px; letter-spacing: 1px; }
+
+  .card {
+    width: 1080px;
+    height: 1080px;
+    position: relative;
+    overflow: hidden;
+    flex-shrink: 0;
+    font-family: 'Pretendard', sans-serif;
+    letter-spacing: -0.02em;
+    color: white;
+    padding: 90px 80px;
+    display: flex;
+    flex-direction: column;
+    background-size: cover;
+    background-position: center;
+  }
+
+  /* Dark overlay for readability */
+  .card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.8) 100%);
+    z-index: 1;
+  }
+  .card > * { position: relative; z-index: 2; }
+
+  .pg {
+    position: absolute;
+    top: 56px;
+    right: 64px;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    color: rgba(255,255,255,0.5);
+    z-index: 3;
+  }
+
+  .signature {
+    position: absolute;
+    bottom: 40px;
+    left: 80px;
+    font-size: 16px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.6);
+    letter-spacing: 1px;
+    z-index: 3;
+  }
+  .signature .dot { color: #FFD93D; }
+
+  /* ============ SLIDE 1: HOOK ============ */
+  .s1 {
+    background-image: url('https://images.unsplash.com/photo-1518621736915-f3b1c41bfd00?w=1200&q=80');
+    justify-content: space-between;
+  }
+  .s1 .top-tag {
+    display: inline-block;
+    align-self: flex-start;
+    background: rgba(255, 217, 61, 0.95);
+    color: #1a1a1a;
+    padding: 10px 22px;
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    margin-bottom: 30px;
+  }
+  .s1 .headline {
+    font-size: 96px;
+    font-weight: 900;
+    line-height: 1.1;
+    letter-spacing: -0.04em;
+    margin-bottom: 32px;
+  }
+  .s1 .headline em {
+    font-style: normal;
+    color: #FFD93D;
+  }
+  .s1 .sub {
+    font-size: 28px;
+    font-weight: 500;
+    line-height: 1.5;
+    color: rgba(255,255,255,0.85);
+    max-width: 720px;
+  }
+  .s1 .swipe {
+    color: rgba(255,255,255,0.5);
+    font-size: 18px;
+    font-weight: 600;
+    margin-top: 50px;
+  }
+
+  /* ============ SLIDE 2: IDEA / 시작점 ============ */
+  .s2 {
+    background-image: url('https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?w=1200&q=80');
+    justify-content: center;
+  }
+  .s2 .small {
+    font-size: 22px;
+    font-weight: 700;
+    color: #FFD93D;
+    margin-bottom: 16px;
+    letter-spacing: 1px;
+  }
+  .s2 .title {
+    font-size: 72px;
+    font-weight: 900;
+    line-height: 1.2;
+    letter-spacing: -0.04em;
+    margin-bottom: 36px;
+  }
+  .s2 .body-text {
+    font-size: 26px;
+    font-weight: 500;
+    line-height: 1.7;
+    color: rgba(255,255,255,0.9);
+    max-width: 800px;
+  }
+  .s2 .body-text b { color: #FFD93D; font-weight: 700; }
+
+  /* ============ SLIDE 3: CONCEPT ============ */
+  .s3 {
+    background-image: url('https://images.unsplash.com/photo-1499750310107-5fef28a66643?w=1200&q=80');
+    justify-content: center;
+  }
+  .s3 .small {
+    font-size: 22px;
+    font-weight: 700;
+    color: #FFD93D;
+    margin-bottom: 16px;
+    letter-spacing: 1px;
+  }
+  .s3 .title {
+    font-size: 80px;
+    font-weight: 900;
+    line-height: 1.15;
+    letter-spacing: -0.04em;
+    margin-bottom: 40px;
+  }
+  .s3 .title .yellow { color: #FFD93D; }
+  .s3 .desc {
+    font-size: 26px;
+    font-weight: 500;
+    line-height: 1.6;
+    color: rgba(255,255,255,0.85);
+    margin-bottom: 40px;
+    max-width: 760px;
+  }
+  .s3 .pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .s3 .pill {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,217,61,0.4);
+    color: white;
+    padding: 12px 22px;
+    font-size: 18px;
+    font-weight: 600;
+    border-radius: 100px;
+    backdrop-filter: blur(10px);
+  }
+  .s3 .pill.highlight {
+    background: rgba(255,217,61,0.95);
+    color: #1a1a1a;
+    border-color: #FFD93D;
+    font-weight: 800;
+  }
+
+  /* ============ SLIDES 4-6: FEATURE DEEP DIVES ============ */
+  .feat-slide {
+    justify-content: center;
+  }
+  .feat-slide .feat-num {
+    font-size: 18px;
+    font-weight: 800;
+    color: #FFD93D;
+    letter-spacing: 3px;
+    margin-bottom: 14px;
+  }
+  .feat-slide .feat-title {
+    font-size: 64px;
+    font-weight: 900;
+    line-height: 1.2;
+    letter-spacing: -0.04em;
+    margin-bottom: 28px;
+  }
+  .feat-slide .feat-desc {
+    font-size: 24px;
+    font-weight: 500;
+    line-height: 1.7;
+    color: rgba(255,255,255,0.85);
+    margin-bottom: 36px;
+    max-width: 740px;
+  }
+  .feat-slide .tech-note {
+    background: rgba(255,255,255,0.08);
+    border-left: 4px solid #FFD93D;
+    padding: 18px 24px;
+    font-size: 18px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.9);
+    line-height: 1.5;
+    max-width: 720px;
+    backdrop-filter: blur(10px);
+  }
+  .feat-slide .tech-note b { color: #FFD93D; font-weight: 800; }
+
+  .s4 { background-image: url('https://images.unsplash.com/photo-1455390582262-044cdead277a?w=1200&q=80'); }
+  .s5 { background-image: url('https://images.unsplash.com/photo-1492037766660-2a56f9eb3fcb?w=1200&q=80'); }
+  .s6 { background-image: url('https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=1200&q=80'); }
+
+  /* ============ SLIDE 7: BEHIND THE SCENES ============ */
+  .s7 {
+    background-image: url('https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=1200&q=80');
+    justify-content: center;
+  }
+  .s7 .small {
+    font-size: 22px;
+    font-weight: 700;
+    color: #FFD93D;
+    margin-bottom: 16px;
+    letter-spacing: 1px;
+  }
+  .s7 .title {
+    font-size: 64px;
+    font-weight: 900;
+    line-height: 1.2;
+    letter-spacing: -0.04em;
+    margin-bottom: 50px;
+  }
+  .s7 .stack-list {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    max-width: 800px;
+  }
+  .s7 .stack-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 20px;
+    padding: 18px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.15);
+  }
+  .s7 .stack-item:last-child { border-bottom: none; }
+  .s7 .stack-key {
+    font-size: 16px;
+    font-weight: 800;
+    color: #FFD93D;
+    letter-spacing: 1px;
+    min-width: 120px;
+    padding-top: 4px;
+  }
+  .s7 .stack-val {
+    font-size: 22px;
+    font-weight: 600;
+    color: white;
+    line-height: 1.5;
+    flex: 1;
+  }
+  .s7 .stack-val span { color: rgba(255,255,255,0.6); font-weight: 500; font-size: 18px; }
+
+  /* ============ SLIDE 8: CLOSING ============ */
+  .s8 {
+    background-image: url('https://images.unsplash.com/photo-1494774157365-9e04c6720e47?w=1200&q=80');
+    justify-content: center;
+    text-align: center;
+    align-items: center;
+  }
+  .s8 .heart {
+    font-size: 56px;
+    margin-bottom: 24px;
+  }
+  .s8 .closing {
+    font-size: 64px;
+    font-weight: 900;
+    line-height: 1.2;
+    letter-spacing: -0.04em;
+    margin-bottom: 30px;
+    max-width: 850px;
+  }
+  .s8 .closing .yellow { color: #FFD93D; }
+  .s8 .sub {
+    font-size: 22px;
+    font-weight: 500;
+    line-height: 1.6;
+    color: rgba(255,255,255,0.85);
+    margin-bottom: 40px;
+    max-width: 720px;
+  }
+  .s8 .comment-cta {
+    background: rgba(255,255,255,0.1);
+    border: 2px solid #FFD93D;
+    border-radius: 16px;
+    padding: 28px 40px;
+    margin-bottom: 36px;
+    backdrop-filter: blur(10px);
+    max-width: 720px;
+  }
+  .s8 .comment-cta .ico { font-size: 32px; margin-bottom: 10px; }
+  .s8 .comment-cta .ct-title {
+    font-size: 26px;
+    font-weight: 800;
+    color: #FFD93D;
+    margin-bottom: 8px;
+    letter-spacing: -0.02em;
+  }
+  .s8 .comment-cta .ct-desc {
+    font-size: 18px;
+    color: rgba(255,255,255,0.9);
+    font-weight: 500;
+    line-height: 1.5;
+  }
+  .s8 .handle {
+    background: rgba(255,217,61,0.95);
+    color: #1a1a1a;
+    padding: 14px 32px;
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    border-radius: 100px;
+  }
+</style>
+</head>
+<body>
+
+<!-- ====================================================
+     제품 쇼케이스 — "이런 거 만들어봤어요"
+     예시: 커플 편지 사이트
+     톤: 영감 공유 / 비-판매
+     ==================================================== -->
+
+<!-- ============ SLIDE 1: HOOK ============ -->
+<div class="label">01 / 08 — HOOK</div>
+<div class="card s1">
+  <div class="pg">01 / 08</div>
+  <div>
+    <div class="top-tag">SIDE PROJECT</div>
+    <div class="headline">
+      커플을 위한<br>
+      <em>편지 사이트</em>를<br>
+      만들어봤어요.
+    </div>
+    <div class="sub">
+      카톡으로 보내기엔 묻혀버리고,<br>
+      종이 편지로 쓰기엔 너무 번거로운 그 마음.
+    </div>
+    <div class="swipe">→ 어떻게 만들었는지 끝까지 보기</div>
+  </div>
+  <div class="signature">CODEFIT<span class="dot">.</span></div>
+</div>
+
+<!-- ============ SLIDE 2: IDEA ============ -->
+<div class="label">02 / 08 — IDEA</div>
+<div class="card s2">
+  <div class="pg">02 / 08</div>
+  <div>
+    <div class="small">시작은 이런 생각이었어요</div>
+    <div class="title">
+      "편지 보낼 곳이<br>
+      없네."
+    </div>
+    <div class="body-text">
+      카톡에 적으면 다음 메시지에 묻혀버리고,
+      메모 앱은 너무 무미건조하고,
+      종이 편지는 보관도 전달도 어렵죠.<br><br>
+      <b>둘만의 편지 공간</b>이 있다면 어떨까,
+      그렇게 시작했습니다.
+    </div>
+  </div>
+  <div class="signature">CODEFIT<span class="dot">.</span></div>
+</div>
+
+<!-- ============ SLIDE 3: CONCEPT ============ -->
+<div class="label">03 / 08 — CONCEPT</div>
+<div class="card s3">
+  <div class="pg">03 / 08</div>
+  <div>
+    <div class="small">기본 컨셉</div>
+    <div class="title">
+      <span class="yellow">우리만의</span><br>
+      편지함 웹사이트
+    </div>
+    <div class="desc">
+      커플 둘만 접속하는 전용 도메인.
+      편지를 쓰고, 사진을 첨부하고, 추억을 모아둘 수 있는
+      가장 사적인 공간을 만드는 게 목표였어요.
+    </div>
+    <div class="pills">
+      <span class="pill highlight">편지 작성 & 보관</span>
+      <span class="pill">사진 첨부</span>
+      <span class="pill">추억 갤러리</span>
+      <span class="pill">기념일 알림</span>
+    </div>
+  </div>
+  <div class="signature">CODEFIT<span class="dot">.</span></div>
+</div>
+
+<!-- ============ SLIDE 4: FEATURE 1 ============ -->
+<div class="label">04 / 08 — FEATURE 1</div>
+<div class="card feat-slide s4">
+  <div class="pg">04 / 08</div>
+  <div>
+    <div class="feat-num">FEATURE 01</div>
+    <div class="feat-title">감성적인 편지 작성</div>
+    <div class="feat-desc">
+      텍스트 에디터를 단순한 입력창이 아니라,
+      손편지 느낌이 나도록 폰트와 배경을 고를 수 있게 했어요.
+      읽는 사람이 받는 순간의 감정까지 고려했습니다.
+    </div>
+    <div class="tech-note">
+      💡 <b>Tip.</b> 단순한 textarea도 폰트 선택과 배경 장식만 더하면
+      완전히 다른 경험이 됩니다. 디테일이 감성을 만들어요.
+    </div>
+  </div>
+  <div class="signature">CODEFIT<span class="dot">.</span></div>
+</div>
+
+<!-- ============ SLIDE 5: FEATURE 2 ============ -->
+<div class="label">05 / 08 — FEATURE 2</div>
+<div class="card feat-slide s5">
+  <div class="pg">05 / 08</div>
+  <div>
+    <div class="feat-num">FEATURE 02</div>
+    <div class="feat-title">추억 갤러리</div>
+    <div class="feat-desc">
+      편지에 첨부된 사진들이 자동으로 타임라인 갤러리에 쌓여요.
+      날짜별로 정렬되어, 시간이 지나면 우리만의 작은 추억 아카이브가 됩니다.
+    </div>
+    <div class="tech-note">
+      💡 <b>Tip.</b> 사진을 단순 첨부 파일로 두지 말고
+      별도 테이블로 관리하면 다양한 뷰로 재활용할 수 있어요.
+    </div>
+  </div>
+  <div class="signature">CODEFIT<span class="dot">.</span></div>
+</div>
+
+<!-- ============ SLIDE 6: FEATURE 3 ============ -->
+<div class="label">06 / 08 — FEATURE 3</div>
+<div class="card feat-slide s6">
+  <div class="pg">06 / 08</div>
+  <div>
+    <div class="feat-num">FEATURE 03</div>
+    <div class="feat-title">새 편지 알림</div>
+    <div class="feat-desc">
+      상대가 편지를 쓰면 PWA 푸시 알림이 가요.
+      "자기야가 편지를 보냈어요" — 받는 순간의 설렘까지
+      놓치지 않도록 설계했습니다.
+    </div>
+    <div class="tech-note">
+      💡 <b>Tip.</b> 앱 설치 부담 없이도 PWA + Web Push로
+      네이티브 알림 경험을 만들 수 있어요.
+    </div>
+  </div>
+  <div class="signature">CODEFIT<span class="dot">.</span></div>
+</div>
+
+<!-- ============ SLIDE 7: BEHIND THE SCENES ============ -->
+<div class="label">07 / 08 — STACK</div>
+<div class="card s7">
+  <div class="pg">07 / 08</div>
+  <div>
+    <div class="small">어떻게 만들었나요</div>
+    <div class="title">기술 스택 & 구조</div>
+    <div class="stack-list">
+      <div class="stack-item">
+        <div class="stack-key">FRONTEND</div>
+        <div class="stack-val">Next.js + Tailwind <span>— 빠른 SSR과 감성적인 디자인 동시에</span></div>
+      </div>
+      <div class="stack-item">
+        <div class="stack-key">BACKEND</div>
+        <div class="stack-val">Node.js + PostgreSQL <span>— 편지·사진·관계 데이터 안전하게</span></div>
+      </div>
+      <div class="stack-item">
+        <div class="stack-key">알림</div>
+        <div class="stack-val">PWA + Web Push API <span>— 앱 설치 없이 알림 가능</span></div>
+      </div>
+      <div class="stack-item">
+        <div class="stack-key">스토리지</div>
+        <div class="stack-val">S3 호환 오브젝트 스토리지 <span>— 사진 무한 보관</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="signature">CODEFIT<span class="dot">.</span></div>
+</div>
+
+<!-- ============ SLIDE 8: CLOSING ============ -->
+<div class="label">08 / 08 — CLOSING</div>
+<div class="card s8">
+  <div class="pg">08 / 08</div>
+  <div class="heart">💌</div>
+  <div class="closing">
+    <span class="yellow">아이디어</span>가<br>
+    좋은 사이트를 만들어요.
+  </div>
+  <div class="sub">
+    이 글이 누군가의 사이드 프로젝트나<br>
+    소중한 사람을 위한 작은 선물에 영감이 됐길 바랍니다.
+  </div>
+  <div class="comment-cta">
+    <div class="ico">💬</div>
+    <div class="ct-title">실제 결과물이 궁금하다면?</div>
+    <div class="ct-desc">댓글 남겨주시면 만든 사이트 보여드릴게요.</div>
+  </div>
+  <div class="handle">@codefit</div>
+</div>
+
+</body>
+</html>

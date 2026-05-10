@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>카드뉴스 — 사이드 프로젝트 모음</title>
+<style>
+  @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-font-smoothing: antialiased; }
+
+  body {
+    font-family: 'Pretendard', -apple-system, sans-serif;
+    background: #2a2a2a;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 32px;
+    padding: 32px 16px;
+  }
+
+  .label { color: #666; font-size: 12px; letter-spacing: 1px; }
+
+  .card {
+    width: 1080px;
+    height: 1080px;
+    position: relative;
+    overflow: hidden;
+    flex-shrink: 0;
+    font-family: 'Pretendard', sans-serif;
+    letter-spacing: -0.02em;
+    color: white;
+    padding: 90px 80px;
+    display: flex;
+    flex-direction: column;
+    background-size: cover;
+    background-position: center;
+  }
+  .card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.85) 100%);
+    z-index: 1;
+  }
+  .card > * { position: relative; z-index: 2; }
+
+  .pg {
+    position: absolute;
+    top: 56px;
+    right: 64px;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    color: rgba(255,255,255,0.5);
+    z-index: 3;
+  }
+  .signature {
+    position: absolute;
+    bottom: 40px;
+    left: 80px;
+    font-size: 16px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.6);
+    letter-spacing: 1px;
+    z-index: 3;
+  }
+  .signature .dot { color: #FFD93D; }
+
+  /* ============ SLIDE 1: HOOK ============ */
+  .s1 {
+    background-image: url('https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=1200&q=80');
+    justify-content: space-between;
+  }
+  .s1 .top-tag {
+    display: inline-block;
+    align-self: flex-start;
+    background: rgba(255, 217, 61, 0.95);
+    color: #1a1a1a;
+    padding: 10px 22px;
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    margin-bottom: 30px;
+  }
+  .s1 .headline {
+    font-size: 96px;
+    font-weight: 900;
+    line-height: 1.08;
+    letter-spacing: -0.04em;
+    margin-bottom: 32px;
+  }
+  .s1 .headline em { font-style: normal; color: #FFD93D; }
+  .s1 .sub {
+    font-size: 26px;
+    font-weight: 500;
+    line-height: 1.5;
+    color: rgba(255,255,255,0.85);
+    max-width: 760px;
+  }
+  .s1 .swipe {
+    color: rgba(255,255,255,0.5);
+    font-size: 18px;
+    font-weight: 600;
+    margin-top: 50px;
+  }
+
+  /* ============ SLIDE 2: B2B CATEGORY ============ */
+  .s2 {
+    background-image: url('https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1200&q=80');
+    justify-content: center;
+  }
+  .s2 .small {
+    font-size: 22px;
+    font-weight: 700;
+    color: #FFD93D;
+    margin-bottom: 16px;
+    letter-spacing: 2px;
+  }
+  .s2 .title {
+    font-size: 76px;
+    font-weight: 900;
+    line-height: 1.15;
+    letter-spacing: -0.04em;
+    margin-bottom: 50px;
+  }
+  .s2 .items {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .s2 .item {
+    display: flex;
+    align-items: center;
+    gap: 22px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    backdrop-filter: blur(12px);
+    padding: 24px 28px;
+    border-radius: 14px;
+  }
+  .s2 .item-icon {
+    width: 52px;
+    height: 52px;
+    background: rgba(255,217,61,0.95);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    flex-shrink: 0;
+  }
+  .s2 .item-body h3 {
+    font-size: 24px;
+    font-weight: 800;
+    color: white;
+    letter-spacing: -0.02em;
+    margin-bottom: 4px;
+  }
+  .s2 .item-body p {
+    font-size: 16px;
+    color: rgba(255,255,255,0.7);
+    font-weight: 500;
+  }
+
+  /* ============ SLIDE 3: B2B EXAMPLE — 거래관리 ============ */
+  .s3 {
+    background-image: url('https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=1200&q=80');
+    justify-content: center;
+  }
+  .s3 .small {
+    font-size: 18px;
+    font-weight: 800;
+    color: #FFD93D;
+    margin-bottom: 14px;
+    letter-spacing: 2px;
+  }
+  .s3 .title {
+    font-size: 64px;
+    font-weight: 900;
+    line-height: 1.2;
+    letter-spacing: -0.04em;
+    margin-bottom: 24px;
+  }
+  .s3 .desc {
+    font-size: 22px;
+    color: rgba(255,255,255,0.85);
+    font-weight: 500;
+    line-height: 1.6;
+    margin-bottom: 32px;
+    max-width: 740px;
+  }
+  .s3 .insight {
+    background: rgba(255,255,255,0.08);
+    border-left: 4px solid #FFD93D;
+    padding: 20px 26px;
+    font-size: 18px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.9);
+    line-height: 1.6;
+    backdrop-filter: blur(10px);
+    max-width: 760px;
+  }
+  .s3 .insight b { color: #FFD93D; font-weight: 800; }
+
+  /* ============ SLIDE 4: B2B EXAMPLE — 재고관리 ============ */
+  .s4 {
+    background-image: url('https://images.unsplash.com/photo-1553413077-190dd305871c?w=1200&q=80');
+    justify-content: center;
+  }
+  .s4 .small {
+    font-size: 18px;
+    font-weight: 800;
+    color: #FFD93D;
+    margin-bottom: 14px;
+    letter-spacing: 2px;
+  }
+  .s4 .title {
+    font-size: 64px;
+    font-weight: 900;
+    line-height: 1.2;
+    letter-spacing: -0.04em;
+    margin-bottom: 24px;
+  }
+  .s4 .desc {
+    font-size: 22px;
+    color: rgba(255,255,255,0.85);
+    font-weight: 500;
+    line-height: 1.6;
+    margin-bottom: 32px;
+    max-width: 740px;
+  }
+  .s4 .insight {
+    background: rgba(255,255,255,0.08);
+    border-left: 4px solid #FFD93D;
+    padding: 20px 26px;
+    font-size: 18px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.9);
+    line-height: 1.6;
+    backdrop-filter: blur(10px);
+    max-width: 760px;
+  }
+  .s4 .insight b { color: #FFD93D; font-weight: 800; }
+
+  /* ============ SLIDE 5: B2C CATEGORY ============ */
+  .s5 {
+    background-image: url('https://images.unsplash.com/photo-1518621736915-f3b1c41bfd00?w=1200&q=80');
+    justify-content: center;
+  }
+  .s5 .small {
+    font-size: 22px;
+    font-weight: 700;
+    color: #FFD93D;
+    margin-bottom: 16px;
+    letter-spacing: 2px;
+  }
+  .s5 .title {
+    font-size: 76px;
+    font-weight: 900;
+    line-height: 1.15;
+    letter-spacing: -0.04em;
+    margin-bottom: 50px;
+  }
+  .s5 .items {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .s5 .item {
+    display: flex;
+    align-items: center;
+    gap: 22px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    backdrop-filter: blur(12px);
+    padding: 24px 28px;
+    border-radius: 14px;
+  }
+  .s5 .item-icon {
+    width: 52px;
+    height: 52px;
+    background: rgba(255,217,61,0.95);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    flex-shrink: 0;
+  }
+  .s5 .item-body h3 {
+    font-size: 24px;
+    font-weight: 800;
+    color: white;
+    letter-spacing: -0.02em;
+    margin-bottom: 4px;
+  }
+  .s5 .item-body p {
+    font-size: 16px;
+    color: rgba(255,255,255,0.7);
+    font-weight: 500;
+  }
+
+  /* ============ SLIDE 6: B2C EXAMPLE ============ */
+  .s6 {
+    background-image: url('https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?w=1200&q=80');
+    justify-content: center;
+  }
+  .s6 .small {
+    font-size: 18px;
+    font-weight: 800;
+    color: #FFD93D;
+    margin-bottom: 14px;
+    letter-spacing: 2px;
+  }
+  .s6 .title {
+    font-size: 64px;
+    font-weight: 900;
+    line-height: 1.2;
+    letter-spacing: -0.04em;
+    margin-bottom: 24px;
+  }
+  .s6 .desc {
+    font-size: 22px;
+    color: rgba(255,255,255,0.85);
+    font-weight: 500;
+    line-height: 1.6;
+    margin-bottom: 32px;
+    max-width: 740px;
+  }
+  .s6 .insight {
+    background: rgba(255,255,255,0.08);
+    border-left: 4px solid #FFD93D;
+    padding: 20px 26px;
+    font-size: 18px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.9);
+    line-height: 1.6;
+    backdrop-filter: blur(10px);
+    max-width: 760px;
+  }
+  .s6 .insight b { color: #FFD93D; font-weight: 800; }
+
+  /* ============ SLIDE 7: WHAT I LEARNED ============ */
+  .s7 {
+    background-image: url('https://images.unsplash.com/photo-1499951360447-b19be8fe80f5?w=1200&q=80');
+    justify-content: center;
+  }
+  .s7 .small {
+    font-size: 22px;
+    font-weight: 700;
+    color: #FFD93D;
+    margin-bottom: 16px;
+    letter-spacing: 2px;
+  }
+  .s7 .title {
+    font-size: 64px;
+    font-weight: 900;
+    line-height: 1.2;
+    letter-spacing: -0.04em;
+    margin-bottom: 40px;
+  }
+  .s7 .lessons {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    max-width: 800px;
+  }
+  .s7 .lesson {
+    display: flex;
+    align-items: flex-start;
+    gap: 20px;
+  }
+  .s7 .lesson-num {
+    font-size: 32px;
+    font-weight: 900;
+    color: #FFD93D;
+    line-height: 1;
+    min-width: 60px;
+    letter-spacing: -0.03em;
+  }
+  .s7 .lesson-text {
+    font-size: 22px;
+    font-weight: 600;
+    color: white;
+    line-height: 1.5;
+    flex: 1;
+  }
+  .s7 .lesson-text span { color: rgba(255,255,255,0.65); font-weight: 500; font-size: 18px; display: block; margin-top: 4px; }
+
+  /* ============ SLIDE 8: CLOSING ============ */
+  .s8 {
+    background-image: url('https://images.unsplash.com/photo-1486312338219-ce68d2c6f44d?w=1200&q=80');
+    justify-content: center;
+    text-align: center;
+    align-items: center;
+  }
+  .s8 .ico {
+    font-size: 56px;
+    margin-bottom: 24px;
+  }
+  .s8 .closing {
+    font-size: 64px;
+    font-weight: 900;
+    line-height: 1.2;
+    letter-spacing: -0.04em;
+    margin-bottom: 30px;
+    max-width: 850px;
+  }
+  .s8 .closing .yellow { color: #FFD93D; }
+  .s8 .sub {
+    font-size: 22px;
+    font-weight: 500;
+    line-height: 1.6;
+    color: rgba(255,255,255,0.85);
+    margin-bottom: 40px;
+    max-width: 720px;
+  }
+  .s8 .comment-cta {
+    background: rgba(255,255,255,0.1);
+    border: 2px solid #FFD93D;
+    border-radius: 16px;
+    padding: 28px 40px;
+    margin-bottom: 36px;
+    backdrop-filter: blur(10px);
+    max-width: 720px;
+  }
+  .s8 .comment-cta .c-ico { font-size: 32px; margin-bottom: 10px; }
+  .s8 .comment-cta .ct-title {
+    font-size: 24px;
+    font-weight: 800;
+    color: #FFD93D;
+    margin-bottom: 8px;
+    letter-spacing: -0.02em;
+  }
+  .s8 .comment-cta .ct-desc {
+    font-size: 18px;
+    color: rgba(255,255,255,0.9);
+    font-weight: 500;
+    line-height: 1.5;
+  }
+  .s8 .handle {
+    background: rgba(255,217,61,0.95);
+    color: #1a1a1a;
+    padding: 14px 32px;
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    border-radius: 100px;
+  }
+</style>
+</head>
+<body>
+
+<!-- ====================================================
+     사이드 프로젝트 모음 — "이런 것들 만들어봤어요"
+     ==================================================== -->
+
+<!-- ============ SLIDE 1: HOOK ============ -->
+<div class="label">01 / 08 — HOOK</div>
+<div class="card s1">
+  <div class="pg">01 / 08</div>
+  <div>
+    <div class="top-tag">SIDE PROJECTS</div>
+    <div class="headline">
+      지금까지<br>
+      만들어본<br>
+      <em>웹 프로젝트들</em>
+    </div>
+    <div class="sub">
+      사업용 시스템부터 개인용 사이트까지.<br>
+      "이런 것도 만들 수 있구나" 하는 영감 가져가세요.
+    </div>
+    <div class="swipe">→ 끝까지 보기</div>
+  </div>
+  <div class="signature">CODEFIT<span class="dot">.</span></div>
+</div>
+
+<!-- ============ SLIDE 2: B2B CATEGORY ============ -->
+<div class="label">02 / 08 — B2B</div>
+<div class="card s2">
+  <div class="pg">02 / 08</div>
+  <div>
+    <div class="small">FOR BUSINESS</div>
+    <div class="title">사업용 시스템</div>
+    <div class="items">
+      <div class="item">
+        <div class="item-icon">📊</div>
+        <div class="item-body">
+          <h3>거래관리 시스템</h3>
+          <p>거래처, 매출, 미수금을 한눈에</p>
+        </div>
+      </div>
+      <div class="item">
+        <div class="item-icon">📦</div>
+        <div class="item-body">
+          <h3>재고관리 시스템</h3>
+          <p>입출고, 재고 현황, 발주 알림</p>
+        </div>
+      </div>
+      <div class="item">
+        <div class="item-icon">📈</div>
+        <div class="item-body">
+          <h3>비즈니스 대시보드</h3>
+          <p>KPI 실시간 시각화</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="signature">CODEFIT<span class="dot">.</span></div>
+</div>
+
+<!-- ============ SLIDE 3: B2B EXAMPLE 1 ============ -->
+<div class="label">03 / 08 — 거래관리</div>
+<div class="card s3">
+  <div class="pg">03 / 08</div>
+  <div>
+    <div class="small">PROJECT 01</div>
+    <div class="title">거래관리 시스템</div>
+    <div class="desc">
+      엑셀 장부의 한계를 웹으로 풀어본 프로젝트.
+      거래처별 미수금 자동 집계, 거래명세서 PDF 자동 생성,
+      모바일에서도 입력 가능한 구조로 만들었어요.
+    </div>
+    <div class="insight">
+      💡 <b>인사이트.</b> 엑셀의 핵심은 "셀"이 아니라 "수식의 자동 흐름".
+      웹에서 트리거 + 집계 테이블만 잘 설계해도 엑셀의 답답함이 사라집니다.
+    </div>
+  </div>
+  <div class="signature">CODEFIT<span class="dot">.</span></div>
+</div>
+
+<!-- ============ SLIDE 4: B2B EXAMPLE 2 ============ -->
+<div class="label">04 / 08 — 재고관리</div>
+<div class="card s4">
+  <div class="pg">04 / 08</div>
+  <div>
+    <div class="small">PROJECT 02</div>
+    <div class="title">재고관리 시스템</div>
+    <div class="desc">
+      입출고 내역을 실시간 추적하고, 재고 임계치 이하면
+      자동으로 알림을 보내는 시스템. 카카오톡 알림 연동까지
+      넣어 현장에서 바로 받아볼 수 있게 했어요.
+    </div>
+    <div class="insight">
+      💡 <b>인사이트.</b> 재고는 "현재 수량"보다 "변화량"이 더 중요해요.
+      이벤트 소싱 패턴으로 모든 입출고를 기록하면 추후 분석도 쉬워집니다.
+    </div>
+  </div>
+  <div class="signature">CODEFIT<span class="dot">.</span></div>
+</div>
+
+<!-- ============ SLIDE 5: B2C CATEGORY ============ -->
+<div class="label">05 / 08 — B2C</div>
+<div class="card s5">
+  <div class="pg">05 / 08</div>
+  <div>
+    <div class="small">FOR YOU</div>
+    <div class="title">개인용 사이트</div>
+    <div class="items">
+      <div class="item">
+        <div class="item-icon">💌</div>
+        <div class="item-body">
+          <h3>커플 편지 사이트</h3>
+          <p>둘만의 편지 공간</p>
+        </div>
+      </div>
+      <div class="item">
+        <div class="item-icon">📸</div>
+        <div class="item-body">
+          <h3>추억 / 사진 아카이브</h3>
+          <p>타임라인 갤러리</p>
+        </div>
+      </div>
+      <div class="item">
+        <div class="item-icon">💼</div>
+        <div class="item-body">
+          <h3>포트폴리오 사이트</h3>
+          <p>나만의 작업물 모음</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="signature">CODEFIT<span class="dot">.</span></div>
+</div>
+
+<!-- ============ SLIDE 6: B2C EXAMPLE ============ -->
+<div class="label">06 / 08 — 커플 사이트</div>
+<div class="card s6">
+  <div class="pg">06 / 08</div>
+  <div>
+    <div class="small">PROJECT 03</div>
+    <div class="title">커플 편지 사이트</div>
+    <div class="desc">
+      카톡에 묻혀버리는 편지를 위한 둘만의 웹 공간.
+      편지 작성, 사진 첨부, 추억 갤러리, 기념일 알림까지
+      하나의 흐름으로 연결되도록 설계했어요.
+    </div>
+    <div class="insight">
+      💡 <b>인사이트.</b> B2C 프로젝트는 기능보다 "감성"이 핵심.
+      폰트, 여백, 마이크로 인터랙션 하나하나가 사용자 경험을 만듭니다.
+    </div>
+  </div>
+  <div class="signature">CODEFIT<span class="dot">.</span></div>
+</div>
+
+<!-- ============ SLIDE 7: WHAT I LEARNED ============ -->
+<div class="label">07 / 08 — LESSONS</div>
+<div class="card s7">
+  <div class="pg">07 / 08</div>
+  <div>
+    <div class="small">PROJECTS THROUGH</div>
+    <div class="title">프로젝트하며 배운 것</div>
+    <div class="lessons">
+      <div class="lesson">
+        <div class="lesson-num">01</div>
+        <div class="lesson-text">
+          B2B는 "데이터 정확성", B2C는 "감정의 흐름"
+          <span>같은 웹이지만 우선순위가 완전히 달라요</span>
+        </div>
+      </div>
+      <div class="lesson">
+        <div class="lesson-num">02</div>
+        <div class="lesson-text">
+          작은 디테일이 사용 시간을 좌우한다
+          <span>버튼 위치, 로딩 속도, 알림 한 줄까지</span>
+        </div>
+      </div>
+      <div class="lesson">
+        <div class="lesson-num">03</div>
+        <div class="lesson-text">
+          기능 욕심보다 "왜 만드는지"를 먼저
+          <span>안 쓰는 화려한 기능보다, 매일 쓰는 단순한 기능이 이김</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="signature">CODEFIT<span class="dot">.</span></div>
+</div>
+
+<!-- ============ SLIDE 8: CLOSING ============ -->
+<div class="label">08 / 08 — CLOSING</div>
+<div class="card s8">
+  <div class="pg">08 / 08</div>
+  <div class="ico">✨</div>
+  <div class="closing">
+    <span class="yellow">상상</span>은<br>
+    웹으로 만들 수 있어요.
+  </div>
+  <div class="sub">
+    이 글이 누군가의 사이드 프로젝트나<br>
+    새로운 시도에 작은 영감이 됐길.
+  </div>
+  <div class="comment-cta">
+    <div class="c-ico">💬</div>
+    <div class="ct-title">실제 결과물이 궁금하다면?</div>
+    <div class="ct-desc">댓글 남겨주시면 만든 결과물 보여드릴게요.</div>
+  </div>
+  <div class="handle">@codefit</div>
+</div>
+
+</body>
+</html>

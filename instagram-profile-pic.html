@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>인스타 프로필 사진 — PNG 다운로드</title>
+<style>
+  @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-font-smoothing: antialiased; }
+
+  body {
+    font-family: 'Pretendard', -apple-system, sans-serif;
+    background: #2a2a2a;
+    padding: 40px 20px 80px;
+    color: white;
+  }
+  .wrap { max-width: 1200px; margin: 0 auto; }
+
+  h1 {
+    font-size: 32px;
+    font-weight: 900;
+    margin-bottom: 8px;
+    letter-spacing: -0.04em;
+  }
+  .lead {
+    color: #aaa;
+    font-size: 15px;
+    margin-bottom: 40px;
+    line-height: 1.7;
+  }
+  .lead b { color: #FFD93D; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 28px;
+  }
+  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+
+  .card {
+    background: #1a1a1a;
+    border-radius: 20px;
+    padding: 24px;
+  }
+  .label {
+    font-size: 12px;
+    color: #FFD93D;
+    font-weight: 800;
+    letter-spacing: 2px;
+    margin-bottom: 6px;
+  }
+  .name {
+    font-size: 22px;
+    font-weight: 900;
+    margin-bottom: 6px;
+    letter-spacing: -0.03em;
+  }
+  .name .recommend {
+    display: inline-block;
+    background: #C8102E;
+    color: white;
+    font-size: 11px;
+    font-weight: 800;
+    padding: 3px 10px;
+    border-radius: 100px;
+    letter-spacing: 1px;
+    margin-left: 6px;
+  }
+  .desc {
+    font-size: 13px;
+    color: #888;
+    line-height: 1.6;
+    margin-bottom: 18px;
+  }
+
+  .canvas-wrap {
+    position: relative;
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 14px;
+    background: #2a2a2a;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  .canvas-wrap.loading::after {
+    content: '⏳ 폰트 로딩 중...';
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(26,26,26,0.9);
+    color: #FFD93D;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+
+  .dl-btn {
+    width: 100%;
+    background: #FFD93D;
+    color: #1a1a1a;
+    border: none;
+    padding: 14px;
+    font-size: 15px;
+    font-weight: 800;
+    border-radius: 10px;
+    cursor: pointer;
+    font-family: inherit;
+    letter-spacing: 1px;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .dl-btn:hover:not(:disabled) {
+    background: #ffec5c;
+    transform: translateY(-2px);
+  }
+  .dl-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .dl-btn .ico { font-size: 18px; }
+
+  .size-hint {
+    margin-top: 8px;
+    text-align: center;
+    font-size: 11px;
+    color: #555;
+    letter-spacing: 1px;
+    font-weight: 600;
+  }
+
+  .preview-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px;
+    background: #2a2a2a;
+    border-radius: 10px;
+    margin-top: 14px;
+  }
+  .preview-circle {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    overflow: hidden;
+    flex-shrink: 0;
+    border: 2px solid white;
+  }
+  .preview-circle canvas {
+    width: 100%;
+    height: 100%;
+  }
+  .preview-meta { flex: 1; }
+  .preview-handle {
+    font-size: 13px;
+    font-weight: 700;
+    color: white;
+  }
+  .preview-bio {
+    font-size: 11px;
+    color: #888;
+    margin-top: 2px;
+  }
+
+  .info-box {
+    margin-top: 40px;
+    background: #1a1a1a;
+    border-left: 4px solid #FFD93D;
+    padding: 28px 32px;
+    border-radius: 12px;
+  }
+  .info-box h3 {
+    font-size: 13px;
+    color: #FFD93D;
+    font-weight: 800;
+    letter-spacing: 2px;
+    margin-bottom: 14px;
+  }
+  .info-box ol {
+    padding-left: 20px;
+    line-height: 1.9;
+    color: #ccc;
+    font-size: 14px;
+  }
+  .info-box code {
+    background: #333;
+    padding: 2px 8px;
+    border-radius: 4px;
+    color: #FFD93D;
+    font-size: 13px;
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <h1>인스타 프로필 사진 — PNG 다운로드</h1>
+  <p class="lead">
+    각 디자인의 <b>"PNG 다운로드"</b> 버튼을 누르면 <b>1080×1080 PNG 파일</b>이 즉시 다운로드됩니다.<br>
+    캡처할 필요 없이 받은 파일을 바로 인스타에 올리시면 돼요.
+  </p>
+
+  <div class="grid">
+
+    <!-- ========== A — Wordmark ========== -->
+    <div class="card">
+      <div class="label">OPTION A</div>
+      <div class="name">워드마크<span class="recommend">★ 추천</span></div>
+      <div class="desc">검정 배경 + 노란 "CF.". 가장 무난하고 식별성 좋음.</div>
+      <div class="canvas-wrap loading" id="wrap-a">
+        <canvas id="canvas-a" width="1080" height="1080"></canvas>
+      </div>
+      <button class="dl-btn" id="dl-a" disabled onclick="downloadCanvas('canvas-a', 'codefit-profile-A-wordmark.png')">
+        <span class="ico">⬇</span> PNG 다운로드
+      </button>
+      <div class="size-hint">1080 × 1080 PX · 검정 배경</div>
+      <div class="preview-row">
+        <div class="preview-circle"><canvas id="preview-a" width="1080" height="1080"></canvas></div>
+        <div class="preview-meta">
+          <div class="preview-handle">codefit.kr</div>
+          <div class="preview-bio">실제 인스타 표시 모양</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== B — Yellow Monogram ========== -->
+    <div class="card">
+      <div class="label">OPTION B</div>
+      <div class="name">노랑 모노그램</div>
+      <div class="desc">노랑 배경 + 검정 "cf.". 피드에서 가장 눈에 띔.</div>
+      <div class="canvas-wrap loading" id="wrap-b">
+        <canvas id="canvas-b" width="1080" height="1080"></canvas>
+      </div>
+      <button class="dl-btn" id="dl-b" disabled onclick="downloadCanvas('canvas-b', 'codefit-profile-B-monogram.png')">
+        <span class="ico">⬇</span> PNG 다운로드
+      </button>
+      <div class="size-hint">1080 × 1080 PX · 노란 배경</div>
+      <div class="preview-row">
+        <div class="preview-circle"><canvas id="preview-b" width="1080" height="1080"></canvas></div>
+        <div class="preview-meta">
+          <div class="preview-handle">codefit.kr</div>
+          <div class="preview-bio">실제 인스타 표시 모양</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== C — Korean Stamp ========== -->
+    <div class="card">
+      <div class="label">OPTION C</div>
+      <div class="name">한글 도장</div>
+      <div class="desc">크림 + 빨간 도장. 한국적이고 아이덴티티 강함.</div>
+      <div class="canvas-wrap loading" id="wrap-c">
+        <canvas id="canvas-c" width="1080" height="1080"></canvas>
+      </div>
+      <button class="dl-btn" id="dl-c" disabled onclick="downloadCanvas('canvas-c', 'codefit-profile-C-stamp.png')">
+        <span class="ico">⬇</span> PNG 다운로드
+      </button>
+      <div class="size-hint">1080 × 1080 PX · 크림 배경</div>
+      <div class="preview-row">
+        <div class="preview-circle"><canvas id="preview-c" width="1080" height="1080"></canvas></div>
+        <div class="preview-meta">
+          <div class="preview-handle">codefit.kr</div>
+          <div class="preview-bio">실제 인스타 표시 모양</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="info-box">
+    <h3>사용 방법</h3>
+    <ol>
+      <li>마음에 드는 디자인의 <b style="color:#FFD93D">PNG 다운로드</b> 버튼 클릭 → 다운로드 폴더에 PNG 파일 저장됨.</li>
+      <li>이 파일을 핸드폰으로 옮깁니다 (카톡 "나에게 보내기" / AirDrop / 이메일 첨부 등).</li>
+      <li>인스타 앱 → 프로필 → <code>사진 변경</code> → 갤러리에서 다운받은 PNG 선택.</li>
+      <li>인스타가 자동으로 원형 크롭합니다. (디자인은 이미 크롭 영역에 맞춰져 있어요)</li>
+    </ol>
+  </div>
+</div>
+
+<script>
+  // ========== 폰트 로드 보장 ==========
+  async function ensureFonts() {
+    if (document.fonts && document.fonts.ready) {
+      await document.fonts.ready;
+    }
+    try {
+      await Promise.all([
+        document.fonts.load('900 460px Pretendard'),
+        document.fonts.load('900 540px Pretendard'),
+        document.fonts.load('900 240px Pretendard'),
+        document.fonts.load('800 65px Pretendard'),
+        document.fonts.load('800 60px Pretendard'),
+      ]);
+    } catch (e) {
+      console.warn('Font load fallback:', e);
+    }
+  }
+
+  // ========== 헬퍼: 색상 분리 텍스트 (CF + 빨간 점) ==========
+  function drawColoredDotText(ctx, mainText, dotText, mainColor, dotColor, fontSize, fontWeight, x, y) {
+    ctx.font = `${fontWeight} ${fontSize}px Pretendard, sans-serif`;
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'left';
+
+    const mainW = ctx.measureText(mainText).width;
+    const dotW = ctx.measureText(dotText).width;
+    const total = mainW + dotW;
+    const startX = x - total / 2;
+
+    ctx.fillStyle = mainColor;
+    ctx.fillText(mainText, startX, y);
+    ctx.fillStyle = dotColor;
+    ctx.fillText(dotText, startX + mainW, y);
+  }
+
+  // ========== A — Wordmark (검정 + CF.) ==========
+  function drawA(canvas) {
+    const ctx = canvas.getContext('2d');
+    const W = 1080, H = 1080;
+
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(0, 0, W, H);
+
+    // CF.
+    drawColoredDotText(ctx, 'CF', '.', '#FFD93D', '#C8102E', 460, 900, W / 2, H / 2 - 30);
+
+    // CODEFIT (small)
+    ctx.font = '800 65px Pretendard, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.fillText('C O D E F I T', W / 2, H / 2 + 240);
+  }
+
+  // ========== B — Yellow Monogram (노랑 + cf.) ==========
+  function drawB(canvas) {
+    const ctx = canvas.getContext('2d');
+    const W = 1080, H = 1080;
+
+    ctx.fillStyle = '#FFD93D';
+    ctx.fillRect(0, 0, W, H);
+
+    // cf.
+    drawColoredDotText(ctx, 'cf', '.', '#1a1a1a', '#C8102E', 540, 900, W / 2, H / 2 - 20);
+
+    // CODEFIT (small)
+    ctx.font = '800 65px Pretendard, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = 'rgba(26,26,26,0.55)';
+    ctx.fillText('C O D E F I T', W / 2, H / 2 + 280);
+  }
+
+  // ========== C — Korean Stamp (크림 + 빨간 도장) ==========
+  function drawC(canvas) {
+    const ctx = canvas.getContext('2d');
+    const W = 1080, H = 1080;
+
+    // 크림 배경
+    ctx.fillStyle = '#FFF8E7';
+    ctx.fillRect(0, 0, W, H);
+
+    // 회전 + 중심 이동
+    ctx.save();
+    ctx.translate(W / 2, H / 2);
+    ctx.rotate(-6 * Math.PI / 180);
+
+    // 빨간 원
+    ctx.fillStyle = '#C8102E';
+    ctx.beginPath();
+    ctx.arc(0, 0, 420, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 안쪽 흰 테두리 링
+    ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+    ctx.lineWidth = 8;
+    ctx.beginPath();
+    ctx.arc(0, 0, 388, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // 코드핏 (큰 한글)
+    ctx.fillStyle = 'white';
+    ctx.font = '900 240px Pretendard, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('코드핏', 0, -45);
+
+    // CODEFIT (작은 영문)
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.font = '800 60px Pretendard, sans-serif';
+    ctx.fillText('C O D E F I T', 0, 110);
+
+    ctx.restore();
+  }
+
+  // ========== 다운로드 ==========
+  function downloadCanvas(canvasId, filename) {
+    const canvas = document.getElementById(canvasId);
+    canvas.toBlob(blob => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(a.href), 100);
+    }, 'image/png');
+  }
+
+  // ========== 미리보기 캔버스에 동일 디자인 그리기 ==========
+  function copyCanvas(srcId, dstId) {
+    const src = document.getElementById(srcId);
+    const dst = document.getElementById(dstId);
+    const ctx = dst.getContext('2d');
+    ctx.drawImage(src, 0, 0);
+  }
+
+  // ========== 초기 렌더 ==========
+  (async () => {
+    await ensureFonts();
+
+    drawA(document.getElementById('canvas-a'));
+    drawB(document.getElementById('canvas-b'));
+    drawC(document.getElementById('canvas-c'));
+
+    // 미리보기 = 큰 캔버스 그대로 복사
+    copyCanvas('canvas-a', 'preview-a');
+    copyCanvas('canvas-b', 'preview-b');
+    copyCanvas('canvas-c', 'preview-c');
+
+    // 로딩 해제
+    document.querySelectorAll('.canvas-wrap').forEach(w => w.classList.remove('loading'));
+    document.querySelectorAll('.dl-btn').forEach(b => b.disabled = false);
+  })();
+</script>
+
+</body>
+</html>

@@ -48,6 +48,8 @@ export async function POST(request: NextRequest) {
         [txn.id]
       );
       for (const item of items) {
+        // 거래명세서 미표시 항목은 이메일에서도 제외
+        if (item.invoice_hidden) continue;
         allItems.push({
           product_name: item.product_name,
           spec: item.spec,
