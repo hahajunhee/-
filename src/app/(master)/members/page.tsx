@@ -25,6 +25,7 @@ const TAB_OPTIONS: { key: string; label: string }[] = [
   { key: 'transactions_new', label: '거래 입력' },
   { key: 'transactions', label: '거래 내역' },
   { key: 'orders', label: '발주 관리' },
+  { key: 'costs', label: '비용 입력' },
 ];
 
 export default function MembersPage() {

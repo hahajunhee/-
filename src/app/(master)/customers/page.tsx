@@ -5,7 +5,7 @@ import { Plus, Pencil, Trash2, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
 import PageHeader from '@/components/PageHeader';
 import Modal from '@/components/Modal';
-import { Customer } from '@/types';
+import { Customer, OPERATION_TYPES, OperationType } from '@/types';
 
 const emptyCustomer = {
   company_name: '',
@@ -17,6 +17,13 @@ const emptyCustomer = {
   business_category: '',
   fax: '',
   reg_number: '',
+  operation_type: '대리점' as OperationType,
+};
+
+const OP_BADGE: Record<OperationType, string> = {
+  '본사': 'bg-purple-100 text-purple-700',
+  '직영': 'bg-blue-100 text-blue-700',
+  '대리점': 'bg-emerald-100 text-emerald-700',
 };
 
 export default function CustomersPage() {
@@ -69,6 +76,7 @@ export default function CustomersPage() {
       business_category: c.business_category,
       fax: c.fax,
       reg_number: c.reg_number,
+      operation_type: (c.operation_type || '대리점') as OperationType,
     });
     setModalOpen(true);
   };
@@ -139,6 +147,7 @@ export default function CustomersPage() {
               <thead>
                 <tr>
                   <th>상호</th>
+                  <th className="text-center">운영구분</th>
                   <th>성명</th>
                   <th>이메일</th>
                   <th>연락처</th>
@@ -153,6 +162,11 @@ export default function CustomersPage() {
                 {filtered.map((c) => (
                   <tr key={c.id}>
                     <td className="font-medium">{c.company_name}</td>
+                    <td className="text-center">
+                      <span className={`inline-block px-2 py-0.5 text-xs rounded-full ${OP_BADGE[(c.operation_type || '대리점') as OperationType]}`}>
+                        {c.operation_type || '대리점'}
+                      </span>
+                    </td>
                     <td>{c.contact_name}</td>
                     <td className="text-gray-500">{c.email || '-'}</td>
                     <td className="text-gray-500">{c.tel}</td>
@@ -174,7 +188,7 @@ export default function CustomersPage() {
                 ))}
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={9} className="text-center py-8 text-gray-400">
+                    <td colSpan={10} className="text-center py-8 text-gray-400">
                       {search ? '검색 결과가 없습니다' : '거래처를 추가해주세요'}
                     </td>
                   </tr>
@@ -192,6 +206,23 @@ export default function CustomersPage() {
         width="max-w-2xl"
       >
         <div className="grid grid-cols-2 gap-4">
+          <div className="col-span-2">
+            <label className="form-label">운영구분 *</label>
+            <div className="flex gap-2">
+              {OPERATION_TYPES.map(op => (
+                <button key={op} type="button"
+                  onClick={() => setForm({ ...form, operation_type: op })}
+                  className={`flex-1 py-2 px-3 rounded-lg border-2 text-sm font-medium transition ${
+                    form.operation_type === op
+                      ? 'border-blue-500 bg-blue-50 text-blue-700'
+                      : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                  }`}
+                >
+                  {op}
+                </button>
+              ))}
+            </div>
+          </div>
           <div>
             <label className="form-label">상호명 *</label>
             <input type="text" className="form-input" placeholder="예: 미식당 성수본점" value={form.company_name}

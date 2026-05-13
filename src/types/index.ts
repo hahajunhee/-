@@ -1,9 +1,14 @@
+export type OperationType = '본사' | '직영' | '대리점';
+
+export const OPERATION_TYPES: OperationType[] = ['본사', '직영', '대리점'];
+
 export interface Product {
   id: number;
   name: string;
   category: string;
   spec: string;
   unit: string;
+  operation_type: OperationType;
   material_cost: number;
   other_cost: number;
   selling_price: number;
@@ -30,6 +35,25 @@ export interface Customer {
   business_category: string;
   fax: string;
   reg_number: string;
+  operation_type: OperationType;
+  created_at?: string;
+}
+
+export interface CostCategory {
+  id: number;
+  name: string;
+  order_idx: number;
+}
+
+export interface Cost {
+  id: number;
+  customer_id: number;
+  customer_name?: string;
+  operation_type?: OperationType;
+  category: string;
+  settlement_month: string;  // YYYY-MM
+  amount: number;
+  notes: string;
   created_at?: string;
 }
 

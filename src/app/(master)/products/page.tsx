@@ -5,7 +5,7 @@ import { Plus, Pencil, Trash2, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
 import PageHeader from '@/components/PageHeader';
 import Modal from '@/components/Modal';
-import { Product } from '@/types';
+import { Product, OPERATION_TYPES, OperationType } from '@/types';
 import { computeProductFields, formatKRW, formatPercent } from '@/lib/calculator';
 
 const CATEGORIES = ['고기', '야채', '소스', '가공', '음료'];
@@ -22,6 +22,13 @@ const emptyProduct = {
   apply_material_cost: false,
   incentive: 0,
   invoice_hidden: false,
+  operation_type: '대리점' as OperationType,
+};
+
+const OP_TAB_COLOR: Record<OperationType, string> = {
+  '본사': 'bg-purple-600 text-white',
+  '직영': 'bg-blue-600 text-white',
+  '대리점': 'bg-emerald-600 text-white',
 };
 
 export default function ProductsPage() {
@@ -29,6 +36,7 @@ export default function ProductsPage() {
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
+  const [operationTab, setOperationTab] = useState<OperationType>('대리점');
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [form, setForm] = useState(emptyProduct);
@@ -45,7 +53,7 @@ export default function ProductsPage() {
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
 
   useEffect(() => {
-    let filtered = products;
+    let filtered = products.filter((p) => (p.operation_type || '대리점') === operationTab);
     if (categoryFilter) {
       filtered = filtered.filter((p) => p.category === categoryFilter);
     }
@@ -56,11 +64,12 @@ export default function ProductsPage() {
       );
     }
     setFilteredProducts(filtered);
-  }, [products, categoryFilter, search]);
+  }, [products, categoryFilter, search, operationTab]);
 
   const openAdd = () => {
     setEditing(null);
-    setForm(emptyProduct);
+    // 현재 선택된 운영구분 탭으로 기본 설정
+    setForm({ ...emptyProduct, operation_type: operationTab });
     setModalOpen(true);
   };
 
@@ -78,6 +87,7 @@ export default function ProductsPage() {
       apply_material_cost: !!p.apply_material_cost,
       incentive: Number(p.incentive) || 0,
       invoice_hidden: !!p.invoice_hidden,
+      operation_type: (p.operation_type || '대리점') as OperationType,
     });
     setModalOpen(true);
   };
@@ -138,13 +148,31 @@ export default function ProductsPage() {
     <>
       <PageHeader
         title="품목 관리"
-        description={`총 ${products.length}개 품목`}
+        description={`${operationTab} ${filteredProducts.length}개 / 전체 ${products.length}개`}
         action={
           <button onClick={openAdd} className="btn-primary">
             <Plus size={16} /> 품목 추가
           </button>
         }
       />
+
+      {/* 운영구분 탭 */}
+      <div className="flex gap-2 mb-4 border-b pb-1">
+        {OPERATION_TYPES.map(op => {
+          const count = products.filter(p => (p.operation_type || '대리점') === op).length;
+          const isActive = operationTab === op;
+          return (
+            <button key={op}
+              onClick={() => setOperationTab(op)}
+              className={`px-5 py-2 rounded-t-lg text-sm font-semibold transition ${
+                isActive ? OP_TAB_COLOR[op] : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+              }`}
+            >
+              {op} <span className="ml-1 opacity-75">({count})</span>
+            </button>
+          );
+        })}
+      </div>
 
       {/* 필터 바 */}
       <div className="card mb-4">
@@ -272,6 +300,23 @@ export default function ProductsPage() {
         width="max-w-2xl"
       >
         <div className="grid grid-cols-2 gap-4">
+          <div className="col-span-2">
+            <label className="form-label">운영구분 *</label>
+            <div className="flex gap-2">
+              {OPERATION_TYPES.map(op => (
+                <button key={op} type="button"
+                  onClick={() => setForm({ ...form, operation_type: op })}
+                  className={`flex-1 py-2 px-3 rounded-lg border-2 text-sm font-medium transition ${
+                    form.operation_type === op
+                      ? 'border-blue-500 bg-blue-50 text-blue-700'
+                      : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                  }`}
+                >
+                  {op}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="col-span-2">
             <label className="form-label">품목명 *</label>
             <input

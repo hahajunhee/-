@@ -73,9 +73,14 @@ function TransactionNewContent() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const filteredProducts = categoryFilter
-    ? products.filter((p) => p.category === categoryFilter)
-    : products;
+  // 거래처 선택 시 해당 운영구분의 품목만 노출
+  const selectedCustomer = customers.find(c => c.id === customerId);
+  const customerOp = selectedCustomer?.operation_type || null;
+  const filteredProducts = products.filter(p => {
+    if (customerOp && (p.operation_type || '대리점') !== customerOp) return false;
+    if (categoryFilter && p.category !== categoryFilter) return false;
+    return true;
+  });
 
   const addItem = (product: Product) => {
     // 이미 추가된 품목인지 확인

@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, Package, Building2, FileText,
-  PlusCircle, Settings, Users, ShoppingCart, LogOut, ChevronLeft, ChevronRight, Mail,
+  PlusCircle, Settings, Users, ShoppingCart, LogOut, ChevronLeft, ChevronRight,
+  Wallet,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -15,6 +16,7 @@ const navItems = [
   { key: 'transactions_new', href: '/transactions/new', label: '거래 입력', icon: PlusCircle },
   { key: 'transactions', href: '/transactions', label: '거래 내역', icon: FileText },
   { key: 'orders', href: '/orders-manage', label: '발주 관리', icon: ShoppingCart },
+  { key: 'costs', href: '/costs', label: '비용 입력', icon: Wallet },
   { key: 'members', href: '/members', label: '회원 관리', icon: Users },
   { key: 'settings', href: '/settings', label: '설정', icon: Settings },
 ];
@@ -22,7 +24,7 @@ const navItems = [
 // 매니저는 회원관리/설정 영구 차단 (관리자 전용)
 const MANAGER_ONLY_HIDDEN = ['members', 'settings'];
 // 매니저 기본 노출 탭 (관리자가 별도 권한 설정 안 했을 때): 거래처관리, 거래입력, 거래내역, 발주관리
-const MANAGER_DEFAULT_TABS = ['customers', 'transactions_new', 'transactions', 'orders'];
+const MANAGER_DEFAULT_TABS = ['customers', 'transactions_new', 'transactions', 'orders', 'costs'];
 
 export default function MasterSidebar({
   userName,
