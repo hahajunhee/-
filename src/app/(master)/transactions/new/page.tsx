@@ -1,19 +1,23 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState, useCallback, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Plus, Trash2, Save, FileText } from 'lucide-react';
 import toast from 'react-hot-toast';
 import PageHeader from '@/components/PageHeader';
 import { Product, Customer, TransactionItem } from '@/types';
 import { computeItemFields, formatKRW } from '@/lib/calculator';
 
-export default function TransactionNewPage() {
+function TransactionNewContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const editId = searchParams.get('edit'); // 수정 모드 ID
+  const isEdit = !!editId;
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [customerId, setCustomerId] = useState<number>(0);
+  const [paymentStatus, setPaymentStatus] = useState<'paid' | 'unpaid'>('unpaid');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [items, setItems] = useState<TransactionItem[]>([]);
   const [saving, setSaving] = useState(false);
@@ -31,7 +35,38 @@ export default function TransactionNewPage() {
       const auth = await aRes.json();
       setUserRole(auth?.user?.role || null);
     } catch {}
-  }, []);
+
+    // 수정 모드: 기존 거래 로드
+    if (editId) {
+      try {
+        const r = await fetch(`/api/transactions/${editId}`);
+        if (r.ok) {
+          const txn = await r.json();
+          setDate(txn.date_formatted || txn.date?.split('T')[0] || '');
+          setCustomerId(Number(txn.customer_id));
+          setPaymentStatus(txn.payment_status === 'paid' ? 'paid' : 'unpaid');
+          setItems((txn.items || []).map((it: any) => ({
+            product_id: it.product_id,
+            product_name: it.product_name,
+            category: it.category,
+            spec: it.spec,
+            unit: it.unit,
+            qty: Number(it.qty),
+            unit_price: Number(it.unit_price),
+            material_cost: Number(it.material_cost),
+            other_cost: Number(it.other_cost),
+            vat_apply: it.vat_apply,
+            amount: Number(it.amount),
+            vat_amount: Number(it.vat_amount),
+            margin: Number(it.margin),
+            net_profit: Number(it.net_profit),
+            incentive: Number(it.incentive) || 0,
+            invoice_hidden: !!it.invoice_hidden,
+          })));
+        }
+      } catch {}
+    }
+  }, [editId]);
 
   // 매니저는 마진/순익 비공개
   const showProfit = userRole !== 'manager';
@@ -109,7 +144,7 @@ export default function TransactionNewPage() {
     const payload = {
       date,
       customer_id: customerId,
-      payment_status: 'unpaid',
+      payment_status: paymentStatus,
       supply_total: supplyTotal,
       vat_total: vatTotal,
       grand_total: grandTotal,
@@ -133,30 +168,33 @@ export default function TransactionNewPage() {
       })),
     };
 
-    const res = await fetch('/api/transactions', {
-      method: 'POST',
+    const res = await fetch(isEdit ? `/api/transactions/${editId}` : '/api/transactions', {
+      method: isEdit ? 'PUT' : 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
 
     if (res.ok) {
       const txn = await res.json();
-      toast.success('거래가 저장되었습니다');
+      toast.success(isEdit ? '거래가 수정되었습니다' : '거래가 저장되었습니다');
       if (openInvoice) {
-        router.push(`/invoice?id=${txn.id}`);
+        router.push(`/invoice?id=${isEdit ? editId : txn.id}`);
       } else {
         setItems([]);
         router.push('/transactions');
       }
     } else {
-      toast.error('저장 실패');
+      toast.error(isEdit ? '수정 실패' : '저장 실패');
     }
     setSaving(false);
   };
 
   return (
     <>
-      <PageHeader title="거래 입력" description="새로운 거래를 등록합니다" />
+      <PageHeader
+        title={isEdit ? '거래 수정' : '거래 입력'}
+        description={isEdit ? `거래 #${editId} 수정` : '새로운 거래를 등록합니다'}
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* 좌측: 품목 선택 */}
@@ -335,14 +373,14 @@ export default function TransactionNewPage() {
                   disabled={saving}
                   className="btn-primary"
                 >
-                  <Save size={16} /> 저장
+                  <Save size={16} /> {isEdit ? '수정 저장' : '저장'}
                 </button>
                 <button
                   onClick={() => handleSave(true)}
                   disabled={saving}
                   className="btn-success"
                 >
-                  <FileText size={16} /> 저장 + 명세서 보기
+                  <FileText size={16} /> {isEdit ? '수정 + 명세서 보기' : '저장 + 명세서 보기'}
                 </button>
               </div>
             </div>
@@ -350,5 +388,13 @@ export default function TransactionNewPage() {
         </div>
       </div>
     </>
+  );
+}
+
+export default function TransactionNewPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-gray-400">불러오는 중...</div>}>
+      <TransactionNewContent />
+    </Suspense>
   );
 }

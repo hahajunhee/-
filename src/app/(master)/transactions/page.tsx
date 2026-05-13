@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
-import { FileText, Trash2, CheckCircle, Clock, PlusCircle, Mail, Eye, ChevronDown, ChevronUp } from 'lucide-react';
+import { FileText, Trash2, CheckCircle, Clock, PlusCircle, Mail, ChevronDown, ChevronUp, Pencil } from 'lucide-react';
 import toast from 'react-hot-toast';
 import PageHeader from '@/components/PageHeader';
 import { Customer } from '@/types';
@@ -259,9 +259,14 @@ export default function TransactionsPage() {
                       </button>
                     </td>
                     <td>
-                      <button onClick={() => handleDelete(t.id)} className="p-1.5 rounded hover:bg-red-50">
-                        <Trash2 size={14} className="text-red-400" />
-                      </button>
+                      <div className="flex gap-1">
+                        <Link href={`/transactions/new?edit=${t.id}`} className="p-1.5 rounded hover:bg-blue-50" title="수정">
+                          <Pencil size={14} className="text-blue-500" />
+                        </Link>
+                        <button onClick={() => handleDelete(t.id)} className="p-1.5 rounded hover:bg-red-50" title="삭제">
+                          <Trash2 size={14} className="text-red-400" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                   {/* 펼침 상세 행 */}

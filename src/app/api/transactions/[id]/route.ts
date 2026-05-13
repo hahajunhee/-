@@ -63,12 +63,40 @@ export async function PUT(
 ) {
   const { id } = await params;
   const body = await request.json();
-  const data = await query(
-    'UPDATE transactions SET payment_status=$1 WHERE id=$2 RETURNING *',
-    [body.payment_status, Number(id)]
+  const txnId = Number(id);
+
+  // 입금 상태만 변경하는 간단 PUT (기존 동작 유지)
+  if (body.items === undefined) {
+    const data = await query(
+      'UPDATE transactions SET payment_status=$1 WHERE id=$2 RETURNING *',
+      [body.payment_status, txnId]
+    );
+    if (data.length === 0) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    return NextResponse.json(data[0]);
+  }
+
+  // 전체 수정 (헤더 + 품목 교체)
+  const headerResult = await query(
+    `UPDATE transactions
+     SET date=$1, customer_id=$2, payment_status=$3,
+         supply_total=$4, vat_total=$5, grand_total=$6
+     WHERE id=$7 RETURNING *`,
+    [body.date, body.customer_id, body.payment_status,
+     body.supply_total, body.vat_total, body.grand_total, txnId]
   );
-  if (data.length === 0) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-  return NextResponse.json(data[0]);
+  if (headerResult.length === 0) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+
+  // 기존 품목 삭제 후 재삽입
+  await query('DELETE FROM transaction_items WHERE transaction_id=$1', [txnId]);
+  for (const item of body.items) {
+    await query(
+      `INSERT INTO transaction_items
+       (transaction_id, product_id, product_name, category, spec, unit, qty, unit_price, material_cost, other_cost, amount, vat_apply, vat_amount, margin, net_profit, incentive, invoice_hidden)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
+      [txnId, item.product_id, item.product_name, item.category, item.spec, item.unit, item.qty, item.unit_price, item.material_cost, item.other_cost, item.amount, item.vat_apply, item.vat_amount, item.margin, item.net_profit, Number(item.incentive) || 0, !!item.invoice_hidden]
+    );
+  }
+  return NextResponse.json(headerResult[0]);
 }
 
 export async function DELETE(

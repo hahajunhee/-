@@ -4,23 +4,40 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function GET(request: NextRequest) {
   const year = request.nextUrl.searchParams.get('year') || new Date().getFullYear().toString();
 
-  const monthlyData = await query(`
+  // 1) 월별 거래 합계 (transactions만 - JOIN으로 중복 합산 방지)
+  const monthlyTxn = await query(`
     SELECT
       TO_CHAR(t.date, 'YYYY-MM') as month,
-      COUNT(DISTINCT t.id)::int as transaction_count,
+      COUNT(t.id)::int as transaction_count,
       COALESCE(SUM(t.supply_total), 0)::numeric as supply_total,
       COALESCE(SUM(t.vat_total), 0)::numeric as vat_total,
-      COALESCE(SUM(t.grand_total), 0)::numeric as grand_total,
-      COALESCE(SUM(ti.margin), 0)::numeric as total_margin,
-      COALESCE(SUM(ti.net_profit), 0)::numeric as total_net_profit
+      COALESCE(SUM(t.grand_total), 0)::numeric as grand_total
     FROM transactions t
-    LEFT JOIN transaction_items ti ON t.id = ti.transaction_id
     WHERE EXTRACT(YEAR FROM t.date) = $1
     GROUP BY TO_CHAR(t.date, 'YYYY-MM')
-    ORDER BY month
   `, [Number(year)]);
 
-  // 12개월 전부 채우기
+  // 2) 월별 손익 (transaction_items 집계)
+  const monthlyItem = await query(`
+    SELECT
+      TO_CHAR(t.date, 'YYYY-MM') as month,
+      COALESCE(SUM(ti.margin), 0)::numeric as total_margin,
+      COALESCE(SUM(ti.net_profit), 0)::numeric as total_net_profit
+    FROM transaction_items ti
+    JOIN transactions t ON ti.transaction_id = t.id
+    WHERE EXTRACT(YEAR FROM t.date) = $1
+    GROUP BY TO_CHAR(t.date, 'YYYY-MM')
+  `, [Number(year)]);
+
+  const monthlyItemMap: Record<string, { total_margin: number; total_net_profit: number }> = {};
+  for (const r of monthlyItem) {
+    monthlyItemMap[r.month] = {
+      total_margin: Number(r.total_margin),
+      total_net_profit: Number(r.total_net_profit),
+    };
+  }
+
+  // 12개월 채우기
   const monthlyMap: Record<string, {
     month: string;
     transaction_count: number;
@@ -30,7 +47,6 @@ export async function GET(request: NextRequest) {
     total_margin: number;
     total_net_profit: number;
   }> = {};
-
   for (let m = 1; m <= 12; m++) {
     const key = `${year}-${String(m).padStart(2, '0')}`;
     monthlyMap[key] = {
@@ -38,40 +54,71 @@ export async function GET(request: NextRequest) {
       vat_total: 0, grand_total: 0, total_margin: 0, total_net_profit: 0,
     };
   }
-
-  for (const row of monthlyData) {
+  for (const row of monthlyTxn) {
+    const item = monthlyItemMap[row.month] || { total_margin: 0, total_net_profit: 0 };
     monthlyMap[row.month] = {
       month: row.month,
       transaction_count: Number(row.transaction_count),
       supply_total: Number(row.supply_total),
       vat_total: Number(row.vat_total),
       grand_total: Number(row.grand_total),
-      total_margin: Number(row.total_margin),
-      total_net_profit: Number(row.total_net_profit),
+      total_margin: item.total_margin,
+      total_net_profit: item.total_net_profit,
     };
   }
 
-  // 거래처별 집계 (납부예정 부가세 = 매출부가세 합계 - 매입부가세 합계)
-  const customerData = await query(`
+  // 3) 거래처별 transactions 합계 (JOIN 없이)
+  const customerTxn = await query(`
     SELECT
       t.customer_id,
       c.company_name as customer_name,
-      COUNT(DISTINCT t.id)::int as transaction_count,
+      COUNT(t.id)::int as transaction_count,
       COALESCE(SUM(t.supply_total), 0)::numeric as supply_total,
       COALESCE(SUM(t.grand_total), 0)::numeric as grand_total,
-      COUNT(DISTINCT CASE WHEN t.payment_status = 'unpaid' THEN t.id END)::int as unpaid_count,
-      COALESCE(SUM(CASE WHEN t.payment_status = 'unpaid' THEN t.grand_total ELSE 0 END), 0)::numeric as unpaid_total,
-      COALESCE(SUM(ti.vat_amount), 0)::numeric as sales_vat,
-      COALESCE(SUM(CASE WHEN ti.vat_apply THEN FLOOR(ti.material_cost * 0.1) * ti.qty ELSE 0 END), 0)::numeric as purchase_vat
+      COUNT(CASE WHEN t.payment_status = 'unpaid' THEN 1 END)::int as unpaid_count,
+      COALESCE(SUM(CASE WHEN t.payment_status = 'unpaid' THEN t.grand_total ELSE 0 END), 0)::numeric as unpaid_total
     FROM transactions t
     JOIN customers c ON t.customer_id = c.id
-    LEFT JOIN transaction_items ti ON t.id = ti.transaction_id
     WHERE EXTRACT(YEAR FROM t.date) = $1
     GROUP BY t.customer_id, c.company_name
-    ORDER BY grand_total DESC
   `, [Number(year)]);
 
-  // 품목별 집계 (납부예정 부가세)
+  // 4) 거래처별 부가세 집계 (transaction_items)
+  const customerVat = await query(`
+    SELECT
+      t.customer_id,
+      COALESCE(SUM(ti.vat_amount), 0)::numeric as sales_vat,
+      COALESCE(SUM(CASE WHEN ti.vat_apply THEN FLOOR(ti.material_cost * 0.1) * ti.qty ELSE 0 END), 0)::numeric as purchase_vat
+    FROM transaction_items ti
+    JOIN transactions t ON ti.transaction_id = t.id
+    WHERE EXTRACT(YEAR FROM t.date) = $1
+    GROUP BY t.customer_id
+  `, [Number(year)]);
+  const customerVatMap: Record<number, { sales_vat: number; purchase_vat: number }> = {};
+  for (const r of customerVat) {
+    customerVatMap[r.customer_id] = {
+      sales_vat: Number(r.sales_vat),
+      purchase_vat: Number(r.purchase_vat),
+    };
+  }
+
+  const customers = customerTxn.map((r) => {
+    const vat = customerVatMap[r.customer_id] || { sales_vat: 0, purchase_vat: 0 };
+    return {
+      customer_id: r.customer_id,
+      customer_name: r.customer_name,
+      transaction_count: Number(r.transaction_count),
+      supply_total: Number(r.supply_total),
+      grand_total: Number(r.grand_total),
+      unpaid_count: Number(r.unpaid_count),
+      unpaid_total: Number(r.unpaid_total),
+      sales_vat: vat.sales_vat,
+      purchase_vat: vat.purchase_vat,
+      net_vat: vat.sales_vat - vat.purchase_vat,
+    };
+  }).sort((a, b) => b.grand_total - a.grand_total);
+
+  // 5) 품목별 집계 (transaction_items)
   const productData = await query(`
     SELECT
       ti.product_id,
@@ -89,28 +136,13 @@ export async function GET(request: NextRequest) {
     ORDER BY total_amount DESC
   `, [Number(year)]);
 
-  // 전체 납부예정 부가세 합계
-  const totalSalesVat = customerData.reduce((s, r) => s + Number(r.sales_vat), 0);
-  const totalPurchaseVat = customerData.reduce((s, r) => s + Number(r.purchase_vat), 0);
+  // 6) 전체 부가세 합계
+  const totalSalesVat = customers.reduce((s, r) => s + r.sales_vat, 0);
+  const totalPurchaseVat = customers.reduce((s, r) => s + r.purchase_vat, 0);
 
   return NextResponse.json({
     monthly: Object.values(monthlyMap),
-    customers: customerData.map((r) => {
-      const salesVat = Number(r.sales_vat);
-      const purchaseVat = Number(r.purchase_vat);
-      return {
-        customer_id: r.customer_id,
-        customer_name: r.customer_name,
-        transaction_count: Number(r.transaction_count),
-        supply_total: Number(r.supply_total),
-        grand_total: Number(r.grand_total),
-        unpaid_count: Number(r.unpaid_count),
-        unpaid_total: Number(r.unpaid_total),
-        sales_vat: salesVat,
-        purchase_vat: purchaseVat,
-        net_vat: salesVat - purchaseVat,  // 납부예정 부가세
-      };
-    }),
+    customers,
     products: productData.map((r) => {
       const salesVat = Number(r.sales_vat);
       const purchaseVat = Number(r.purchase_vat);
