@@ -315,6 +315,117 @@ export async function GET(request: NextRequest) {
     전체: buildBenchmark(benchmarkRows),
   };
 
+  // 5-A) 선택 거래처별 월별 (customer_ids가 있을 때만)
+  const monthlyPerCustomer: Record<number, Record<string, { grand_total: number; total_cost: number; final_profit: number }>> = {};
+  if (customerIds.length > 0) {
+    const placeholders = customerIds.map((_, i) => `$${i + 3}`).join(',');
+    const pcTxn = await query(`
+      SELECT t.customer_id, TO_CHAR(t.date, 'YYYY-MM') as month,
+        COALESCE(SUM(t.grand_total), 0)::numeric as grand_total
+      FROM transactions t
+      WHERE t.date BETWEEN $1 AND $2 AND t.customer_id IN (${placeholders})
+      GROUP BY t.customer_id, TO_CHAR(t.date, 'YYYY-MM')
+    `, [dateFrom, dateTo, ...customerIds]);
+
+    const pcCostPlaceholders = customerIds.map((_, i) => `$${i + 3}`).join(',');
+    const pcCost = await query(`
+      SELECT co.customer_id, co.settlement_month as month,
+        COALESCE(SUM(co.amount), 0)::numeric as total_cost
+      FROM costs co
+      WHERE co.settlement_month BETWEEN $1 AND $2 AND co.customer_id IN (${pcCostPlaceholders})
+      GROUP BY co.customer_id, co.settlement_month
+    `, [monthFrom, monthTo, ...customerIds]);
+
+    for (const id of customerIds) {
+      monthlyPerCustomer[id] = {};
+      for (const m of allMonths) monthlyPerCustomer[id][m] = { grand_total: 0, total_cost: 0, final_profit: 0 };
+    }
+    for (const r of pcTxn) {
+      const cid = r.customer_id;
+      if (monthlyPerCustomer[cid] && monthlyPerCustomer[cid][r.month]) {
+        monthlyPerCustomer[cid][r.month].grand_total = Number(r.grand_total);
+      }
+    }
+    for (const r of pcCost) {
+      const cid = r.customer_id;
+      if (monthlyPerCustomer[cid] && monthlyPerCustomer[cid][r.month]) {
+        monthlyPerCustomer[cid][r.month].total_cost = Number(r.total_cost);
+      }
+    }
+    for (const id of customerIds) {
+      for (const m of allMonths) {
+        const v = monthlyPerCustomer[id][m];
+        v.final_profit = v.grand_total - v.total_cost;
+      }
+    }
+  }
+
+  // 5-B) 운영구분별 월 평균 (기간 전체 데이터, 운영구분 필터 무시)
+  const monthlyBenchTxn = await query(`
+    SELECT TO_CHAR(t.date, 'YYYY-MM') as month, c.operation_type,
+      COUNT(DISTINCT t.customer_id)::int as cust_count,
+      COALESCE(SUM(t.grand_total), 0)::numeric as total_grand
+    FROM transactions t JOIN customers c ON t.customer_id = c.id
+    WHERE t.date BETWEEN $1 AND $2
+    GROUP BY TO_CHAR(t.date, 'YYYY-MM'), c.operation_type
+  `, [dateFrom, dateTo]);
+
+  const monthlyBenchCost = await query(`
+    SELECT co.settlement_month as month, c.operation_type,
+      COUNT(DISTINCT co.customer_id)::int as cust_count,
+      COALESCE(SUM(co.amount), 0)::numeric as total_cost
+    FROM costs co JOIN customers c ON co.customer_id = c.id
+    WHERE co.settlement_month BETWEEN $1 AND $2
+    GROUP BY co.settlement_month, c.operation_type
+  `, [monthFrom, monthTo]);
+
+  // 운영구분별 월별 평균 매출/비용/순익
+  type OpMonthly = Record<string, { grand_total: number; total_cost: number; final_profit: number }>;
+  const monthlyBench: Record<string, OpMonthly> = { 본사: {}, 직영: {}, 대리점: {}, 전체: {} };
+  for (const op of ['본사','직영','대리점','전체']) {
+    for (const m of allMonths) monthlyBench[op][m] = { grand_total: 0, total_cost: 0, final_profit: 0 };
+  }
+
+  // 운영구분별 매출 합계와 customer count
+  const benchTxnMap: Record<string, Record<string, { total: number; cnt: number }>> = { 본사: {}, 직영: {}, 대리점: {} };
+  for (const r of monthlyBenchTxn) {
+    const op = r.operation_type || '대리점';
+    if (!benchTxnMap[op]) continue;
+    benchTxnMap[op][r.month] = { total: Number(r.total_grand), cnt: Number(r.cust_count) };
+  }
+  const benchCostMap: Record<string, Record<string, { total: number; cnt: number }>> = { 본사: {}, 직영: {}, 대리점: {} };
+  for (const r of monthlyBenchCost) {
+    const op = r.operation_type || '대리점';
+    if (!benchCostMap[op]) continue;
+    benchCostMap[op][r.month] = { total: Number(r.total_cost), cnt: Number(r.cust_count) };
+  }
+
+  for (const op of ['본사','직영','대리점'] as const) {
+    for (const m of allMonths) {
+      const t = benchTxnMap[op][m] || { total: 0, cnt: 0 };
+      const c = benchCostMap[op][m] || { total: 0, cnt: 0 };
+      const avgGrand = t.cnt > 0 ? t.total / t.cnt : 0;
+      const avgCost = c.cnt > 0 ? c.total / c.cnt : 0;
+      monthlyBench[op][m] = {
+        grand_total: avgGrand, total_cost: avgCost,
+        final_profit: avgGrand - avgCost,
+      };
+    }
+  }
+  // 전체 평균: 모든 운영구분 통합
+  for (const m of allMonths) {
+    const totals = (['본사','직영','대리점'] as const).reduce((acc, op) => {
+      const t = benchTxnMap[op][m] || { total: 0, cnt: 0 };
+      const c = benchCostMap[op][m] || { total: 0, cnt: 0 };
+      acc.tTotal += t.total; acc.tCnt += t.cnt;
+      acc.cTotal += c.total; acc.cCnt += c.cnt;
+      return acc;
+    }, { tTotal: 0, tCnt: 0, cTotal: 0, cCnt: 0 });
+    const avgGrand = totals.tCnt > 0 ? totals.tTotal / totals.tCnt : 0;
+    const avgCost = totals.cCnt > 0 ? totals.cTotal / totals.cCnt : 0;
+    monthlyBench['전체'][m] = { grand_total: avgGrand, total_cost: avgCost, final_profit: avgGrand - avgCost };
+  }
+
   // 6) 품목별
   const w7 = buildTxnWhere();
   const productData = await query(`
@@ -350,6 +461,8 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     period: { date_from: dateFrom, date_to: dateTo },
     monthly: Object.values(monthlyMap),
+    monthly_per_customer: monthlyPerCustomer,  // { customer_id: { month: {grand_total, total_cost, final_profit} } }
+    monthly_benchmarks: monthlyBench,           // { 본사|직영|대리점|전체: { month: {grand_total, total_cost, final_profit} } }
     customers,
     benchmarks,
     products: productData.map((r) => ({

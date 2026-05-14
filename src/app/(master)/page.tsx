@@ -43,6 +43,10 @@ interface MonthlyData {
   month: string; grand_total: number; total_cost: number; final_profit: number; total_net_profit: number;
 }
 
+interface MonthMetric { grand_total: number; total_cost: number; final_profit: number; }
+type PerCustomerMonthly = Record<number, Record<string, MonthMetric>>;
+type BenchMonthly = Record<string, Record<string, MonthMetric>>;
+
 interface CustomerOpt { id: number; company_name: string; operation_type?: OperationType; }
 
 // 날짜 프리셋
@@ -86,15 +90,22 @@ export default function DashboardPage() {
   const [selectedCustIds, setSelectedCustIds] = useState<number[]>([]);
 
   const [monthly, setMonthly] = useState<MonthlyData[]>([]);
+  const [monthlyPerCust, setMonthlyPerCust] = useState<PerCustomerMonthly>({});
+  const [monthlyBench, setMonthlyBench] = useState<BenchMonthly>({});
   const [customers, setCustomers] = useState<CustomerSummary[]>([]);
   const [benchmarks, setBenchmarks] = useState<Record<string, Benchmark>>({});
   const [customerOpts, setCustomerOpts] = useState<CustomerOpt[]>([]);
   const [grandSum, setGrandSum] = useState({ grand_total: 0, total_cost: 0, final_profit: 0 });
   const [vatSum, setVatSum] = useState({ sales_vat: 0, purchase_vat: 0, net_vat: 0 });
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [chartMetric, setChartMetric] = useState<'final_profit' | 'grand_total' | 'total_cost'>('final_profit');
+  const [showBenchLines, setShowBenchLines] = useState<{ 본사: boolean; 직영: boolean; 대리점: boolean; 전체: boolean }>({
+    본사: false, 직영: false, 대리점: true, 전체: false,
+  });
 
   const fetchDashboard = useCallback(async () => {
-    setLoading(true);
+    setRefreshing(true);
     const params = new URLSearchParams();
     params.set('date_from', dateFrom);
     params.set('date_to', dateTo);
@@ -107,12 +118,15 @@ export default function DashboardPage() {
     ]);
     const dash = await dashRes.json();
     setMonthly(dash.monthly || []);
+    setMonthlyPerCust(dash.monthly_per_customer || {});
+    setMonthlyBench(dash.monthly_benchmarks || {});
     setCustomers(dash.customers || []);
     setBenchmarks(dash.benchmarks || {});
     setGrandSum(dash.grand_summary || { grand_total: 0, total_cost: 0, final_profit: 0 });
     setVatSum(dash.vat_summary || { sales_vat: 0, purchase_vat: 0, net_vat: 0 });
     setCustomerOpts(await custRes.json());
     setLoading(false);
+    setRefreshing(false);
   }, [dateFrom, dateTo, opFilter, selectedCustIds]);
 
   useEffect(() => { fetchDashboard(); }, [fetchDashboard]);
@@ -138,13 +152,49 @@ export default function DashboardPage() {
     setDateFrom(p.from); setDateTo(p.to);
   };
 
-  // 월별 차트 (선택된 거래처 비교 시 거래처별 라인)
+  // 월별 차트 (전체 막대형)
   const monthlyChart = monthly.map(m => ({
     name: m.month.substring(5) + '월',
     매출: m.grand_total,
     비용: m.total_cost,
     순익: m.final_profit,
   }));
+
+  // 거래처별 + 운영구분 평균 비교 라인 차트 데이터
+  const metricLabel: Record<typeof chartMetric, string> = {
+    final_profit: '최종 순익',
+    grand_total: '매출',
+    total_cost: '비용',
+  };
+  const compareLineChart = monthly.map(m => {
+    const point: Record<string, number | string> = { name: m.month.substring(5) + '월' };
+    // 선택된 거래처별
+    for (const cid of selectedCustIds) {
+      const c = customerOpts.find(x => x.id === cid);
+      if (!c) continue;
+      const data = monthlyPerCust[cid]?.[m.month];
+      point[c.company_name] = data ? data[chartMetric] : 0;
+    }
+    // 운영구분 평균 (체크된 것만)
+    (['본사','직영','대리점','전체'] as const).forEach(op => {
+      if (showBenchLines[op]) {
+        const data = monthlyBench[op]?.[m.month];
+        point[`${op}평균`] = data ? data[chartMetric] : 0;
+      }
+    });
+    return point;
+  });
+
+  // 거래처별 시리즈 키 + 색
+  const customerSeries = selectedCustIds.map((cid, idx) => {
+    const c = customerOpts.find(x => x.id === cid);
+    return c ? { key: c.company_name, color: CHART_COLORS[idx % CHART_COLORS.length] } : null;
+  }).filter(Boolean) as { key: string; color: string }[];
+  const benchSeries: { key: string; color: string }[] = [];
+  if (showBenchLines.본사) benchSeries.push({ key: '본사평균', color: '#a855f7' });
+  if (showBenchLines.직영) benchSeries.push({ key: '직영평균', color: '#3b82f6' });
+  if (showBenchLines.대리점) benchSeries.push({ key: '대리점평균', color: '#10b981' });
+  if (showBenchLines.전체) benchSeries.push({ key: '전체평균', color: '#6b7280' });
 
   // 평균 대비 비교 헬퍼
   const diffPct = (val: number, avg: number) => {
@@ -172,7 +222,17 @@ export default function DashboardPage() {
     <>
       <PageHeader
         title="대시보드"
-        description={`${dateFrom} ~ ${dateTo}`}
+        description={
+          <span className="flex items-center gap-2">
+            {dateFrom} ~ {dateTo}
+            {refreshing && (
+              <span className="inline-flex items-center gap-1 text-xs text-blue-500">
+                <span className="inline-block w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></span>
+                갱신 중
+              </span>
+            )}
+          </span>
+        }
       />
 
       {/* 필터 바 */}
@@ -490,25 +550,59 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* 선택 거래처 매출 추이 라인 차트 */}
+        {/* 거래처 vs 평균 비교 라인 차트 */}
         <div className="card">
-          <h3 className="font-semibold mb-4">
-            {compareCustomers.length > 0 ? '선택 거래처 월별 순익 비교' : '월별 누적 순익 추이'}
-          </h3>
+          <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+            <h3 className="font-semibold">월별 비교 ({metricLabel[chartMetric]})</h3>
+            <div className="flex items-center gap-1">
+              {(['final_profit','grand_total','total_cost'] as const).map(k => (
+                <button key={k}
+                  onClick={() => setChartMetric(k)}
+                  className={`text-xs px-2 py-1 rounded ${
+                    chartMetric === k ? 'bg-slate-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}>
+                  {metricLabel[k]}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 mb-2 text-xs">
+            <span className="text-gray-500">평균선:</span>
+            {(['본사','직영','대리점','전체'] as const).map(op => (
+              <label key={op} className="flex items-center gap-1 cursor-pointer">
+                <input type="checkbox" className="w-3.5 h-3.5"
+                  checked={showBenchLines[op]}
+                  onChange={(e) => setShowBenchLines(prev => ({ ...prev, [op]: e.target.checked }))} />
+                <span className={
+                  op === '본사' ? 'text-purple-600' :
+                  op === '직영' ? 'text-blue-600' :
+                  op === '대리점' ? 'text-emerald-600' : 'text-gray-600'
+                }>{op}평균</span>
+              </label>
+            ))}
+          </div>
           <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={monthlyChart}>
+              <LineChart data={compareLineChart}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" fontSize={12} />
                 <YAxis fontSize={12} tickFormatter={(v) => `${(v / 10000).toFixed(0)}만`} />
                 <Tooltip formatter={(v) => formatKRW(Number(v)) + '원'} />
-                <Legend />
-                <Line type="monotone" dataKey="순익" stroke="#10b981" strokeWidth={2} dot={{ r: 4 }} />
-                <Line type="monotone" dataKey="매출" stroke="#3b82f6" strokeWidth={1} strokeDasharray="3 3" />
-                <Line type="monotone" dataKey="비용" stroke="#f59e0b" strokeWidth={1} strokeDasharray="3 3" />
+                <Legend wrapperStyle={{ fontSize: '11px' }} />
+                {customerSeries.map(s => (
+                  <Line key={s.key} type="monotone" dataKey={s.key} stroke={s.color} strokeWidth={2.5} dot={{ r: 3 }} />
+                ))}
+                {benchSeries.map(s => (
+                  <Line key={s.key} type="monotone" dataKey={s.key} stroke={s.color} strokeWidth={1.5} strokeDasharray="5 4" dot={false} />
+                ))}
               </LineChart>
             </ResponsiveContainer>
           </div>
+          {customerSeries.length === 0 && (
+            <p className="text-xs text-gray-400 mt-2 text-center">
+              상단에서 거래처를 선택하면 거래처별 라인이 표시됩니다
+            </p>
+          )}
         </div>
       </div>
 
