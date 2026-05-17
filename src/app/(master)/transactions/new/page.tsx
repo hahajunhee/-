@@ -73,11 +73,13 @@ function TransactionNewContent() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  // 거래처 선택 시 해당 운영구분의 품목만 노출
+  // 거래처 선택 시 해당 (브랜드 + 운영구분)의 품목만 노출
   const selectedCustomer = customers.find(c => c.id === customerId);
   const customerOp = selectedCustomer?.operation_type || null;
+  const customerBrand = selectedCustomer ? (selectedCustomer.brand || '') : null;
   const filteredProducts = products.filter(p => {
-    if (customerOp && (p.operation_type || '대리점') !== customerOp) return false;
+    if (customerOp && (p.operation_type || '가맹점') !== customerOp) return false;
+    if (customerBrand !== null && (p.brand || '') !== customerBrand) return false;
     if (categoryFilter && p.category !== categoryFilter) return false;
     return true;
   });

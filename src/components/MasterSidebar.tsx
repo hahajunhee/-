@@ -23,8 +23,8 @@ const navItems = [
 
 // 매니저는 회원관리/설정 영구 차단 (관리자 전용)
 const MANAGER_ONLY_HIDDEN = ['members', 'settings'];
-// 매니저 기본 노출 탭 (관리자가 별도 권한 설정 안 했을 때): 거래처관리, 거래입력, 거래내역, 발주관리
-const MANAGER_DEFAULT_TABS = ['customers', 'transactions_new', 'transactions', 'orders', 'costs'];
+// 매니저 기본 노출 탭: 대시보드(직영점/가맹점만) + 거래처관리, 거래입력, 거래내역, 발주관리, 비용입력
+const MANAGER_DEFAULT_TABS = ['dashboard', 'customers', 'transactions_new', 'transactions', 'orders', 'costs'];
 
 export default function MasterSidebar({
   userName,

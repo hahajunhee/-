@@ -9,6 +9,7 @@ import { Customer, OPERATION_TYPES, OperationType } from '@/types';
 
 const emptyCustomer = {
   company_name: '',
+  brand: '',
   contact_name: '',
   email: '',
   address: '',
@@ -17,13 +18,14 @@ const emptyCustomer = {
   business_category: '',
   fax: '',
   reg_number: '',
-  operation_type: '대리점' as OperationType,
+  operation_type: '가맹점' as OperationType,
+  royalty_rate: 0,
 };
 
 const OP_BADGE: Record<OperationType, string> = {
-  '본사': 'bg-purple-100 text-purple-700',
-  '직영': 'bg-blue-100 text-blue-700',
-  '대리점': 'bg-emerald-100 text-emerald-700',
+  '본점': 'bg-purple-100 text-purple-700',
+  '직영점': 'bg-blue-100 text-blue-700',
+  '가맹점': 'bg-emerald-100 text-emerald-700',
 };
 
 export default function CustomersPage() {
@@ -68,6 +70,7 @@ export default function CustomersPage() {
     setEditing(c);
     setForm({
       company_name: c.company_name,
+      brand: c.brand || '',
       contact_name: c.contact_name,
       email: c.email || '',
       address: c.address,
@@ -76,7 +79,8 @@ export default function CustomersPage() {
       business_category: c.business_category,
       fax: c.fax,
       reg_number: c.reg_number,
-      operation_type: (c.operation_type || '대리점') as OperationType,
+      operation_type: (c.operation_type || '가맹점') as OperationType,
+      royalty_rate: Number(c.royalty_rate) || 0,
     });
     setModalOpen(true);
   };
@@ -147,32 +151,44 @@ export default function CustomersPage() {
               <thead>
                 <tr>
                   <th>상호</th>
+                  <th>브랜드</th>
                   <th className="text-center">운영구분</th>
+                  <th className="text-right">로열티</th>
                   <th>성명</th>
-                  <th>이메일</th>
                   <th>연락처</th>
                   <th>주소</th>
                   <th>업태</th>
-                  <th>업종</th>
                   <th>등록번호</th>
                   <th className="w-20"></th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((c) => (
+                {filtered.map((c) => {
+                  const op = (c.operation_type || '가맹점') as OperationType;
+                  return (
                   <tr key={c.id}>
                     <td className="font-medium">{c.company_name}</td>
+                    <td>
+                      {c.brand ? (
+                        <span className="inline-block px-2 py-0.5 text-xs rounded bg-indigo-100 text-indigo-700 font-medium">
+                          {c.brand}
+                        </span>
+                      ) : <span className="text-gray-300">-</span>}
+                    </td>
                     <td className="text-center">
-                      <span className={`inline-block px-2 py-0.5 text-xs rounded-full ${OP_BADGE[(c.operation_type || '대리점') as OperationType]}`}>
-                        {c.operation_type || '대리점'}
+                      <span className={`inline-block px-2 py-0.5 text-xs rounded-full ${OP_BADGE[op]}`}>
+                        {op}
                       </span>
                     </td>
+                    <td className="text-right">
+                      {op === '가맹점' && Number(c.royalty_rate) > 0 ? (
+                        <span className="text-orange-600 font-semibold">{Number(c.royalty_rate)}%</span>
+                      ) : <span className="text-gray-300">-</span>}
+                    </td>
                     <td>{c.contact_name}</td>
-                    <td className="text-gray-500">{c.email || '-'}</td>
                     <td className="text-gray-500">{c.tel}</td>
                     <td className="text-gray-500 max-w-[200px] truncate">{c.address}</td>
                     <td className="text-gray-500">{c.business_type}</td>
-                    <td className="text-gray-500">{c.business_category}</td>
                     <td className="text-gray-500 font-mono text-xs">{c.reg_number}</td>
                     <td>
                       <div className="flex gap-1">
@@ -185,7 +201,8 @@ export default function CustomersPage() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                );
+                })}
                 {filtered.length === 0 && (
                   <tr>
                     <td colSpan={10} className="text-center py-8 text-gray-400">
@@ -229,10 +246,24 @@ export default function CustomersPage() {
               onChange={(e) => setForm({ ...form, company_name: e.target.value })} />
           </div>
           <div>
+            <label className="form-label">브랜드</label>
+            <input type="text" className="form-input" placeholder="예: 한우진가, 한식당이름" value={form.brand}
+              onChange={(e) => setForm({ ...form, brand: e.target.value })} />
+          </div>
+          <div>
             <label className="form-label">성명</label>
             <input type="text" className="form-input" placeholder="예: 김도윤" value={form.contact_name}
               onChange={(e) => setForm({ ...form, contact_name: e.target.value })} />
           </div>
+          {form.operation_type === '가맹점' && (
+            <div>
+              <label className="form-label">로열티 (%)</label>
+              <input type="number" step="0.1" className="form-input" placeholder="예: 5 (= 5%)"
+                value={form.royalty_rate}
+                onChange={(e) => setForm({ ...form, royalty_rate: Number(e.target.value) })} />
+              <p className="text-xs text-gray-500 mt-1">대시보드에서 가맹점 매출 × 로열티%가 본점 매출/가맹점 비용으로 자동 반영 (부가세 별도)</p>
+            </div>
+          )}
           <div className="col-span-2">
             <label className="form-label">이메일</label>
             <input type="email" className="form-input" placeholder="예: partner@company.com" value={form.email}

@@ -9,9 +9,9 @@ import { Customer, Cost, CostCategory, OPERATION_TYPES, OperationType } from '@/
 import { formatKRW } from '@/lib/calculator';
 
 const OP_BADGE: Record<OperationType, string> = {
-  '본사': 'bg-purple-100 text-purple-700',
-  '직영': 'bg-blue-100 text-blue-700',
-  '대리점': 'bg-emerald-100 text-emerald-700',
+  '본점': 'bg-purple-100 text-purple-700',
+  '직영점': 'bg-blue-100 text-blue-700',
+  '가맹점': 'bg-emerald-100 text-emerald-700',
 };
 
 export default function CostsPage() {
@@ -231,8 +231,8 @@ export default function CostsPage() {
                   <td className="font-mono">{c.settlement_month}</td>
                   <td className="font-medium">{c.customer_name}</td>
                   <td className="text-center">
-                    <span className={`inline-block px-2 py-0.5 text-xs rounded-full ${OP_BADGE[(c.operation_type || '대리점') as OperationType]}`}>
-                      {c.operation_type || '대리점'}
+                    <span className={`inline-block px-2 py-0.5 text-xs rounded-full ${OP_BADGE[(c.operation_type || '가맹점') as OperationType]}`}>
+                      {c.operation_type || '가맹점'}
                     </span>
                   </td>
                   <td>
@@ -272,7 +272,7 @@ export default function CostsPage() {
               onChange={(e) => setForm({ ...form, customer_id: e.target.value })}>
               <option value="">거래처를 선택하세요</option>
               {customers.map(c => (
-                <option key={c.id} value={c.id}>{c.company_name} ({c.operation_type || '대리점'})</option>
+                <option key={c.id} value={c.id}>{c.company_name} ({c.operation_type || '가맹점'})</option>
               ))}
             </select>
           </div>

@@ -15,12 +15,12 @@ import { formatKRW } from '@/lib/calculator';
 import { OPERATION_TYPES, OperationType } from '@/types';
 
 const OP_COLOR: Record<OperationType, string> = {
-  '본사': 'bg-purple-100 text-purple-700 border-purple-300',
-  '직영': 'bg-blue-100 text-blue-700 border-blue-300',
-  '대리점': 'bg-emerald-100 text-emerald-700 border-emerald-300',
+  '본점': 'bg-purple-100 text-purple-700 border-purple-300',
+  '직영점': 'bg-blue-100 text-blue-700 border-blue-300',
+  '가맹점': 'bg-emerald-100 text-emerald-700 border-emerald-300',
 };
 const OP_DOT: Record<OperationType, string> = {
-  '본사': 'bg-purple-500', '직영': 'bg-blue-500', '대리점': 'bg-emerald-500',
+  '본점': 'bg-purple-500', '직영점': 'bg-blue-500', '가맹점': 'bg-emerald-500',
 };
 const CHART_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
 
@@ -47,7 +47,7 @@ interface MonthMetric { grand_total: number; total_cost: number; final_profit: n
 type PerCustomerMonthly = Record<number, Record<string, MonthMetric>>;
 type BenchMonthly = Record<string, Record<string, MonthMetric>>;
 
-interface CustomerOpt { id: number; company_name: string; operation_type?: OperationType; }
+interface CustomerOpt { id: number; company_name: string; brand?: string; operation_type?: OperationType; }
 
 // 날짜 프리셋
 function getPreset(key: string) {
@@ -77,16 +77,19 @@ function getPreset(key: string) {
 
 export default function DashboardPage() {
   const router = useRouter();
+  const [userRole, setUserRole] = useState<string>('master');
   useEffect(() => {
     fetch('/api/auth').then((r) => r.json()).then((data) => {
-      if (data?.user?.role === 'manager') router.replace('/transactions');
+      if (data?.user?.role) setUserRole(data.user.role);
     }).catch(() => {});
   }, [router]);
+  const isManager = userRole === 'manager';
 
   const initial = getPreset('올해');
   const [dateFrom, setDateFrom] = useState(initial.from);
   const [dateTo, setDateTo] = useState(initial.to);
   const [opFilter, setOpFilter] = useState<'' | OperationType>('');
+  const [brandFilter, setBrandFilter] = useState<string>('');  // 빈 문자열 = 전체 브랜드
   const [selectedCustIds, setSelectedCustIds] = useState<number[]>([]);
 
   const [monthly, setMonthly] = useState<MonthlyData[]>([]);
@@ -100,8 +103,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [chartMetric, setChartMetric] = useState<'final_profit' | 'grand_total' | 'total_cost'>('final_profit');
-  const [showBenchLines, setShowBenchLines] = useState<{ 본사: boolean; 직영: boolean; 대리점: boolean; 전체: boolean }>({
-    본사: false, 직영: false, 대리점: true, 전체: false,
+  const [showBenchLines, setShowBenchLines] = useState<{ 본점: boolean; 직영점: boolean; 가맹점: boolean; 전체: boolean }>({
+    본점: false, 직영점: false, 가맹점: true, 전체: false,
   });
 
   const fetchDashboard = useCallback(async () => {
@@ -110,6 +113,7 @@ export default function DashboardPage() {
     params.set('date_from', dateFrom);
     params.set('date_to', dateTo);
     if (opFilter) params.set('operation_type', opFilter);
+    if (brandFilter) params.set('brand', brandFilter);
     if (selectedCustIds.length > 0) params.set('customer_ids', selectedCustIds.join(','));
 
     const [dashRes, custRes] = await Promise.all([
@@ -127,7 +131,7 @@ export default function DashboardPage() {
     setCustomerOpts(await custRes.json());
     setLoading(false);
     setRefreshing(false);
-  }, [dateFrom, dateTo, opFilter, selectedCustIds]);
+  }, [dateFrom, dateTo, opFilter, brandFilter, selectedCustIds]);
 
   useEffect(() => { fetchDashboard(); }, [fetchDashboard]);
 
@@ -140,7 +144,7 @@ export default function DashboardPage() {
   }, [customers, selectedCustIds]);
 
   const filteredCustomerOpts = opFilter
-    ? customerOpts.filter(c => (c.operation_type || '대리점') === opFilter)
+    ? customerOpts.filter(c => (c.operation_type || '가맹점') === opFilter)
     : customerOpts;
 
   const toggleCustomer = (id: number) => {
@@ -176,7 +180,7 @@ export default function DashboardPage() {
       point[c.company_name] = data ? data[chartMetric] : 0;
     }
     // 운영구분 평균 (체크된 것만)
-    (['본사','직영','대리점','전체'] as const).forEach(op => {
+    (['본점','직영점','가맹점','전체'] as const).forEach(op => {
       if (showBenchLines[op]) {
         const data = monthlyBench[op]?.[m.month];
         point[`${op}평균`] = data ? data[chartMetric] : 0;
@@ -191,9 +195,9 @@ export default function DashboardPage() {
     return c ? { key: c.company_name, color: CHART_COLORS[idx % CHART_COLORS.length] } : null;
   }).filter(Boolean) as { key: string; color: string }[];
   const benchSeries: { key: string; color: string }[] = [];
-  if (showBenchLines.본사) benchSeries.push({ key: '본사평균', color: '#a855f7' });
-  if (showBenchLines.직영) benchSeries.push({ key: '직영평균', color: '#3b82f6' });
-  if (showBenchLines.대리점) benchSeries.push({ key: '대리점평균', color: '#10b981' });
+  if (showBenchLines.본점) benchSeries.push({ key: '본점평균', color: '#a855f7' });
+  if (showBenchLines.직영점) benchSeries.push({ key: '직영점평균', color: '#3b82f6' });
+  if (showBenchLines.가맹점) benchSeries.push({ key: '가맹점평균', color: '#10b981' });
   if (showBenchLines.전체) benchSeries.push({ key: '전체평균', color: '#6b7280' });
 
   // 평균 대비 비교 헬퍼
@@ -256,6 +260,28 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        {/* 브랜드 */}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm font-semibold text-gray-700">브랜드:</span>
+          {(() => {
+            const allBrands = Array.from(new Set(customerOpts.map(c => c.brand || ''))).sort();
+            return (
+              <>
+                <button onClick={() => setBrandFilter('')}
+                  className={`px-3 py-1 rounded text-xs font-medium border-2 transition ${
+                    !brandFilter ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-600 border-gray-200'
+                  }`}>전체</button>
+                {allBrands.map(b => (
+                  <button key={b || '__none__'} onClick={() => setBrandFilter(b)}
+                    className={`px-3 py-1 rounded text-xs font-medium border-2 transition ${
+                      brandFilter === b ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-600 border-gray-200'
+                    }`}>{b || '(미지정)'}</button>
+                ))}
+              </>
+            );
+          })()}
+        </div>
+
         {/* 운영구분 */}
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm font-semibold text-gray-700">운영구분:</span>
@@ -263,12 +289,12 @@ export default function DashboardPage() {
             className={`px-3 py-1 rounded text-xs font-medium border-2 transition ${
               !opFilter ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-gray-600 border-gray-200'
             }`}>전체</button>
-          {OPERATION_TYPES.map(op => (
+          {OPERATION_TYPES.filter(op => !(isManager && op === '본점')).map(op => (
             <button key={op} onClick={() => setOpFilter(op)}
               className={`px-3 py-1 rounded text-xs font-medium border-2 transition ${
                 opFilter === op
-                  ? op === '본사' ? 'bg-purple-600 text-white border-purple-600'
-                    : op === '직영' ? 'bg-blue-600 text-white border-blue-600'
+                  ? op === '본점' ? 'bg-purple-600 text-white border-purple-600'
+                    : op === '직영점' ? 'bg-blue-600 text-white border-blue-600'
                     : 'bg-emerald-600 text-white border-emerald-600'
                   : 'bg-white text-gray-600 border-gray-200'
               }`}>{op}</button>
@@ -289,7 +315,7 @@ export default function DashboardPage() {
                 .filter(c => !selectedCustIds.includes(c.id))
                 .map(c => (
                   <option key={c.id} value={c.id}>
-                    {c.company_name} ({c.operation_type || '대리점'})
+                    {c.company_name} ({c.operation_type || '가맹점'})
                   </option>
                 ))}
             </select>
@@ -298,7 +324,7 @@ export default function DashboardPage() {
                 {selectedCustIds.map(id => {
                   const c = customerOpts.find(x => x.id === id);
                   if (!c) return null;
-                  const op = (c.operation_type || '대리점') as OperationType;
+                  const op = (c.operation_type || '가맹점') as OperationType;
                   return (
                     <span key={id} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs ${OP_COLOR[op]}`}>
                       <span className={`w-2 h-2 rounded-full ${OP_DOT[op]}`}></span>
@@ -365,12 +391,12 @@ export default function DashboardPage() {
       <div className="card mb-6">
         <h3 className="font-semibold text-sm mb-3 text-gray-700">📊 기간 내 평균 지표 (벤치마크)</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {(['본사','직영','대리점','전체'] as const).map(op => {
+          {(['본점','직영점','가맹점','전체'] as const).filter(op => !(isManager && op === '본점')).map(op => {
             const b = benchmarks[op];
             if (!b) return null;
-            const colors = op === '본사' ? 'bg-purple-50 border-purple-200'
-              : op === '직영' ? 'bg-blue-50 border-blue-200'
-              : op === '대리점' ? 'bg-emerald-50 border-emerald-200'
+            const colors = op === '본점' ? 'bg-purple-50 border-purple-200'
+              : op === '직영점' ? 'bg-blue-50 border-blue-200'
+              : op === '가맹점' ? 'bg-emerald-50 border-emerald-200'
               : 'bg-gray-50 border-gray-200';
             return (
               <div key={op} className={`p-3 rounded-lg border-2 ${colors}`}>
@@ -410,9 +436,9 @@ export default function DashboardPage() {
                       </div>
                     </th>
                   ))}
-                  <th className="text-right min-w-[110px] bg-purple-50">본사평균</th>
-                  <th className="text-right min-w-[110px] bg-blue-50">직영평균</th>
-                  <th className="text-right min-w-[110px] bg-emerald-50">대리점평균</th>
+                  <th className="text-right min-w-[110px] bg-purple-50">본점평균</th>
+                  <th className="text-right min-w-[110px] bg-blue-50">직영점평균</th>
+                  <th className="text-right min-w-[110px] bg-emerald-50">가맹점평균</th>
                   <th className="text-right min-w-[110px] bg-gray-50">전체평균</th>
                 </tr>
               </thead>
@@ -429,9 +455,9 @@ export default function DashboardPage() {
                       </td>
                     );
                   })}
-                  <td className="text-right bg-purple-50 text-purple-700">{formatKRW(benchmarks.본사?.grand_total || 0)}</td>
-                  <td className="text-right bg-blue-50 text-blue-700">{formatKRW(benchmarks.직영?.grand_total || 0)}</td>
-                  <td className="text-right bg-emerald-50 text-emerald-700">{formatKRW(benchmarks.대리점?.grand_total || 0)}</td>
+                  <td className="text-right bg-purple-50 text-purple-700">{formatKRW(benchmarks.본점?.grand_total || 0)}</td>
+                  <td className="text-right bg-blue-50 text-blue-700">{formatKRW(benchmarks.직영점?.grand_total || 0)}</td>
+                  <td className="text-right bg-emerald-50 text-emerald-700">{formatKRW(benchmarks.가맹점?.grand_total || 0)}</td>
                   <td className="text-right bg-gray-50">{formatKRW(benchmarks.전체?.grand_total || 0)}</td>
                 </tr>
                 {/* 비용 */}
@@ -446,9 +472,9 @@ export default function DashboardPage() {
                       </td>
                     );
                   })}
-                  <td className="text-right bg-purple-50 text-amber-700">{formatKRW(benchmarks.본사?.total_cost || 0)}</td>
-                  <td className="text-right bg-blue-50 text-amber-700">{formatKRW(benchmarks.직영?.total_cost || 0)}</td>
-                  <td className="text-right bg-emerald-50 text-amber-700">{formatKRW(benchmarks.대리점?.total_cost || 0)}</td>
+                  <td className="text-right bg-purple-50 text-amber-700">{formatKRW(benchmarks.본점?.total_cost || 0)}</td>
+                  <td className="text-right bg-blue-50 text-amber-700">{formatKRW(benchmarks.직영점?.total_cost || 0)}</td>
+                  <td className="text-right bg-emerald-50 text-amber-700">{formatKRW(benchmarks.가맹점?.total_cost || 0)}</td>
                   <td className="text-right bg-gray-50 text-amber-700">{formatKRW(benchmarks.전체?.total_cost || 0)}</td>
                 </tr>
                 {/* 원가율 */}
@@ -465,9 +491,9 @@ export default function DashboardPage() {
                       </td>
                     );
                   })}
-                  <td className="text-right bg-purple-50">{((benchmarks.본사?.cost_ratio || 0) * 100).toFixed(1)}%</td>
-                  <td className="text-right bg-blue-50">{((benchmarks.직영?.cost_ratio || 0) * 100).toFixed(1)}%</td>
-                  <td className="text-right bg-emerald-50">{((benchmarks.대리점?.cost_ratio || 0) * 100).toFixed(1)}%</td>
+                  <td className="text-right bg-purple-50">{((benchmarks.본점?.cost_ratio || 0) * 100).toFixed(1)}%</td>
+                  <td className="text-right bg-blue-50">{((benchmarks.직영점?.cost_ratio || 0) * 100).toFixed(1)}%</td>
+                  <td className="text-right bg-emerald-50">{((benchmarks.가맹점?.cost_ratio || 0) * 100).toFixed(1)}%</td>
                   <td className="text-right bg-gray-50">{((benchmarks.전체?.cost_ratio || 0) * 100).toFixed(1)}%</td>
                 </tr>
                 {/* 최종 순익 */}
@@ -484,9 +510,9 @@ export default function DashboardPage() {
                       </td>
                     );
                   })}
-                  <td className="text-right bg-purple-100">{formatKRW(benchmarks.본사?.final_profit || 0)}</td>
-                  <td className="text-right bg-blue-100">{formatKRW(benchmarks.직영?.final_profit || 0)}</td>
-                  <td className="text-right bg-emerald-100">{formatKRW(benchmarks.대리점?.final_profit || 0)}</td>
+                  <td className="text-right bg-purple-100">{formatKRW(benchmarks.본점?.final_profit || 0)}</td>
+                  <td className="text-right bg-blue-100">{formatKRW(benchmarks.직영점?.final_profit || 0)}</td>
+                  <td className="text-right bg-emerald-100">{formatKRW(benchmarks.가맹점?.final_profit || 0)}</td>
                   <td className="text-right bg-gray-100">{formatKRW(benchmarks.전체?.final_profit || 0)}</td>
                 </tr>
                 {/* 미입금 */}
@@ -497,9 +523,9 @@ export default function DashboardPage() {
                       <div className="text-red-500 font-medium">{formatKRW(c.unpaid_total)}</div>
                     </td>
                   ))}
-                  <td className="text-right bg-purple-50 text-red-500">{formatKRW(benchmarks.본사?.unpaid_total || 0)}</td>
-                  <td className="text-right bg-blue-50 text-red-500">{formatKRW(benchmarks.직영?.unpaid_total || 0)}</td>
-                  <td className="text-right bg-emerald-50 text-red-500">{formatKRW(benchmarks.대리점?.unpaid_total || 0)}</td>
+                  <td className="text-right bg-purple-50 text-red-500">{formatKRW(benchmarks.본점?.unpaid_total || 0)}</td>
+                  <td className="text-right bg-blue-50 text-red-500">{formatKRW(benchmarks.직영점?.unpaid_total || 0)}</td>
+                  <td className="text-right bg-emerald-50 text-red-500">{formatKRW(benchmarks.가맹점?.unpaid_total || 0)}</td>
                   <td className="text-right bg-gray-50 text-red-500">{formatKRW(benchmarks.전체?.unpaid_total || 0)}</td>
                 </tr>
                 {/* 매출VAT */}
@@ -508,9 +534,9 @@ export default function DashboardPage() {
                   {compareCustomers.map(c => (
                     <td key={c.customer_id} className="text-right text-blue-600">{formatKRW(c.sales_vat)}</td>
                   ))}
-                  <td className="text-right bg-purple-50 text-blue-600">{formatKRW(benchmarks.본사?.sales_vat || 0)}</td>
-                  <td className="text-right bg-blue-50 text-blue-600">{formatKRW(benchmarks.직영?.sales_vat || 0)}</td>
-                  <td className="text-right bg-emerald-50 text-blue-600">{formatKRW(benchmarks.대리점?.sales_vat || 0)}</td>
+                  <td className="text-right bg-purple-50 text-blue-600">{formatKRW(benchmarks.본점?.sales_vat || 0)}</td>
+                  <td className="text-right bg-blue-50 text-blue-600">{formatKRW(benchmarks.직영점?.sales_vat || 0)}</td>
+                  <td className="text-right bg-emerald-50 text-blue-600">{formatKRW(benchmarks.가맹점?.sales_vat || 0)}</td>
                   <td className="text-right bg-gray-50 text-blue-600">{formatKRW(benchmarks.전체?.sales_vat || 0)}</td>
                 </tr>
                 {/* 납부VAT */}
@@ -519,9 +545,9 @@ export default function DashboardPage() {
                   {compareCustomers.map(c => (
                     <td key={c.customer_id} className="text-right text-amber-600 font-medium">{formatKRW(c.net_vat)}</td>
                   ))}
-                  <td className="text-right bg-purple-50 text-amber-600">{formatKRW(benchmarks.본사?.net_vat || 0)}</td>
-                  <td className="text-right bg-blue-50 text-amber-600">{formatKRW(benchmarks.직영?.net_vat || 0)}</td>
-                  <td className="text-right bg-emerald-50 text-amber-600">{formatKRW(benchmarks.대리점?.net_vat || 0)}</td>
+                  <td className="text-right bg-purple-50 text-amber-600">{formatKRW(benchmarks.본점?.net_vat || 0)}</td>
+                  <td className="text-right bg-blue-50 text-amber-600">{formatKRW(benchmarks.직영점?.net_vat || 0)}</td>
+                  <td className="text-right bg-emerald-50 text-amber-600">{formatKRW(benchmarks.가맹점?.net_vat || 0)}</td>
                   <td className="text-right bg-gray-50 text-amber-600">{formatKRW(benchmarks.전체?.net_vat || 0)}</td>
                 </tr>
               </tbody>
@@ -568,15 +594,15 @@ export default function DashboardPage() {
           </div>
           <div className="flex flex-wrap items-center gap-2 mb-2 text-xs">
             <span className="text-gray-500">평균선:</span>
-            {(['본사','직영','대리점','전체'] as const).map(op => (
+            {(['본점','직영점','가맹점','전체'] as const).map(op => (
               <label key={op} className="flex items-center gap-1 cursor-pointer">
                 <input type="checkbox" className="w-3.5 h-3.5"
                   checked={showBenchLines[op]}
                   onChange={(e) => setShowBenchLines(prev => ({ ...prev, [op]: e.target.checked }))} />
                 <span className={
-                  op === '본사' ? 'text-purple-600' :
-                  op === '직영' ? 'text-blue-600' :
-                  op === '대리점' ? 'text-emerald-600' : 'text-gray-600'
+                  op === '본점' ? 'text-purple-600' :
+                  op === '직영점' ? 'text-blue-600' :
+                  op === '가맹점' ? 'text-emerald-600' : 'text-gray-600'
                 }>{op}평균</span>
               </label>
             ))}

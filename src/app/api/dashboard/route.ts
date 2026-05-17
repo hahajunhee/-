@@ -1,7 +1,11 @@
 import { query } from '@/lib/db';
+import { getSession } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
+  const session = await getSession();
+  const isManager = session?.role === 'manager';
+
   const sp = request.nextUrl.searchParams;
   // 기간: date_from/date_to (YYYY-MM-DD). 둘 다 없으면 year로 폴백
   let dateFrom = sp.get('date_from');
@@ -11,11 +15,24 @@ export async function GET(request: NextRequest) {
     dateFrom = `${year}-01-01`;
     dateTo = `${year}-12-31`;
   }
-  const opType = sp.get('operation_type'); // 본사/직영/대리점/null=전체
+  let opType = sp.get('operation_type'); // 본점/직영점/가맹점/null=전체
+  const brand = sp.get('brand');         // 브랜드 필터
   const customerIdsStr = sp.get('customer_ids') || sp.get('customer_id');
   const customerIds: number[] = customerIdsStr
     ? customerIdsStr.split(',').map(s => Number(s.trim())).filter(n => !isNaN(n))
     : [];
+
+  // 매니저 권한: 본점 통계 차단 → 본점 필터 차단, 직영점/가맹점만 보여줌
+  if (isManager) {
+    if (opType === '본점') opType = '직영점';  // 차단
+    // customer_ids에 본점 포함되면 제외
+    if (customerIds.length > 0) {
+      const cust = await query(`SELECT id FROM customers WHERE id = ANY($1::int[]) AND operation_type != '본점'`, [customerIds]);
+      const allowedIds = cust.map((c: { id: number }) => c.id);
+      customerIds.length = 0;
+      customerIds.push(...allowedIds);
+    }
+  }
 
   // 정산월 범위 (YYYY-MM) - 비용 테이블용
   const monthFrom = dateFrom.substring(0, 7);
@@ -26,6 +43,8 @@ export async function GET(request: NextRequest) {
     const clauses = [`t.date BETWEEN $1 AND $2`];
     const params: unknown[] = [dateFrom, dateTo];
     if (opType) { params.push(opType); clauses.push(`c.operation_type = $${params.length}`); }
+    if (brand !== null) { params.push(brand); clauses.push(`c.brand = $${params.length}`); }
+    if (isManager) clauses.push(`c.operation_type != '본점'`);
     if (customerIds.length > 0) {
       const placeholders = customerIds.map((_, i) => `$${params.length + i + 1}`).join(',');
       clauses.push(`t.customer_id IN (${placeholders})`);
@@ -39,6 +58,8 @@ export async function GET(request: NextRequest) {
     const clauses = [`co.settlement_month BETWEEN $1 AND $2`];
     const params: unknown[] = [monthFrom, monthTo];
     if (opType) { params.push(opType); clauses.push(`c.operation_type = $${params.length}`); }
+    if (brand !== null) { params.push(brand); clauses.push(`c.brand = $${params.length}`); }
+    if (isManager) clauses.push(`c.operation_type != '본점'`);
     if (customerIds.length > 0) {
       const placeholders = customerIds.map((_, i) => `$${params.length + i + 1}`).join(',');
       clauses.push(`co.customer_id IN (${placeholders})`);
@@ -136,7 +157,8 @@ export async function GET(request: NextRequest) {
   // 4) 거래처별 집계 (선택 필터 적용)
   const w4 = buildTxnWhere();
   const customerTxn = await query(`
-    SELECT t.customer_id, c.company_name as customer_name, c.operation_type,
+    SELECT t.customer_id, c.company_name as customer_name, c.brand as customer_brand,
+      c.operation_type, c.royalty_rate,
       COUNT(t.id)::int as transaction_count,
       COALESCE(SUM(t.supply_total), 0)::numeric as supply_total,
       COALESCE(SUM(t.grand_total), 0)::numeric as grand_total,
@@ -144,7 +166,7 @@ export async function GET(request: NextRequest) {
       COALESCE(SUM(CASE WHEN t.payment_status = 'unpaid' THEN t.grand_total ELSE 0 END), 0)::numeric as unpaid_total
     FROM transactions t JOIN customers c ON t.customer_id = c.id
     WHERE ${w4.where}
-    GROUP BY t.customer_id, c.company_name, c.operation_type
+    GROUP BY t.customer_id, c.company_name, c.brand, c.operation_type, c.royalty_rate
   `, w4.params);
 
   const w5 = buildTxnWhere();
@@ -183,7 +205,9 @@ export async function GET(request: NextRequest) {
     return {
       customer_id: r.customer_id,
       customer_name: r.customer_name,
-      operation_type: r.operation_type || '대리점',
+      brand: r.customer_brand || '',
+      operation_type: r.operation_type || '가맹점',
+      royalty_rate: Number(r.royalty_rate) || 0,
       transaction_count: Number(r.transaction_count),
       supply_total: Number(r.supply_total),
       grand_total,
@@ -197,24 +221,90 @@ export async function GET(request: NextRequest) {
       total_cost: cost,
       cost_ratio: grand_total > 0 ? cost / grand_total : 0,
       final_profit: grand_total - cost,
+      royalty_paid: 0,        // 가맹점이 본점에 낸 로열티 비용 (자기 비용에 가산됨)
+      royalty_received: 0,    // 본점이 가맹점으로부터 받은 로열티 매출 (자기 매출에 가산됨)
     };
   }).sort((a, b) => b.grand_total - a.grand_total);
 
   // 비용만 있는 거래처도 포함
   for (const [cid, cost] of Object.entries(customerCostMap)) {
     if (!customers.find(c => c.customer_id === Number(cid))) {
-      const custRow = await query('SELECT company_name, operation_type FROM customers WHERE id = $1', [Number(cid)]);
+      const custRow = await query('SELECT company_name, brand, operation_type, royalty_rate FROM customers WHERE id = $1', [Number(cid)]);
       if (custRow.length > 0) {
         customers.push({
           customer_id: Number(cid), customer_name: custRow[0].company_name,
-          operation_type: custRow[0].operation_type || '대리점',
+          brand: custRow[0].brand || '',
+          operation_type: custRow[0].operation_type || '가맹점',
+          royalty_rate: Number(custRow[0].royalty_rate) || 0,
           transaction_count: 0, supply_total: 0, grand_total: 0, unpaid_count: 0, unpaid_total: 0,
           sales_vat: 0, purchase_vat: 0, net_vat: 0, total_margin: 0, total_net_profit: 0,
           total_cost: cost, cost_ratio: 0, final_profit: -cost,
+          royalty_paid: 0, royalty_received: 0,
         });
       }
     }
   }
+
+  // 로열티 계산: 가맹점이 본점에 지불하는 로열티(부가세 별도)
+  // - 가맹점.total_cost += royalty_amount × 1.1
+  // - 가맹점.royalty_paid = royalty_amount × 1.1
+  // - 같은 브랜드 본점.grand_total += royalty_amount (본점이 받는 매출)
+  // - 같은 브랜드 본점.sales_vat += royalty_amount × 0.1
+  // - 같은 브랜드 본점.royalty_received = royalty_amount
+  // 본점은 customers 배열에 없을 수도 있어 (필터에 의해) - 그래도 같은 브랜드의 본점을 찾아 처리
+  // 단, 매니저는 본점 통계 비공개라 본점 추가 X. 가맹점 비용은 그대로.
+  const allBrandMasters = await query(
+    `SELECT id, brand FROM customers WHERE operation_type = '본점'`
+  );
+  const brandMasterMap: Record<string, number> = {};
+  for (const m of allBrandMasters) brandMasterMap[m.brand || ''] = m.id;
+
+  for (const c of customers) {
+    if (c.operation_type === '가맹점' && c.royalty_rate > 0 && c.grand_total > 0) {
+      const royaltyAmount = Math.floor(c.grand_total * c.royalty_rate / 100);
+      const royaltyVat = Math.floor(royaltyAmount * 0.1);
+      const royaltyTotalWithVat = royaltyAmount + royaltyVat;
+
+      // 가맹점 비용에 가산 (부가세 포함)
+      c.total_cost += royaltyTotalWithVat;
+      c.royalty_paid = royaltyTotalWithVat;
+      c.final_profit = c.grand_total - c.total_cost;
+      c.cost_ratio = c.grand_total > 0 ? c.total_cost / c.grand_total : 0;
+
+      // 본점 매출에 가산 (같은 브랜드)
+      const masterId = brandMasterMap[c.brand || ''];
+      if (masterId && !isManager) {
+        let master = customers.find(x => x.customer_id === masterId);
+        if (!master) {
+          // 본점이 현재 결과에 없으면 추가
+          const m = await query('SELECT id, company_name, brand, operation_type, royalty_rate FROM customers WHERE id = $1', [masterId]);
+          if (m.length > 0) {
+            master = {
+              customer_id: m[0].id,
+              customer_name: m[0].company_name,
+              brand: m[0].brand || '',
+              operation_type: m[0].operation_type,
+              royalty_rate: Number(m[0].royalty_rate) || 0,
+              transaction_count: 0, supply_total: 0, grand_total: 0, unpaid_count: 0, unpaid_total: 0,
+              sales_vat: 0, purchase_vat: 0, net_vat: 0, total_margin: 0, total_net_profit: 0,
+              total_cost: 0, cost_ratio: 0, final_profit: 0,
+              royalty_paid: 0, royalty_received: 0,
+            };
+            customers.push(master);
+          }
+        }
+        if (master) {
+          master.grand_total += royaltyAmount;
+          master.sales_vat += royaltyVat;
+          master.net_vat = master.sales_vat - master.purchase_vat;
+          master.royalty_received += royaltyAmount;
+          master.final_profit = master.grand_total - master.total_cost;
+          master.cost_ratio = master.grand_total > 0 ? master.total_cost / master.grand_total : 0;
+        }
+      }
+    }
+  }
+  customers.sort((a, b) => b.grand_total - a.grand_total);
 
   // 5) 벤치마크 (필터와 무관하게 기간 내 전체 거래처 평균)
   // 운영구분별 평균을 항상 제공 (operation_type 필터 무시)
@@ -267,16 +357,16 @@ export async function GET(request: NextRequest) {
 
   for (const cid of allCustIds) {
     const txnRow = benchmarkTxn.find(r => r.customer_id === cid);
-    let operation_type = '대리점';
+    let operation_type = '가맹점';
     let grand_total = 0, supply_total = 0, unpaid_total = 0;
     if (txnRow) {
-      operation_type = txnRow.operation_type || '대리점';
+      operation_type = txnRow.operation_type || '가맹점';
       grand_total = Number(txnRow.grand_total);
       supply_total = Number(txnRow.supply_total);
       unpaid_total = Number(txnRow.unpaid_total);
     } else {
       const cust = await query('SELECT operation_type FROM customers WHERE id = $1', [cid]);
-      if (cust.length > 0) operation_type = cust[0].operation_type || '대리점';
+      if (cust.length > 0) operation_type = cust[0].operation_type || '가맹점';
     }
     const vat = bVatMap[cid] || { sales_vat: 0, purchase_vat: 0, total_net_profit: 0 };
     const cost = bCostMap[cid] || 0;
@@ -309,9 +399,9 @@ export async function GET(request: NextRequest) {
   });
 
   const benchmarks = {
-    본사: buildBenchmark(benchmarkRows.filter(r => r.operation_type === '본사')),
-    직영: buildBenchmark(benchmarkRows.filter(r => r.operation_type === '직영')),
-    대리점: buildBenchmark(benchmarkRows.filter(r => r.operation_type === '대리점')),
+    본점: buildBenchmark(benchmarkRows.filter(r => r.operation_type === '본점')),
+    직영점: buildBenchmark(benchmarkRows.filter(r => r.operation_type === '직영점')),
+    가맹점: buildBenchmark(benchmarkRows.filter(r => r.operation_type === '가맹점')),
     전체: buildBenchmark(benchmarkRows),
   };
 
@@ -381,26 +471,26 @@ export async function GET(request: NextRequest) {
 
   // 운영구분별 월별 평균 매출/비용/순익
   type OpMonthly = Record<string, { grand_total: number; total_cost: number; final_profit: number }>;
-  const monthlyBench: Record<string, OpMonthly> = { 본사: {}, 직영: {}, 대리점: {}, 전체: {} };
-  for (const op of ['본사','직영','대리점','전체']) {
+  const monthlyBench: Record<string, OpMonthly> = { 본점: {}, 직영점: {}, 가맹점: {}, 전체: {} };
+  for (const op of ['본점','직영점','가맹점','전체']) {
     for (const m of allMonths) monthlyBench[op][m] = { grand_total: 0, total_cost: 0, final_profit: 0 };
   }
 
   // 운영구분별 매출 합계와 customer count
-  const benchTxnMap: Record<string, Record<string, { total: number; cnt: number }>> = { 본사: {}, 직영: {}, 대리점: {} };
+  const benchTxnMap: Record<string, Record<string, { total: number; cnt: number }>> = { 본점: {}, 직영점: {}, 가맹점: {} };
   for (const r of monthlyBenchTxn) {
-    const op = r.operation_type || '대리점';
+    const op = r.operation_type || '가맹점';
     if (!benchTxnMap[op]) continue;
     benchTxnMap[op][r.month] = { total: Number(r.total_grand), cnt: Number(r.cust_count) };
   }
-  const benchCostMap: Record<string, Record<string, { total: number; cnt: number }>> = { 본사: {}, 직영: {}, 대리점: {} };
+  const benchCostMap: Record<string, Record<string, { total: number; cnt: number }>> = { 본점: {}, 직영점: {}, 가맹점: {} };
   for (const r of monthlyBenchCost) {
-    const op = r.operation_type || '대리점';
+    const op = r.operation_type || '가맹점';
     if (!benchCostMap[op]) continue;
     benchCostMap[op][r.month] = { total: Number(r.total_cost), cnt: Number(r.cust_count) };
   }
 
-  for (const op of ['본사','직영','대리점'] as const) {
+  for (const op of ['본점','직영점','가맹점'] as const) {
     for (const m of allMonths) {
       const t = benchTxnMap[op][m] || { total: 0, cnt: 0 };
       const c = benchCostMap[op][m] || { total: 0, cnt: 0 };
@@ -414,7 +504,7 @@ export async function GET(request: NextRequest) {
   }
   // 전체 평균: 모든 운영구분 통합
   for (const m of allMonths) {
-    const totals = (['본사','직영','대리점'] as const).reduce((acc, op) => {
+    const totals = (['본점','직영점','가맹점'] as const).reduce((acc, op) => {
       const t = benchTxnMap[op][m] || { total: 0, cnt: 0 };
       const c = benchCostMap[op][m] || { total: 0, cnt: 0 };
       acc.tTotal += t.total; acc.tCnt += t.cnt;
@@ -452,6 +542,14 @@ export async function GET(request: NextRequest) {
     ORDER BY total DESC
   `, w8.params);
 
+  // 매니저는 마진 정보 비공개
+  if (isManager) {
+    for (const c of customers) {
+      c.total_margin = 0;
+      c.total_net_profit = 0;
+    }
+  }
+
   // 합계
   const totalSalesVat = customers.reduce((s, r) => s + r.sales_vat, 0);
   const totalPurchaseVat = customers.reduce((s, r) => s + r.purchase_vat, 0);
@@ -462,7 +560,7 @@ export async function GET(request: NextRequest) {
     period: { date_from: dateFrom, date_to: dateTo },
     monthly: Object.values(monthlyMap),
     monthly_per_customer: monthlyPerCustomer,  // { customer_id: { month: {grand_total, total_cost, final_profit} } }
-    monthly_benchmarks: monthlyBench,           // { 본사|직영|대리점|전체: { month: {grand_total, total_cost, final_profit} } }
+    monthly_benchmarks: monthlyBench,           // { 본점|직영점|가맹점|전체: { month: {grand_total, total_cost, final_profit} } }
     customers,
     benchmarks,
     products: productData.map((r) => ({

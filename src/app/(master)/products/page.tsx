@@ -12,6 +12,7 @@ const CATEGORIES = ['고기', '야채', '소스', '가공', '음료'];
 
 const emptyProduct = {
   name: '',
+  brand: '',
   category: '고기',
   spec: '',
   unit: 'kg',
@@ -22,13 +23,13 @@ const emptyProduct = {
   apply_material_cost: false,
   incentive: 0,
   invoice_hidden: false,
-  operation_type: '대리점' as OperationType,
+  operation_type: '가맹점' as OperationType,
 };
 
 const OP_TAB_COLOR: Record<OperationType, string> = {
-  '본사': 'bg-purple-600 text-white',
-  '직영': 'bg-blue-600 text-white',
-  '대리점': 'bg-emerald-600 text-white',
+  '본점': 'bg-purple-600 text-white',
+  '직영점': 'bg-blue-600 text-white',
+  '가맹점': 'bg-emerald-600 text-white',
 };
 
 export default function ProductsPage() {
@@ -36,7 +37,8 @@ export default function ProductsPage() {
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
-  const [operationTab, setOperationTab] = useState<OperationType>('대리점');
+  const [operationTab, setOperationTab] = useState<OperationType>('가맹점');
+  const [brandTab, setBrandTab] = useState<string>('');  // 빈 문자열 = 브랜드 미지정
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [form, setForm] = useState(emptyProduct);
@@ -52,8 +54,12 @@ export default function ProductsPage() {
 
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
 
+  // 브랜드 목록 (전체 품목에서 추출)
+  const brands = Array.from(new Set(products.map(p => p.brand || ''))).sort();
+
   useEffect(() => {
-    let filtered = products.filter((p) => (p.operation_type || '대리점') === operationTab);
+    let filtered = products.filter((p) => (p.operation_type || '가맹점') === operationTab);
+    filtered = filtered.filter((p) => (p.brand || '') === brandTab);
     if (categoryFilter) {
       filtered = filtered.filter((p) => p.category === categoryFilter);
     }
@@ -64,12 +70,12 @@ export default function ProductsPage() {
       );
     }
     setFilteredProducts(filtered);
-  }, [products, categoryFilter, search, operationTab]);
+  }, [products, categoryFilter, search, operationTab, brandTab]);
 
   const openAdd = () => {
     setEditing(null);
-    // 현재 선택된 운영구분 탭으로 기본 설정
-    setForm({ ...emptyProduct, operation_type: operationTab });
+    // 현재 선택된 (운영구분 + 브랜드)로 기본 설정
+    setForm({ ...emptyProduct, operation_type: operationTab, brand: brandTab });
     setModalOpen(true);
   };
 
@@ -77,6 +83,7 @@ export default function ProductsPage() {
     setEditing(p);
     setForm({
       name: p.name,
+      brand: p.brand || '',
       category: p.category,
       spec: p.spec,
       unit: p.unit,
@@ -87,7 +94,7 @@ export default function ProductsPage() {
       apply_material_cost: !!p.apply_material_cost,
       incentive: Number(p.incentive) || 0,
       invoice_hidden: !!p.invoice_hidden,
-      operation_type: (p.operation_type || '대리점') as OperationType,
+      operation_type: (p.operation_type || '가맹점') as OperationType,
     });
     setModalOpen(true);
   };
@@ -148,7 +155,7 @@ export default function ProductsPage() {
     <>
       <PageHeader
         title="품목 관리"
-        description={`${operationTab} ${filteredProducts.length}개 / 전체 ${products.length}개`}
+        description={`${brandTab || '(브랜드 미지정)'} - ${operationTab} ${filteredProducts.length}개 / 전체 ${products.length}개`}
         action={
           <button onClick={openAdd} className="btn-primary">
             <Plus size={16} /> 품목 추가
@@ -156,10 +163,31 @@ export default function ProductsPage() {
         }
       />
 
+      {/* 브랜드 탭 */}
+      <div className="flex flex-wrap gap-1 mb-2 items-center">
+        <span className="text-xs font-semibold text-gray-500 mr-2">브랜드:</span>
+        {brands.map(b => {
+          const count = products.filter(p => (p.brand || '') === b).length;
+          const isActive = brandTab === b;
+          return (
+            <button key={b || '__none__'}
+              onClick={() => setBrandTab(b)}
+              className={`px-3 py-1 rounded text-xs font-medium border transition ${
+                isActive ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-300'
+              }`}
+            >
+              {b || '(미지정)'} <span className="ml-1 opacity-75">{count}</span>
+            </button>
+          );
+        })}
+      </div>
+
       {/* 운영구분 탭 */}
       <div className="flex gap-2 mb-4 border-b pb-1">
         {OPERATION_TYPES.map(op => {
-          const count = products.filter(p => (p.operation_type || '대리점') === op).length;
+          const count = products.filter(p =>
+            (p.operation_type || '가맹점') === op && (p.brand || '') === brandTab
+          ).length;
           const isActive = operationTab === op;
           return (
             <button key={op}
@@ -316,6 +344,21 @@ export default function ProductsPage() {
                 </button>
               ))}
             </div>
+          </div>
+          <div className="col-span-2">
+            <label className="form-label">브랜드</label>
+            <input
+              type="text"
+              className="form-input"
+              placeholder="예: 한우진가 / 한식당이름 (빈 값 = 미지정)"
+              value={form.brand}
+              onChange={(e) => setForm({ ...form, brand: e.target.value })}
+              list="brand-list"
+            />
+            <datalist id="brand-list">
+              {brands.filter(b => b).map(b => <option key={b} value={b} />)}
+            </datalist>
+            <p className="text-xs text-gray-500 mt-1">같은 (브랜드 + 운영구분) 조합끼리 품목 리스트를 공유합니다</p>
           </div>
           <div className="col-span-2">
             <label className="form-label">품목명 *</label>

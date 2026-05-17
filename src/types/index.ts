@@ -1,10 +1,11 @@
-export type OperationType = '본사' | '직영' | '대리점';
+export type OperationType = '본점' | '직영점' | '가맹점';
 
-export const OPERATION_TYPES: OperationType[] = ['본사', '직영', '대리점'];
+export const OPERATION_TYPES: OperationType[] = ['본점', '직영점', '가맹점'];
 
 export interface Product {
   id: number;
   name: string;
+  brand: string;
   category: string;
   spec: string;
   unit: string;
@@ -27,6 +28,7 @@ export interface Product {
 export interface Customer {
   id: number;
   company_name: string;
+  brand: string;             // 브랜드명 (한 상호가 여러 브랜드 운영 가능)
   contact_name: string;
   email: string;
   address: string;
@@ -36,6 +38,7 @@ export interface Customer {
   fax: string;
   reg_number: string;
   operation_type: OperationType;
+  royalty_rate: number;      // 가맹점인 경우 로열티 % (예: 5 = 5%)
   created_at?: string;
 }
 
