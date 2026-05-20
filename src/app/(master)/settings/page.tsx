@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { Save } from 'lucide-react';
+import { Save, Plus, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import PageHeader from '@/components/PageHeader';
 import { Settings } from '@/types';
@@ -10,6 +10,7 @@ export default function SettingsPage() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [newBrand, setNewBrand] = useState('');
 
   const fetchSettings = useCallback(async () => {
     const res = await fetch('/api/settings');
@@ -63,11 +64,29 @@ export default function SettingsPage() {
     if (settings) setSettings({ ...settings, seal_image: '' });
   };
 
+  const addBrand = () => {
+    const name = newBrand.trim();
+    if (!name) return;
+    if (!settings) return;
+    const brands = settings.brands || [];
+    if (brands.includes(name)) {
+      toast.error('이미 등록된 브랜드입니다');
+      return;
+    }
+    setSettings({ ...settings, brands: [...brands, name] });
+    setNewBrand('');
+  };
+
+  const removeBrand = (b: string) => {
+    if (!settings) return;
+    setSettings({ ...settings, brands: (settings.brands || []).filter((x) => x !== b) });
+  };
+
   return (
     <>
       <PageHeader
-        title="설정"
-        description="공급자 정보 및 시스템 설정"
+        title="본사"
+        description="공급자 정보 및 브랜드 설정"
         action={
           <button onClick={handleSave} disabled={saving} className="btn-primary">
             <Save size={16} /> {saving ? '저장 중...' : '저장'}
@@ -149,6 +168,46 @@ export default function SettingsPage() {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* 브랜드 생성 */}
+        <div className="card">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-semibold">브랜드 관리</h3>
+            <span className="text-xs text-gray-500">
+              본사 ▸ 브랜드 ▸ 본점/직영점/가맹점
+            </span>
+          </div>
+          <p className="text-xs text-gray-500 mb-3">
+            브랜드를 등록하면 거래처/품목/대시보드의 브랜드 선택 옵션에 자동으로 노출됩니다.
+          </p>
+          <div className="flex gap-2 mb-3">
+            <input type="text" className="form-input flex-1"
+              placeholder="새 브랜드명 (예: 한우진가)"
+              value={newBrand}
+              onChange={(e) => setNewBrand(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addBrand(); } }} />
+            <button onClick={addBrand} className="btn-primary">
+              <Plus size={16} /> 추가
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {(settings.brands || []).length === 0 && (
+              <p className="text-sm text-gray-400 py-2">등록된 브랜드가 없습니다. 위에서 브랜드명을 입력하고 추가하세요.</p>
+            )}
+            {(settings.brands || []).map((b, idx) => (
+              <span key={b} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-indigo-50 border border-indigo-200 text-sm">
+                <span className="text-xs text-indigo-400 font-mono">{idx + 1}</span>
+                <span className="font-medium text-indigo-700">{b}</span>
+                <button onClick={() => removeBrand(b)} className="ml-1 p-0.5 rounded hover:bg-indigo-200">
+                  <X size={12} className="text-indigo-500" />
+                </button>
+              </span>
+            ))}
+          </div>
+          <p className="text-[11px] text-gray-400 mt-3">
+            💡 저장 버튼을 눌러야 적용됩니다. 브랜드를 삭제해도 기존 거래처/품목의 브랜드명은 그대로 남아 있습니다 (수동 정리 필요).
+          </p>
         </div>
       </div>
     </>

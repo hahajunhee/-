@@ -36,12 +36,20 @@ export default function CustomersPage() {
   const [editing, setEditing] = useState<Customer | null>(null);
   const [form, setForm] = useState(emptyCustomer);
   const [loading, setLoading] = useState(true);
+  const [brandOptions, setBrandOptions] = useState<string[]>([]);
 
   const fetchCustomers = useCallback(async () => {
     setLoading(true);
-    const res = await fetch('/api/customers');
-    const data = await res.json();
+    const [cRes, sRes] = await Promise.all([
+      fetch('/api/customers'),
+      fetch('/api/settings'),
+    ]);
+    const data = await cRes.json();
     setCustomers(data);
+    try {
+      const s = await sRes.json();
+      setBrandOptions(Array.isArray(s?.brands) ? s.brands : []);
+    } catch {}
     setLoading(false);
   }, []);
 
@@ -247,8 +255,14 @@ export default function CustomersPage() {
           </div>
           <div>
             <label className="form-label">브랜드</label>
-            <input type="text" className="form-input" placeholder="예: 한우진가, 한식당이름" value={form.brand}
-              onChange={(e) => setForm({ ...form, brand: e.target.value })} />
+            <select className="form-select" value={form.brand}
+              onChange={(e) => setForm({ ...form, brand: e.target.value })}>
+              <option value="">(브랜드 미지정)</option>
+              {brandOptions.map(b => <option key={b} value={b}>{b}</option>)}
+            </select>
+            {brandOptions.length === 0 && (
+              <p className="text-xs text-orange-500 mt-1">먼저 [본사] 메뉴에서 브랜드를 등록하세요</p>
+            )}
           </div>
           <div>
             <label className="form-label">성명</label>

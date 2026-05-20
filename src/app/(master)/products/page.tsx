@@ -44,11 +44,20 @@ export default function ProductsPage() {
   const [form, setForm] = useState(emptyProduct);
   const [loading, setLoading] = useState(true);
 
+  const [brandOptions, setBrandOptions] = useState<string[]>([]);
+
   const fetchProducts = useCallback(async () => {
     setLoading(true);
-    const res = await fetch('/api/products');
-    const data = await res.json();
+    const [pRes, sRes] = await Promise.all([
+      fetch('/api/products'),
+      fetch('/api/settings'),
+    ]);
+    const data = await pRes.json();
     setProducts(data);
+    try {
+      const s = await sRes.json();
+      setBrandOptions(Array.isArray(s?.brands) ? s.brands : []);
+    } catch {}
     setLoading(false);
   }, []);
 
@@ -347,18 +356,16 @@ export default function ProductsPage() {
           </div>
           <div className="col-span-2">
             <label className="form-label">브랜드</label>
-            <input
-              type="text"
-              className="form-input"
-              placeholder="예: 한우진가 / 한식당이름 (빈 값 = 미지정)"
+            <select className="form-select"
               value={form.brand}
-              onChange={(e) => setForm({ ...form, brand: e.target.value })}
-              list="brand-list"
-            />
-            <datalist id="brand-list">
-              {brands.filter(b => b).map(b => <option key={b} value={b} />)}
-            </datalist>
-            <p className="text-xs text-gray-500 mt-1">같은 (브랜드 + 운영구분) 조합끼리 품목 리스트를 공유합니다</p>
+              onChange={(e) => setForm({ ...form, brand: e.target.value })}>
+              <option value="">(브랜드 미지정)</option>
+              {brandOptions.map(b => <option key={b} value={b}>{b}</option>)}
+            </select>
+            <p className="text-xs text-gray-500 mt-1">
+              같은 (브랜드 + 운영구분) 조합끼리 품목 리스트를 공유합니다.
+              {brandOptions.length === 0 && <span className="text-orange-500"> 먼저 [본사]에서 브랜드를 등록하세요.</span>}
+            </p>
           </div>
           <div className="col-span-2">
             <label className="form-label">품목명 *</label>

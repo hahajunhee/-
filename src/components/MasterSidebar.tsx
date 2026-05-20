@@ -4,12 +4,13 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, Package, Building2, FileText,
-  PlusCircle, Settings, Users, ShoppingCart, LogOut, ChevronLeft, ChevronRight,
-  Wallet,
+  PlusCircle, Users, ShoppingCart, LogOut, ChevronLeft, ChevronRight,
+  Wallet, Crown,
 } from 'lucide-react';
 import { useState } from 'react';
 
 const navItems = [
+  { key: 'settings', href: '/settings', label: '본사', icon: Crown },
   { key: 'dashboard', href: '/', label: '대시보드', icon: LayoutDashboard },
   { key: 'products', href: '/products', label: '품목 관리', icon: Package },
   { key: 'customers', href: '/customers', label: '거래처 관리', icon: Building2 },
@@ -18,7 +19,6 @@ const navItems = [
   { key: 'orders', href: '/orders-manage', label: '발주 관리', icon: ShoppingCart },
   { key: 'costs', href: '/costs', label: '비용 입력', icon: Wallet },
   { key: 'members', href: '/members', label: '회원 관리', icon: Users },
-  { key: 'settings', href: '/settings', label: '설정', icon: Settings },
 ];
 
 // 매니저는 회원관리/설정 영구 차단 (관리자 전용)

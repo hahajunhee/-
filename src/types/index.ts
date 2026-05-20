@@ -109,6 +109,7 @@ export interface Settings {
   print_operator: string;
   invoice_note: string;
   seal_image: string;  // 법인 도장 이미지 (data URL 형식)
+  brands: string[];    // 브랜드 목록 (본사에서 등록)
   categories: string[];
 }
 

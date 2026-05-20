@@ -11,15 +11,18 @@ export async function GET() {
 
 export async function PUT(request: NextRequest) {
   const body = await request.json();
+  const brandsJson = JSON.stringify(Array.isArray(body.brands) ? body.brands : []);
   const data = await query(
     `UPDATE settings SET
      company_name=$1, rep_name=$2, reg_number=$3, address=$4,
      business_type=$5, business_category=$6, tel=$7, fax=$8,
-     bank_info=$9, print_operator=$10, invoice_note=$11, seal_image=$12
+     bank_info=$9, print_operator=$10, invoice_note=$11, seal_image=$12,
+     brands=$13::jsonb
      WHERE id=1 RETURNING *`,
     [body.company_name, body.rep_name, body.reg_number, body.address,
      body.business_type, body.business_category, body.tel, body.fax,
-     body.bank_info, body.print_operator, body.invoice_note || '', body.seal_image || '']
+     body.bank_info, body.print_operator, body.invoice_note || '', body.seal_image || '',
+     brandsJson]
   );
   return NextResponse.json(data[0]);
 }
