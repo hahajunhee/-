@@ -22,7 +22,7 @@ const TAB_OPTIONS: { key: string; label: string }[] = [
   { key: 'dashboard', label: '대시보드' },
   { key: 'products', label: '품목 관리' },
   { key: 'customers', label: '거래처' },
-  { key: 'transactions_new', label: '거래 입력' },
+  { key: 'transactions_new', label: '발주' },
   { key: 'transactions', label: '거래 내역' },
   { key: 'orders', label: '발주 관리' },
   { key: 'costs', label: '비용 입력' },

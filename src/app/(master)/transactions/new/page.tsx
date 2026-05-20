@@ -1,12 +1,18 @@
 'use client';
 
-import { useEffect, useState, useCallback, Suspense } from 'react';
+import { useEffect, useState, useCallback, Suspense, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Plus, Trash2, Save, FileText } from 'lucide-react';
+import { Plus, Trash2, Save, FileText, ChevronDown } from 'lucide-react';
 import toast from 'react-hot-toast';
 import PageHeader from '@/components/PageHeader';
-import { Product, Customer, TransactionItem } from '@/types';
+import { Product, Customer, TransactionItem, OPERATION_TYPES, OperationType } from '@/types';
 import { computeItemFields, formatKRW } from '@/lib/calculator';
+
+const OP_BADGE: Record<OperationType, string> = {
+  '본점': 'bg-purple-100 text-purple-700',
+  '직영점': 'bg-blue-100 text-blue-700',
+  '가맹점': 'bg-emerald-100 text-emerald-700',
+};
 
 function TransactionNewContent() {
   const router = useRouter();
@@ -22,18 +28,28 @@ function TransactionNewContent() {
   const [items, setItems] = useState<TransactionItem[]>([]);
   const [saving, setSaving] = useState(false);
   const [userRole, setUserRole] = useState<'master' | 'manager' | 'partner' | null>(null);
+  const [brandFilter, setBrandFilter] = useState<string>('');         // 1차: 브랜드
+  const [opFilter, setOpFilter] = useState<'' | OperationType>('');   // 2차: 운영구분
+  const [brandOptions, setBrandOptions] = useState<string[]>([]);
+  const [custDropdownOpen, setCustDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const fetchData = useCallback(async () => {
-    const [pRes, cRes, aRes] = await Promise.all([
+    const [pRes, cRes, aRes, sRes] = await Promise.all([
       fetch('/api/products'),
       fetch('/api/customers'),
       fetch('/api/auth'),
+      fetch('/api/settings'),
     ]);
     setProducts(await pRes.json());
     setCustomers(await cRes.json());
     try {
       const auth = await aRes.json();
       setUserRole(auth?.user?.role || null);
+    } catch {}
+    try {
+      const s = await sRes.json();
+      setBrandOptions(Array.isArray(s?.brands) ? s.brands : []);
     } catch {}
 
     // 수정 모드: 기존 거래 로드
@@ -72,6 +88,24 @@ function TransactionNewContent() {
   const showProfit = userRole !== 'manager';
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // 외부 클릭 시 드롭다운 닫기
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setCustDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // 1차(브랜드) + 2차(운영구분) 필터 적용된 거래처 목록
+  const filteredCustomers = customers.filter(c => {
+    if (brandFilter && (c.brand || '') !== brandFilter) return false;
+    if (opFilter && (c.operation_type || '가맹점') !== opFilter) return false;
+    return true;
+  });
 
   // 거래처 선택 시 해당 (브랜드 + 운영구분)의 품목만 노출
   const selectedCustomer = customers.find(c => c.id === customerId);
@@ -199,8 +233,8 @@ function TransactionNewContent() {
   return (
     <>
       <PageHeader
-        title={isEdit ? '거래 수정' : '거래 입력'}
-        description={isEdit ? `거래 #${editId} 수정` : '새로운 거래를 등록합니다'}
+        title={isEdit ? '발주 수정' : '발주'}
+        description={isEdit ? `발주 #${editId} 수정` : '새로운 발주를 등록합니다'}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -254,10 +288,31 @@ function TransactionNewContent() {
         {/* 우측: 거래 정보 + 품목 목록 */}
         <div className="lg:col-span-2 space-y-4">
           {/* 거래 기본 정보 */}
-          <div className="card">
+          <div className="card space-y-3">
+            {/* 1차: 브랜드 / 2차: 운영구분 필터 */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="form-label">1차: 브랜드 (선택)</label>
+                <select className="form-select" value={brandFilter}
+                  onChange={(e) => { setBrandFilter(e.target.value); setCustomerId(0); }}>
+                  <option value="">전체 브랜드</option>
+                  {brandOptions.map(b => <option key={b} value={b}>{b}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="form-label">2차: 운영구분 (선택)</label>
+                <select className="form-select" value={opFilter}
+                  onChange={(e) => { setOpFilter(e.target.value as OperationType | ''); setCustomerId(0); }}>
+                  <option value="">전체 운영구분</option>
+                  {OPERATION_TYPES.map(op => <option key={op} value={op}>{op}</option>)}
+                </select>
+              </div>
+            </div>
+
+            {/* 거래일자 + 거래처(커스텀 드롭다운) */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="form-label">거래일자</label>
+                <label className="form-label">거래일자 *</label>
                 <input
                   type="date"
                   className="form-input"
@@ -265,13 +320,63 @@ function TransactionNewContent() {
                   onChange={(e) => setDate(e.target.value)}
                 />
               </div>
-              <div>
-                <label className="form-label">거래처</label>
-                <select
-                  className="form-select"
-                  value={customerId}
-                  onChange={(e) => setCustomerId(Number(e.target.value))}
-                >
+              <div className="relative" ref={dropdownRef}>
+                <label className="form-label">거래처 ({filteredCustomers.length}곳)</label>
+                <button type="button"
+                  onClick={() => setCustDropdownOpen(!custDropdownOpen)}
+                  className="form-select flex items-center justify-between w-full text-left">
+                  {(() => {
+                    const sel = customers.find(c => c.id === customerId);
+                    if (!sel) return <span className="text-gray-400">거래처 선택</span>;
+                    const op = (sel.operation_type || '가맹점') as OperationType;
+                    return (
+                      <span className="flex items-center gap-2 truncate">
+                        <span className="font-medium">{sel.company_name}</span>
+                        {sel.brand && (
+                          <span className="inline-block px-1.5 py-0.5 text-[10px] rounded bg-indigo-100 text-indigo-700">{sel.brand}</span>
+                        )}
+                        <span className={`inline-block px-1.5 py-0.5 text-[10px] rounded-full ${OP_BADGE[op]}`}>{op}</span>
+                      </span>
+                    );
+                  })()}
+                  <ChevronDown size={14} className="text-gray-400 shrink-0" />
+                </button>
+                {custDropdownOpen && (
+                  <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-[300px] overflow-y-auto">
+                    <button type="button"
+                      onClick={() => { setCustomerId(0); setCustDropdownOpen(false); }}
+                      className="w-full text-left px-3 py-2 text-sm text-gray-400 hover:bg-gray-50 border-b">
+                      거래처 선택 해제
+                    </button>
+                    {filteredCustomers.length === 0 && (
+                      <div className="px-3 py-4 text-sm text-gray-400 text-center">조건에 맞는 거래처가 없습니다</div>
+                    )}
+                    {filteredCustomers.map(c => {
+                      const op = (c.operation_type || '가맹점') as OperationType;
+                      const isSelected = c.id === customerId;
+                      return (
+                        <button type="button" key={c.id}
+                          onClick={() => { setCustomerId(c.id); setCustDropdownOpen(false); }}
+                          className={`w-full text-left px-3 py-2 text-sm border-b last:border-b-0 transition ${
+                            isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'
+                          }`}>
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-medium truncate">{c.company_name}</span>
+                            <div className="flex items-center gap-1 shrink-0">
+                              {c.brand && (
+                                <span className="inline-block px-1.5 py-0.5 text-[10px] rounded bg-indigo-100 text-indigo-700">{c.brand}</span>
+                              )}
+                              <span className={`inline-block px-1.5 py-0.5 text-[10px] rounded-full ${OP_BADGE[op]}`}>{op}</span>
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                {/* 숨김 select - 기존 코드 호환용 */}
+                <select className="hidden" value={customerId}
+                  onChange={(e) => setCustomerId(Number(e.target.value))}>
                   <option value={0}>거래처 선택</option>
                   {customers.map((c) => (
                     <option key={c.id} value={c.id}>{c.company_name}</option>

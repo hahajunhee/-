@@ -111,7 +111,7 @@ export default function TransactionsPage() {
         description={`총 ${transactions.length}건`}
         action={
           <Link href="/transactions/new" className="btn-primary">
-            <PlusCircle size={16} /> 거래 입력
+            <PlusCircle size={16} /> 발주
           </Link>
         }
       />
