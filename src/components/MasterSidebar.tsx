@@ -12,9 +12,9 @@ import { useState } from 'react';
 const navItems = [
   { key: 'settings', href: '/settings', label: '본사', icon: Crown },
   { key: 'customers', href: '/customers', label: '거래처', icon: Building2 },
-  { key: 'transactions_new', href: '/transactions/new', label: '발주', icon: PlusCircle },
   { key: 'products', href: '/products', label: '품목 관리', icon: Package },
-  { key: 'transactions', href: '/transactions', label: '거래 내역', icon: FileText },
+  { key: 'transactions_new', href: '/transactions/new', label: '발주', icon: PlusCircle },
+  { key: 'transactions', href: '/transactions', label: '발주 내역', icon: FileText },
   { key: 'orders', href: '/orders-manage', label: '발주 관리', icon: ShoppingCart },
   { key: 'costs', href: '/costs', label: '비용 입력', icon: Wallet },
   { key: 'dashboard', href: '/', label: '통계', icon: LayoutDashboard },

@@ -10,9 +10,15 @@ export async function GET(request: NextRequest) {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const status = request.nextUrl.searchParams.get('status');
+    const sp = request.nextUrl.searchParams;
+    const status = sp.get('status');
+    const brand = sp.get('brand');
+    const operationType = sp.get('operation_type');
+    const customerId = sp.get('customer_id');
 
-    let q = `SELECT t.*, c.company_name as customer_name, c.email as customer_email, u.name as user_name,
+    let q = `SELECT t.*, c.company_name as customer_name, c.email as customer_email,
+      c.brand as customer_brand, c.operation_type as customer_operation_type,
+      u.name as user_name,
       TO_CHAR(t.date, 'YYYY-MM-DD') as date_formatted
       FROM transactions t
       JOIN customers c ON t.customer_id = c.id
@@ -28,6 +34,18 @@ export async function GET(request: NextRequest) {
     if (status) {
       params.push(status);
       q += ` AND t.order_status = $${params.length}`;
+    }
+    if (brand !== null) {
+      params.push(brand);
+      q += ` AND c.brand = $${params.length}`;
+    }
+    if (operationType) {
+      params.push(operationType);
+      q += ` AND c.operation_type = $${params.length}`;
+    }
+    if (customerId) {
+      params.push(Number(customerId));
+      q += ` AND t.customer_id = $${params.length}`;
     }
     q += ' ORDER BY t.created_at DESC';
 

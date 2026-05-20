@@ -1,12 +1,18 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { FileText, Trash2, CheckCircle, Clock, PlusCircle, Mail, ChevronDown, ChevronUp, Pencil } from 'lucide-react';
 import toast from 'react-hot-toast';
 import PageHeader from '@/components/PageHeader';
 import { Customer, OPERATION_TYPES, OperationType } from '@/types';
 import { formatKRW } from '@/lib/calculator';
+
+const OP_BADGE: Record<OperationType, string> = {
+  '본점': 'bg-purple-100 text-purple-700',
+  '직영점': 'bg-blue-100 text-blue-700',
+  '가맹점': 'bg-emerald-100 text-emerald-700',
+};
 
 export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<any[]>([]);
@@ -18,6 +24,8 @@ export default function TransactionsPage() {
   const [brandFilter, setBrandFilter] = useState('');
   const [opFilter, setOpFilter] = useState<'' | OperationType>('');
   const [brandOptions, setBrandOptions] = useState<string[]>([]);
+  const [custDropdownOpen, setCustDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<number[]>([]);
   const [expandedId, setExpandedId] = useState<number | null>(null);
@@ -60,6 +68,16 @@ export default function TransactionsPage() {
 
   useEffect(() => { fetchCustomers(); }, [fetchCustomers]);
   useEffect(() => { fetchTransactions(); }, [fetchTransactions]);
+
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setCustDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, []);
 
   const toggleStatus = async (txn: any) => {
     const newStatus = txn.payment_status === 'paid' ? 'unpaid' : 'paid';
@@ -126,7 +144,7 @@ export default function TransactionsPage() {
   return (
     <>
       <PageHeader
-        title="거래 내역"
+        title="발주 내역"
         description={`총 ${transactions.length}건`}
         action={
           <Link href="/transactions/new" className="btn-primary">
@@ -137,10 +155,10 @@ export default function TransactionsPage() {
 
       {/* 필터 */}
       <div className="card mb-4 space-y-3">
-        {/* 1차/2차 필터 */}
-        <div className="grid grid-cols-2 gap-3 max-w-xl">
+        {/* 1차/2차/3차 (위) */}
+        <div className="grid grid-cols-3 gap-3">
           <div>
-            <label className="form-label">1차: 브랜드 (선택)</label>
+            <label className="form-label">1차: 브랜드</label>
             <select className="form-select" value={brandFilter}
               onChange={(e) => { setBrandFilter(e.target.value); setCustomerId(''); }}>
               <option value="">전체 브랜드</option>
@@ -148,17 +166,72 @@ export default function TransactionsPage() {
             </select>
           </div>
           <div>
-            <label className="form-label">2차: 운영구분 (선택)</label>
+            <label className="form-label">2차: 운영구분</label>
             <select className="form-select" value={opFilter}
               onChange={(e) => { setOpFilter(e.target.value as OperationType | ''); setCustomerId(''); }}>
               <option value="">전체 운영구분</option>
               {OPERATION_TYPES.map(op => <option key={op} value={op}>{op}</option>)}
             </select>
           </div>
+          <div className="relative" ref={dropdownRef}>
+            <label className="form-label">3차: 거래처 ({filteredCustomerOpts.length}곳)</label>
+            <button type="button"
+              onClick={() => setCustDropdownOpen(!custDropdownOpen)}
+              className="form-select flex items-center justify-between w-full text-left">
+              {(() => {
+                const sel = customers.find(c => String(c.id) === customerId);
+                if (!sel) return <span className="text-gray-400">전체</span>;
+                const op = (sel.operation_type || '가맹점') as OperationType;
+                return (
+                  <span className="flex items-center gap-2 truncate">
+                    <span className="font-medium truncate">{sel.company_name}</span>
+                    {sel.brand && (
+                      <span className="inline-block px-1.5 py-0.5 text-[10px] rounded bg-indigo-100 text-indigo-700">{sel.brand}</span>
+                    )}
+                    <span className={`inline-block px-1.5 py-0.5 text-[10px] rounded-full ${OP_BADGE[op]}`}>{op}</span>
+                  </span>
+                );
+              })()}
+              <ChevronDown size={14} className="text-gray-400 shrink-0" />
+            </button>
+            {custDropdownOpen && (
+              <div className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-[300px] overflow-y-auto">
+                <button type="button"
+                  onClick={() => { setCustomerId(''); setCustDropdownOpen(false); }}
+                  className="w-full text-left px-3 py-2 text-sm text-gray-400 hover:bg-gray-50 border-b">
+                  전체
+                </button>
+                {filteredCustomerOpts.length === 0 && (
+                  <div className="px-3 py-4 text-sm text-gray-400 text-center">조건에 맞는 거래처가 없습니다</div>
+                )}
+                {filteredCustomerOpts.map(c => {
+                  const op = (c.operation_type || '가맹점') as OperationType;
+                  const isSelected = String(c.id) === customerId;
+                  return (
+                    <button type="button" key={c.id}
+                      onClick={() => { setCustomerId(String(c.id)); setCustDropdownOpen(false); }}
+                      className={`w-full text-left px-3 py-2 text-sm border-b last:border-b-0 transition ${
+                        isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'
+                      }`}>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-medium truncate">{c.company_name}</span>
+                        <div className="flex items-center gap-1 shrink-0">
+                          {c.brand && (
+                            <span className="inline-block px-1.5 py-0.5 text-[10px] rounded bg-indigo-100 text-indigo-700">{c.brand}</span>
+                          )}
+                          <span className={`inline-block px-1.5 py-0.5 text-[10px] rounded-full ${OP_BADGE[op]}`}>{op}</span>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* 기존 필터 */}
-        <div className="flex flex-wrap gap-3 items-end">
+        {/* 시작일/종료일/입금상태 (아래) */}
+        <div className="flex flex-wrap gap-3 items-end pt-2 border-t border-gray-100">
           <div>
             <label className="form-label">시작일</label>
             <input type="date" className="form-input" value={dateFrom}
@@ -168,16 +241,6 @@ export default function TransactionsPage() {
             <label className="form-label">종료일</label>
             <input type="date" className="form-input" value={dateTo}
               onChange={(e) => setDateTo(e.target.value)} />
-          </div>
-          <div>
-            <label className="form-label">거래처 ({filteredCustomerOpts.length}곳)</label>
-            <select className="form-select" value={customerId}
-              onChange={(e) => setCustomerId(e.target.value)}>
-              <option value="">전체</option>
-              {filteredCustomerOpts.map((c) => (
-                <option key={c.id} value={c.id}>{c.company_name}</option>
-              ))}
-            </select>
           </div>
           <div>
             <label className="form-label">입금 상태</label>

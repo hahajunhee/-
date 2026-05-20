@@ -1,15 +1,24 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
-import { CheckCircle, XCircle, Package } from 'lucide-react';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { CheckCircle, XCircle, Package, ChevronDown } from 'lucide-react';
 import toast from 'react-hot-toast';
 import PageHeader from '@/components/PageHeader';
 import { formatKRW } from '@/lib/calculator';
+import { Customer, OPERATION_TYPES, OperationType } from '@/types';
+
+const OP_BADGE: Record<OperationType, string> = {
+  '본점': 'bg-purple-100 text-purple-700',
+  '직영점': 'bg-blue-100 text-blue-700',
+  '가맹점': 'bg-emerald-100 text-emerald-700',
+};
 
 interface Order {
   id: number;
   order_number: string;
   customer_name: string;
+  customer_brand?: string;
+  customer_operation_type?: OperationType;
   user_name: string;
   date: string;
   date_formatted: string;
@@ -24,23 +33,60 @@ interface Order {
 
 export default function OrdersManagePage() {
   const [orders, setOrders] = useState<Order[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [brandOptions, setBrandOptions] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('');
+  const [brandFilter, setBrandFilter] = useState('');
+  const [opFilter, setOpFilter] = useState<'' | OperationType>('');
+  const [customerId, setCustomerId] = useState('');
+  const [custDropdownOpen, setCustDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
     try {
-      const params = statusFilter ? `?status=${statusFilter}` : '';
-      const res = await fetch(`/api/orders${params}`);
+      const params = new URLSearchParams();
+      if (statusFilter) params.set('status', statusFilter);
+      if (brandFilter) params.set('brand', brandFilter);
+      if (opFilter) params.set('operation_type', opFilter);
+      if (customerId) params.set('customer_id', customerId);
+      const res = await fetch(`/api/orders?${params}`);
       const data = await res.json();
       setOrders(Array.isArray(data) ? data : []);
     } catch {
       setOrders([]);
     }
     setLoading(false);
-  }, [statusFilter]);
+  }, [statusFilter, brandFilter, opFilter, customerId]);
 
+  const fetchMeta = useCallback(async () => {
+    try {
+      const [cRes, sRes] = await Promise.all([
+        fetch('/api/customers'),
+        fetch('/api/settings'),
+      ]);
+      setCustomers(await cRes.json());
+      const s = await sRes.json();
+      setBrandOptions(Array.isArray(s?.brands) ? s.brands : []);
+    } catch {}
+  }, []);
+
+  useEffect(() => { fetchMeta(); }, [fetchMeta]);
   useEffect(() => { fetchOrders(); }, [fetchOrders]);
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) setCustDropdownOpen(false);
+    };
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, []);
+
+  const filteredCustomerOpts = customers.filter(c => {
+    if (brandFilter && (c.brand || '') !== brandFilter) return false;
+    if (opFilter && (c.operation_type || '가맹점') !== opFilter) return false;
+    return true;
+  });
 
   const updateStatus = async (id: number, status: string) => {
     const res = await fetch(`/api/orders/${id}`, {
@@ -69,14 +115,93 @@ export default function OrdersManagePage() {
     <>
       <PageHeader title="발주 관리" description={`총 ${orders.length}건`} />
 
-      <div className="card mb-4">
-        <select className="form-select w-auto" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-          <option value="">전체 상태</option>
-          <option value="pending">대기</option>
-          <option value="confirmed">확인</option>
-          <option value="completed">완료</option>
-          <option value="rejected">거절</option>
-        </select>
+      <div className="card mb-4 space-y-3">
+        {/* 1차/2차/3차 (위) */}
+        <div className="grid grid-cols-3 gap-3">
+          <div>
+            <label className="form-label">1차: 브랜드</label>
+            <select className="form-select" value={brandFilter}
+              onChange={(e) => { setBrandFilter(e.target.value); setCustomerId(''); }}>
+              <option value="">전체 브랜드</option>
+              {brandOptions.map(b => <option key={b} value={b}>{b}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="form-label">2차: 운영구분</label>
+            <select className="form-select" value={opFilter}
+              onChange={(e) => { setOpFilter(e.target.value as OperationType | ''); setCustomerId(''); }}>
+              <option value="">전체 운영구분</option>
+              {OPERATION_TYPES.map(op => <option key={op} value={op}>{op}</option>)}
+            </select>
+          </div>
+          <div className="relative" ref={dropdownRef}>
+            <label className="form-label">3차: 거래처 ({filteredCustomerOpts.length}곳)</label>
+            <button type="button"
+              onClick={() => setCustDropdownOpen(!custDropdownOpen)}
+              className="form-select flex items-center justify-between w-full text-left">
+              {(() => {
+                const sel = customers.find(c => String(c.id) === customerId);
+                if (!sel) return <span className="text-gray-400">전체</span>;
+                const op = (sel.operation_type || '가맹점') as OperationType;
+                return (
+                  <span className="flex items-center gap-2 truncate">
+                    <span className="font-medium truncate">{sel.company_name}</span>
+                    {sel.brand && (
+                      <span className="inline-block px-1.5 py-0.5 text-[10px] rounded bg-indigo-100 text-indigo-700">{sel.brand}</span>
+                    )}
+                    <span className={`inline-block px-1.5 py-0.5 text-[10px] rounded-full ${OP_BADGE[op]}`}>{op}</span>
+                  </span>
+                );
+              })()}
+              <ChevronDown size={14} className="text-gray-400 shrink-0" />
+            </button>
+            {custDropdownOpen && (
+              <div className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-[300px] overflow-y-auto">
+                <button type="button"
+                  onClick={() => { setCustomerId(''); setCustDropdownOpen(false); }}
+                  className="w-full text-left px-3 py-2 text-sm text-gray-400 hover:bg-gray-50 border-b">
+                  전체
+                </button>
+                {filteredCustomerOpts.length === 0 && (
+                  <div className="px-3 py-4 text-sm text-gray-400 text-center">조건에 맞는 거래처가 없습니다</div>
+                )}
+                {filteredCustomerOpts.map(c => {
+                  const op = (c.operation_type || '가맹점') as OperationType;
+                  const isSelected = String(c.id) === customerId;
+                  return (
+                    <button type="button" key={c.id}
+                      onClick={() => { setCustomerId(String(c.id)); setCustDropdownOpen(false); }}
+                      className={`w-full text-left px-3 py-2 text-sm border-b last:border-b-0 transition ${
+                        isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'
+                      }`}>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-medium truncate">{c.company_name}</span>
+                        <div className="flex items-center gap-1 shrink-0">
+                          {c.brand && (
+                            <span className="inline-block px-1.5 py-0.5 text-[10px] rounded bg-indigo-100 text-indigo-700">{c.brand}</span>
+                          )}
+                          <span className={`inline-block px-1.5 py-0.5 text-[10px] rounded-full ${OP_BADGE[op]}`}>{op}</span>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* 상태 필터 (아래) */}
+        <div className="pt-2 border-t border-gray-100">
+          <label className="form-label">상태</label>
+          <select className="form-select w-auto" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+            <option value="">전체 상태</option>
+            <option value="pending">대기</option>
+            <option value="confirmed">확인</option>
+            <option value="completed">완료</option>
+            <option value="rejected">거절</option>
+          </select>
+        </div>
       </div>
 
       <div className="space-y-4">
@@ -89,10 +214,18 @@ export default function OrdersManagePage() {
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-3">
                 <Package size={20} className="text-blue-500" />
-                <div>
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-bold">{order.order_number}</span>
-                  <span className="text-gray-500 ml-2">{order.customer_name}</span>
-                  <span className="text-gray-400 ml-2 text-sm">({order.user_name || '-'})</span>
+                  <span className="text-gray-500">{order.customer_name}</span>
+                  {order.customer_brand && (
+                    <span className="inline-block px-1.5 py-0.5 text-[10px] rounded bg-indigo-100 text-indigo-700">{order.customer_brand}</span>
+                  )}
+                  {order.customer_operation_type && (
+                    <span className={`inline-block px-1.5 py-0.5 text-[10px] rounded-full ${OP_BADGE[order.customer_operation_type]}`}>
+                      {order.customer_operation_type}
+                    </span>
+                  )}
+                  <span className="text-gray-400 text-sm">({order.user_name || '-'})</span>
                 </div>
               </div>
               <div className="flex items-center gap-3">
