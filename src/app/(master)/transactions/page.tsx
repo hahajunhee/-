@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { FileText, Trash2, CheckCircle, Clock, PlusCircle, Mail, ChevronDown, ChevronUp, Pencil } from 'lucide-react';
 import toast from 'react-hot-toast';
 import PageHeader from '@/components/PageHeader';
-import { Customer } from '@/types';
+import { Customer, OPERATION_TYPES, OperationType } from '@/types';
 import { formatKRW } from '@/lib/calculator';
 
 export default function TransactionsPage() {
@@ -15,14 +15,31 @@ export default function TransactionsPage() {
   const [dateTo, setDateTo] = useState('');
   const [customerId, setCustomerId] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [brandFilter, setBrandFilter] = useState('');
+  const [opFilter, setOpFilter] = useState<'' | OperationType>('');
+  const [brandOptions, setBrandOptions] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<number[]>([]);
   const [expandedId, setExpandedId] = useState<number | null>(null);
 
   const fetchCustomers = useCallback(async () => {
-    const res = await fetch('/api/customers');
-    setCustomers(await res.json());
+    const [cRes, sRes] = await Promise.all([
+      fetch('/api/customers'),
+      fetch('/api/settings'),
+    ]);
+    setCustomers(await cRes.json());
+    try {
+      const s = await sRes.json();
+      setBrandOptions(Array.isArray(s?.brands) ? s.brands : []);
+    } catch {}
   }, []);
+
+  // 1차(브랜드) + 2차(운영구분) 필터로 거래처 좁히기
+  const filteredCustomerOpts = customers.filter(c => {
+    if (brandFilter && (c.brand || '') !== brandFilter) return false;
+    if (opFilter && (c.operation_type || '가맹점') !== opFilter) return false;
+    return true;
+  });
 
   const fetchTransactions = useCallback(async () => {
     setLoading(true);
@@ -31,13 +48,15 @@ export default function TransactionsPage() {
     if (dateTo) params.set('date_to', dateTo);
     if (customerId) params.set('customer_id', customerId);
     if (statusFilter) params.set('status', statusFilter);
+    if (brandFilter) params.set('brand', brandFilter);
+    if (opFilter) params.set('operation_type', opFilter);
 
     const res = await fetch(`/api/transactions?${params}`);
     const data = await res.json();
     setTransactions(Array.isArray(data) ? data : []);
     setSelected([]);
     setLoading(false);
-  }, [dateFrom, dateTo, customerId, statusFilter]);
+  }, [dateFrom, dateTo, customerId, statusFilter, brandFilter, opFilter]);
 
   useEffect(() => { fetchCustomers(); }, [fetchCustomers]);
   useEffect(() => { fetchTransactions(); }, [fetchTransactions]);
@@ -117,7 +136,28 @@ export default function TransactionsPage() {
       />
 
       {/* 필터 */}
-      <div className="card mb-4">
+      <div className="card mb-4 space-y-3">
+        {/* 1차/2차 필터 */}
+        <div className="grid grid-cols-2 gap-3 max-w-xl">
+          <div>
+            <label className="form-label">1차: 브랜드 (선택)</label>
+            <select className="form-select" value={brandFilter}
+              onChange={(e) => { setBrandFilter(e.target.value); setCustomerId(''); }}>
+              <option value="">전체 브랜드</option>
+              {brandOptions.map(b => <option key={b} value={b}>{b}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="form-label">2차: 운영구분 (선택)</label>
+            <select className="form-select" value={opFilter}
+              onChange={(e) => { setOpFilter(e.target.value as OperationType | ''); setCustomerId(''); }}>
+              <option value="">전체 운영구분</option>
+              {OPERATION_TYPES.map(op => <option key={op} value={op}>{op}</option>)}
+            </select>
+          </div>
+        </div>
+
+        {/* 기존 필터 */}
         <div className="flex flex-wrap gap-3 items-end">
           <div>
             <label className="form-label">시작일</label>
@@ -130,11 +170,11 @@ export default function TransactionsPage() {
               onChange={(e) => setDateTo(e.target.value)} />
           </div>
           <div>
-            <label className="form-label">거래처</label>
+            <label className="form-label">거래처 ({filteredCustomerOpts.length}곳)</label>
             <select className="form-select" value={customerId}
               onChange={(e) => setCustomerId(e.target.value)}>
               <option value="">전체</option>
-              {customers.map((c) => (
+              {filteredCustomerOpts.map((c) => (
                 <option key={c.id} value={c.id}>{c.company_name}</option>
               ))}
             </select>

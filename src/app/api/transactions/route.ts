@@ -8,9 +8,12 @@ export async function GET(request: NextRequest) {
     const dateTo = sp.get('date_to');
     const customerId = sp.get('customer_id');
     const status = sp.get('status');
+    const brand = sp.get('brand');
+    const operationType = sp.get('operation_type');
 
     let q = `
       SELECT t.*, c.company_name as customer_name, c.contact_name,
+             c.brand as customer_brand, c.operation_type as customer_operation_type,
              TO_CHAR(t.date, 'YYYY-MM-DD') as date_formatted
       FROM transactions t
       JOIN customers c ON t.customer_id = c.id
@@ -33,6 +36,14 @@ export async function GET(request: NextRequest) {
       params.push(status);
       q += ` AND t.payment_status = $${params.length}`;
     }
+    if (brand !== null) {
+      params.push(brand);
+      q += ` AND c.brand = $${params.length}`;
+    }
+    if (operationType) {
+      params.push(operationType);
+      q += ` AND c.operation_type = $${params.length}`;
+    }
     q += ' ORDER BY t.date DESC, t.id DESC';
 
     const transactions = await query(q, params);
@@ -43,7 +54,12 @@ export async function GET(request: NextRequest) {
         [txn.id]
       );
       txn.items = items;
-      txn.customer = { company_name: txn.customer_name, contact_name: txn.contact_name };
+      txn.customer = {
+        company_name: txn.customer_name,
+        contact_name: txn.contact_name,
+        brand: txn.customer_brand,
+        operation_type: txn.customer_operation_type,
+      };
     }
 
     return NextResponse.json(transactions);
