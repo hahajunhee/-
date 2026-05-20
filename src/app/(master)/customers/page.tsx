@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
-import { Plus, Pencil, Trash2, Search } from 'lucide-react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
+import { Plus, Pencil, Trash2, Search, ArrowUp, ArrowDown, ArrowUpDown, GripVertical } from 'lucide-react';
 import toast from 'react-hot-toast';
 import PageHeader from '@/components/PageHeader';
 import Modal from '@/components/Modal';
@@ -30,6 +30,33 @@ const OP_BADGE: Record<OperationType, string> = {
   '가맹점': 'bg-emerald-100 text-emerald-700',
 };
 
+// 표시 가능한 컬럼 정의 (actions 열은 항상 마지막에 고정, 이동 불가)
+interface ColumnDef {
+  key: string;
+  label: string;
+  thClass?: string;
+  sortVal: (c: Customer) => string | number;
+}
+
+const COLUMNS: ColumnDef[] = [
+  { key: 'company_name', label: '상호', sortVal: (c) => c.company_name || '' },
+  { key: 'brand', label: '브랜드', sortVal: (c) => c.brand || '' },
+  { key: 'operation_type', label: '운영구분', thClass: 'text-center', sortVal: (c) => c.operation_type || '' },
+  { key: 'royalty', label: '로열티', thClass: 'text-right', sortVal: (c) => {
+    if ((c.operation_type as OperationType) !== '가맹점') return -1;
+    if (c.royalty_type === 'fixed_monthly') return Number(c.royalty_amount) || 0;
+    return Number(c.royalty_rate) || 0;
+  } },
+  { key: 'contact_name', label: '성명', sortVal: (c) => c.contact_name || '' },
+  { key: 'tel', label: '연락처', sortVal: (c) => c.tel || '' },
+  { key: 'address', label: '주소', sortVal: (c) => c.address || '' },
+  { key: 'reg_number', label: '등록번호', sortVal: (c) => c.reg_number || '' },
+];
+
+const DEFAULT_ORDER = COLUMNS.map(c => c.key);
+const STORAGE_KEY = 'customers-column-order-v1';
+const SORT_STORAGE_KEY = 'customers-sort-v1';
+
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [filtered, setFiltered] = useState<Customer[]>([]);
@@ -39,6 +66,76 @@ export default function CustomersPage() {
   const [form, setForm] = useState(emptyCustomer);
   const [loading, setLoading] = useState(true);
   const [brandOptions, setBrandOptions] = useState<string[]>([]);
+
+  // 컬럼 순서 (localStorage 영속)
+  const [columnOrder, setColumnOrder] = useState<string[]>(DEFAULT_ORDER);
+  // 정렬 상태 (localStorage 영속)
+  const [sortKey, setSortKey] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  // 드래그 중인 컬럼 key
+  const [dragKey, setDragKey] = useState<string | null>(null);
+
+  // localStorage 복원
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const saved = JSON.parse(raw) as string[];
+        // 유효한 키만 유지 + 기본에 있는데 빠진 건 뒤에 자동 추가
+        const validSaved = saved.filter(k => DEFAULT_ORDER.includes(k));
+        const missing = DEFAULT_ORDER.filter(k => !validSaved.includes(k));
+        setColumnOrder([...validSaved, ...missing]);
+      }
+      const rawSort = localStorage.getItem(SORT_STORAGE_KEY);
+      if (rawSort) {
+        const { key, dir } = JSON.parse(rawSort);
+        if (key && DEFAULT_ORDER.includes(key)) {
+          setSortKey(key);
+          setSortDir(dir === 'desc' ? 'desc' : 'asc');
+        }
+      }
+    } catch {}
+  }, []);
+
+  // columnOrder 저장
+  useEffect(() => {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(columnOrder)); } catch {}
+  }, [columnOrder]);
+  // sort 저장
+  useEffect(() => {
+    try { localStorage.setItem(SORT_STORAGE_KEY, JSON.stringify({ key: sortKey, dir: sortDir })); } catch {}
+  }, [sortKey, sortDir]);
+
+  const orderedColumns = useMemo(() => {
+    return columnOrder.map(k => COLUMNS.find(c => c.key === k)).filter(Boolean) as ColumnDef[];
+  }, [columnOrder]);
+
+  const handleSortClick = (key: string) => {
+    if (sortKey === key) {
+      setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortKey(key);
+      setSortDir('asc');
+    }
+  };
+  const resetColumns = () => {
+    setColumnOrder(DEFAULT_ORDER);
+    setSortKey(null);
+    setSortDir('asc');
+  };
+  const handleDragStart = (key: string) => setDragKey(key);
+  const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); };
+  const handleDrop = (targetKey: string) => {
+    if (!dragKey || dragKey === targetKey) { setDragKey(null); return; }
+    const next = [...columnOrder];
+    const fromIdx = next.indexOf(dragKey);
+    const toIdx = next.indexOf(targetKey);
+    if (fromIdx < 0 || toIdx < 0) { setDragKey(null); return; }
+    next.splice(fromIdx, 1);
+    next.splice(toIdx, 0, dragKey);
+    setColumnOrder(next);
+    setDragKey(null);
+  };
 
   const fetchCustomers = useCallback(async () => {
     setLoading(true);
@@ -58,17 +155,33 @@ export default function CustomersPage() {
   useEffect(() => { fetchCustomers(); }, [fetchCustomers]);
 
   useEffect(() => {
-    if (!search) {
-      setFiltered(customers);
-    } else {
+    let list = customers;
+    if (search) {
       const s = search.toLowerCase();
-      setFiltered(customers.filter((c) =>
+      list = list.filter((c) =>
         c.company_name.toLowerCase().includes(s) ||
         c.contact_name.toLowerCase().includes(s) ||
         c.tel.includes(s)
-      ));
+      );
     }
-  }, [customers, search]);
+    // 정렬
+    if (sortKey) {
+      const col = COLUMNS.find(c => c.key === sortKey);
+      if (col) {
+        list = [...list].sort((a, b) => {
+          const va = col.sortVal(a);
+          const vb = col.sortVal(b);
+          if (typeof va === 'number' && typeof vb === 'number') {
+            return sortDir === 'asc' ? va - vb : vb - va;
+          }
+          const sa = String(va);
+          const sb = String(vb);
+          return sortDir === 'asc' ? sa.localeCompare(sb, 'ko') : sb.localeCompare(sa, 'ko');
+        });
+      }
+    }
+    setFiltered(list);
+  }, [customers, search, sortKey, sortDir]);
 
   const openAdd = () => {
     setEditing(null);
@@ -154,6 +267,14 @@ export default function CustomersPage() {
         </div>
       </div>
 
+      {/* 도움말 + 컬럼 초기화 */}
+      <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
+        <span>💡 열 제목을 <strong>드래그</strong>해서 순서 변경, <strong>클릭</strong>해서 정렬 (브라우저에 저장됨)</span>
+        {(columnOrder.join(',') !== DEFAULT_ORDER.join(',') || sortKey) && (
+          <button onClick={resetColumns} className="text-xs text-blue-500 hover:underline">기본 열 순서로 복원</button>
+        )}
+      </div>
+
       <div className="card p-0 overflow-hidden">
         {loading ? (
           <div className="p-8 text-center text-gray-400">불러오는 중...</div>
@@ -162,64 +283,84 @@ export default function CustomersPage() {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>상호</th>
-                  <th>브랜드</th>
-                  <th className="text-center">운영구분</th>
-                  <th className="text-right">로열티</th>
-                  <th>성명</th>
-                  <th>연락처</th>
-                  <th>주소</th>
-                  <th>등록번호</th>
+                  {orderedColumns.map(col => {
+                    const isSorted = sortKey === col.key;
+                    const isDrag = dragKey === col.key;
+                    return (
+                      <th key={col.key}
+                        draggable
+                        onDragStart={() => handleDragStart(col.key)}
+                        onDragOver={handleDragOver}
+                        onDrop={() => handleDrop(col.key)}
+                        onDragEnd={() => setDragKey(null)}
+                        className={`${col.thClass || ''} cursor-pointer select-none transition ${
+                          isDrag ? 'opacity-40' : ''
+                        } ${isSorted ? 'bg-blue-50' : ''}`}
+                        onClick={() => handleSortClick(col.key)}>
+                        <div className={`inline-flex items-center gap-1 ${col.thClass === 'text-right' ? 'justify-end' : col.thClass === 'text-center' ? 'justify-center' : ''}`}>
+                          <GripVertical size={12} className="text-gray-300" />
+                          <span>{col.label}</span>
+                          {isSorted ? (
+                            sortDir === 'asc' ? <ArrowUp size={12} className="text-blue-500" /> : <ArrowDown size={12} className="text-blue-500" />
+                          ) : <ArrowUpDown size={11} className="text-gray-300" />}
+                        </div>
+                      </th>
+                    );
+                  })}
                   <th className="w-20"></th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((c) => {
                   const op = (c.operation_type || '가맹점') as OperationType;
+                  const renderCell = (key: string) => {
+                    switch (key) {
+                      case 'company_name':
+                        return <td key={key} className="font-medium">{c.company_name}</td>;
+                      case 'brand':
+                        return <td key={key}>
+                          {c.brand ? (
+                            <span className="inline-block px-2 py-0.5 text-xs rounded bg-indigo-100 text-indigo-700 font-medium">{c.brand}</span>
+                          ) : <span className="text-gray-300">-</span>}
+                        </td>;
+                      case 'operation_type':
+                        return <td key={key} className="text-center">
+                          <span className={`inline-block px-2 py-0.5 text-xs rounded-full ${OP_BADGE[op]}`}>{op}</span>
+                        </td>;
+                      case 'royalty':
+                        return <td key={key} className="text-right">
+                          {op === '가맹점' && c.royalty_type === 'fixed_monthly' && Number(c.royalty_amount) > 0 ? (
+                            <span className="text-orange-600 font-semibold">월 {new Intl.NumberFormat('ko-KR').format(Number(c.royalty_amount))}원</span>
+                          ) : op === '가맹점' && Number(c.royalty_rate) > 0 ? (
+                            <span className="text-orange-600 font-semibold">{Number(c.royalty_rate)}%</span>
+                          ) : <span className="text-gray-300">-</span>}
+                        </td>;
+                      case 'contact_name': return <td key={key}>{c.contact_name}</td>;
+                      case 'tel': return <td key={key} className="text-gray-500">{c.tel}</td>;
+                      case 'address': return <td key={key} className="text-gray-500 max-w-[200px] truncate">{c.address}</td>;
+                      case 'reg_number': return <td key={key} className="text-gray-500 font-mono text-xs">{c.reg_number}</td>;
+                      default: return <td key={key}></td>;
+                    }
+                  };
                   return (
-                  <tr key={c.id}>
-                    <td className="font-medium">{c.company_name}</td>
-                    <td>
-                      {c.brand ? (
-                        <span className="inline-block px-2 py-0.5 text-xs rounded bg-indigo-100 text-indigo-700 font-medium">
-                          {c.brand}
-                        </span>
-                      ) : <span className="text-gray-300">-</span>}
-                    </td>
-                    <td className="text-center">
-                      <span className={`inline-block px-2 py-0.5 text-xs rounded-full ${OP_BADGE[op]}`}>
-                        {op}
-                      </span>
-                    </td>
-                    <td className="text-right">
-                      {op === '가맹점' && c.royalty_type === 'fixed_monthly' && Number(c.royalty_amount) > 0 ? (
-                        <span className="text-orange-600 font-semibold">
-                          월 {new Intl.NumberFormat('ko-KR').format(Number(c.royalty_amount))}원
-                        </span>
-                      ) : op === '가맹점' && Number(c.royalty_rate) > 0 ? (
-                        <span className="text-orange-600 font-semibold">{Number(c.royalty_rate)}%</span>
-                      ) : <span className="text-gray-300">-</span>}
-                    </td>
-                    <td>{c.contact_name}</td>
-                    <td className="text-gray-500">{c.tel}</td>
-                    <td className="text-gray-500 max-w-[200px] truncate">{c.address}</td>
-                    <td className="text-gray-500 font-mono text-xs">{c.reg_number}</td>
-                    <td>
-                      <div className="flex gap-1">
-                        <button onClick={() => openEdit(c)} className="p-1.5 rounded hover:bg-gray-100">
-                          <Pencil size={14} className="text-gray-500" />
-                        </button>
-                        <button onClick={() => handleDelete(c.id)} className="p-1.5 rounded hover:bg-red-50">
-                          <Trash2 size={14} className="text-red-400" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
+                    <tr key={c.id}>
+                      {orderedColumns.map(col => renderCell(col.key))}
+                      <td>
+                        <div className="flex gap-1">
+                          <button onClick={() => openEdit(c)} className="p-1.5 rounded hover:bg-gray-100">
+                            <Pencil size={14} className="text-gray-500" />
+                          </button>
+                          <button onClick={() => handleDelete(c.id)} className="p-1.5 rounded hover:bg-red-50">
+                            <Trash2 size={14} className="text-red-400" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
                 })}
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={9} className="text-center py-8 text-gray-400">
+                    <td colSpan={orderedColumns.length + 1} className="text-center py-8 text-gray-400">
                       {search ? '검색 결과가 없습니다' : '거래처를 추가해주세요'}
                     </td>
                   </tr>
