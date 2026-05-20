@@ -225,7 +225,7 @@ export default function DashboardPage() {
   return (
     <>
       <PageHeader
-        title="대시보드"
+        title="통계"
         description={
           <span className="flex items-center gap-2">
             {dateFrom} ~ {dateTo}
