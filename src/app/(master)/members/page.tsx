@@ -1,10 +1,24 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
-import { CheckCircle, XCircle, Trash2, Clock, UserCheck, UserX, Shield, UserPlus } from 'lucide-react';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { CheckCircle, XCircle, Trash2, Clock, UserCheck, UserX, Shield, UserPlus, ChevronDown } from 'lucide-react';
 import toast from 'react-hot-toast';
 import PageHeader from '@/components/PageHeader';
 import Modal from '@/components/Modal';
+import { OPERATION_TYPES, OperationType } from '@/types';
+
+const OP_BADGE: Record<OperationType, string> = {
+  '본점': 'bg-purple-100 text-purple-700',
+  '직영점': 'bg-blue-100 text-blue-700',
+  '가맹점': 'bg-emerald-100 text-emerald-700',
+};
+
+interface CustomerLite {
+  id: number;
+  company_name: string;
+  brand?: string;
+  operation_type?: OperationType;
+}
 
 interface User {
   id: number;
@@ -30,7 +44,8 @@ const TAB_OPTIONS: { key: string; label: string }[] = [
 
 export default function MembersPage() {
   const [users, setUsers] = useState<User[]>([]);
-  const [customers, setCustomers] = useState<{ id: number; company_name: string }[]>([]);
+  const [customers, setCustomers] = useState<CustomerLite[]>([]);
+  const [brandOptions, setBrandOptions] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [approveModal, setApproveModal] = useState<User | null>(null);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
@@ -45,16 +60,49 @@ export default function MembersPage() {
     customer_id: '',
   });
 
+  // 1·2·3차 필터 — 승인 모달 & 신규 계정 모달 모두에 사용
+  const [filterBrand, setFilterBrand] = useState('');
+  const [filterOp, setFilterOp] = useState<'' | OperationType>('');
+  const [custDropdownOpen, setCustDropdownOpen] = useState<'approve' | 'create' | null>(null);
+  const approveDropdownRef = useRef<HTMLDivElement>(null);
+  const createDropdownRef = useRef<HTMLDivElement>(null);
+
   const fetchData = useCallback(async () => {
     setLoading(true);
-    const [uRes, cRes] = await Promise.all([
+    const [uRes, cRes, sRes] = await Promise.all([
       fetch('/api/members'),
       fetch('/api/customers'),
+      fetch('/api/settings'),
     ]);
     setUsers(await uRes.json());
     setCustomers(await cRes.json());
+    try {
+      const s = await sRes.json();
+      setBrandOptions(Array.isArray(s?.brands) ? s.brands : []);
+    } catch {}
     setLoading(false);
   }, []);
+
+  // 외부 클릭 시 드롭다운 닫기
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      if (approveDropdownRef.current && !approveDropdownRef.current.contains(e.target as Node) && custDropdownOpen === 'approve') {
+        setCustDropdownOpen(null);
+      }
+      if (createDropdownRef.current && !createDropdownRef.current.contains(e.target as Node) && custDropdownOpen === 'create') {
+        setCustDropdownOpen(null);
+      }
+    };
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, [custDropdownOpen]);
+
+  // 필터 적용된 거래처 목록
+  const filteredCustomers = customers.filter(c => {
+    if (filterBrand && (c.brand || '') !== filterBrand) return false;
+    if (filterOp && (c.operation_type || '가맹점') !== filterOp) return false;
+    return true;
+  });
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -132,7 +180,17 @@ export default function MembersPage() {
 
   const openCreate = () => {
     setCreateForm({ email: '', password: '', name: '', role: 'partner', customer_id: '' });
+    setFilterBrand(''); setFilterOp('');
     setCreateModal(true);
+  };
+
+  const openApprove = (u: User) => {
+    setApproveModal(u);
+    setSelectedCustomerId(String(u.customer_id || ''));
+    // 기존 거래처가 있으면 그 거래처의 브랜드/운영구분으로 필터 자동 세팅
+    const existing = customers.find(c => c.id === u.customer_id);
+    setFilterBrand(existing?.brand || '');
+    setFilterOp((existing?.operation_type as OperationType) || '');
   };
 
   const handleCreate = async () => {
@@ -189,7 +247,7 @@ export default function MembersPage() {
   return (
     <>
       <PageHeader
-        title="회원 관리"
+        title="계정 관리"
         description={`총 ${users.length}명 (승인대기 ${pending.length}명)`}
         action={
           <button onClick={openCreate} className="btn-primary">
@@ -210,7 +268,7 @@ export default function MembersPage() {
                   {u.company_name && <span className="text-blue-600 ml-2 text-sm">{u.company_name}</span>}
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={() => { setApproveModal(u); setSelectedCustomerId(String(u.customer_id || '')); }}
+                  <button onClick={() => openApprove(u)}
                     className="btn-success text-xs py-1 px-3"><CheckCircle size={14}/> 승인</button>
                   <button onClick={() => handleReject(u.id)}
                     className="btn-danger text-xs py-1 px-3"><XCircle size={14}/> 거절</button>
@@ -328,16 +386,74 @@ export default function MembersPage() {
               onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })} />
           </div>
           {createForm.role === 'partner' && (
-            <div>
-              <label className="form-label">연결할 거래처 *</label>
-              <select className="form-select" value={createForm.customer_id}
-                onChange={(e) => setCreateForm({ ...createForm, customer_id: e.target.value })}>
-                <option value="">거래처를 선택하세요</option>
-                {customers.map(c => (
-                  <option key={c.id} value={c.id}>{c.company_name}</option>
-                ))}
-              </select>
-            </div>
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="form-label">1차: 브랜드</label>
+                  <select className="form-select" value={filterBrand}
+                    onChange={(e) => { setFilterBrand(e.target.value); setCreateForm({ ...createForm, customer_id: '' }); }}>
+                    <option value="">전체 브랜드</option>
+                    {brandOptions.map(b => <option key={b} value={b}>{b}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="form-label">2차: 운영구분</label>
+                  <select className="form-select" value={filterOp}
+                    onChange={(e) => { setFilterOp(e.target.value as OperationType | ''); setCreateForm({ ...createForm, customer_id: '' }); }}>
+                    <option value="">전체 운영구분</option>
+                    {OPERATION_TYPES.map(op => <option key={op} value={op}>{op}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div className="relative" ref={createDropdownRef}>
+                <label className="form-label">3차: 연결할 거래처 * ({filteredCustomers.length}곳)</label>
+                <button type="button"
+                  onClick={() => setCustDropdownOpen(custDropdownOpen === 'create' ? null : 'create')}
+                  className="form-select flex items-center justify-between w-full text-left">
+                  {(() => {
+                    const sel = customers.find(c => String(c.id) === createForm.customer_id);
+                    if (!sel) return <span className="text-gray-400">거래처를 선택하세요</span>;
+                    const op = (sel.operation_type || '가맹점') as OperationType;
+                    return (
+                      <span className="flex items-center gap-2 truncate">
+                        <span className="font-medium truncate">{sel.company_name}</span>
+                        {sel.brand && (
+                          <span className="inline-block px-1.5 py-0.5 text-[10px] rounded bg-indigo-100 text-indigo-700">{sel.brand}</span>
+                        )}
+                        <span className={`inline-block px-1.5 py-0.5 text-[10px] rounded-full ${OP_BADGE[op]}`}>{op}</span>
+                      </span>
+                    );
+                  })()}
+                  <ChevronDown size={14} className="text-gray-400 shrink-0" />
+                </button>
+                {custDropdownOpen === 'create' && (
+                  <div className="absolute z-30 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-[240px] overflow-y-auto">
+                    {filteredCustomers.length === 0 && (
+                      <div className="px-3 py-4 text-sm text-gray-400 text-center">조건에 맞는 거래처가 없습니다</div>
+                    )}
+                    {filteredCustomers.map(c => {
+                      const op = (c.operation_type || '가맹점') as OperationType;
+                      const isSelected = String(c.id) === createForm.customer_id;
+                      return (
+                        <button type="button" key={c.id}
+                          onClick={() => { setCreateForm({ ...createForm, customer_id: String(c.id) }); setCustDropdownOpen(null); }}
+                          className={`w-full text-left px-3 py-2 text-sm border-b last:border-b-0 transition ${isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'}`}>
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-medium truncate">{c.company_name}</span>
+                            <div className="flex items-center gap-1 shrink-0">
+                              {c.brand && (
+                                <span className="inline-block px-1.5 py-0.5 text-[10px] rounded bg-indigo-100 text-indigo-700">{c.brand}</span>
+                              )}
+                              <span className={`inline-block px-1.5 py-0.5 text-[10px] rounded-full ${OP_BADGE[op]}`}>{op}</span>
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </>
           )}
           <div className="bg-blue-50 p-3 rounded-lg text-xs text-blue-700">
             💡 생성된 계정은 즉시 사용 가능합니다. 거래처에게 아이디/비밀번호를 안내해주세요.
@@ -381,15 +497,71 @@ export default function MembersPage() {
         {approveModal && (
           <div className="space-y-4">
             <p><strong>{approveModal.name}</strong> ({approveModal.email})을 승인합니다.</p>
-            <div>
-              <label className="form-label">거래처 연결 *</label>
-              <select className="form-select" value={selectedCustomerId}
-                onChange={(e) => setSelectedCustomerId(e.target.value)}>
-                <option value="">거래처를 선택하세요</option>
-                {customers.map(c => (
-                  <option key={c.id} value={c.id}>{c.company_name}</option>
-                ))}
-              </select>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="form-label">1차: 브랜드</label>
+                <select className="form-select" value={filterBrand}
+                  onChange={(e) => { setFilterBrand(e.target.value); setSelectedCustomerId(''); }}>
+                  <option value="">전체 브랜드</option>
+                  {brandOptions.map(b => <option key={b} value={b}>{b}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="form-label">2차: 운영구분</label>
+                <select className="form-select" value={filterOp}
+                  onChange={(e) => { setFilterOp(e.target.value as OperationType | ''); setSelectedCustomerId(''); }}>
+                  <option value="">전체 운영구분</option>
+                  {OPERATION_TYPES.map(op => <option key={op} value={op}>{op}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className="relative" ref={approveDropdownRef}>
+              <label className="form-label">3차: 연결할 거래처 * ({filteredCustomers.length}곳)</label>
+              <button type="button"
+                onClick={() => setCustDropdownOpen(custDropdownOpen === 'approve' ? null : 'approve')}
+                className="form-select flex items-center justify-between w-full text-left">
+                {(() => {
+                  const sel = customers.find(c => String(c.id) === selectedCustomerId);
+                  if (!sel) return <span className="text-gray-400">거래처를 선택하세요</span>;
+                  const op = (sel.operation_type || '가맹점') as OperationType;
+                  return (
+                    <span className="flex items-center gap-2 truncate">
+                      <span className="font-medium truncate">{sel.company_name}</span>
+                      {sel.brand && (
+                        <span className="inline-block px-1.5 py-0.5 text-[10px] rounded bg-indigo-100 text-indigo-700">{sel.brand}</span>
+                      )}
+                      <span className={`inline-block px-1.5 py-0.5 text-[10px] rounded-full ${OP_BADGE[op]}`}>{op}</span>
+                    </span>
+                  );
+                })()}
+                <ChevronDown size={14} className="text-gray-400 shrink-0" />
+              </button>
+              {custDropdownOpen === 'approve' && (
+                <div className="absolute z-30 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-[240px] overflow-y-auto">
+                  {filteredCustomers.length === 0 && (
+                    <div className="px-3 py-4 text-sm text-gray-400 text-center">조건에 맞는 거래처가 없습니다</div>
+                  )}
+                  {filteredCustomers.map(c => {
+                    const op = (c.operation_type || '가맹점') as OperationType;
+                    const isSelected = String(c.id) === selectedCustomerId;
+                    return (
+                      <button type="button" key={c.id}
+                        onClick={() => { setSelectedCustomerId(String(c.id)); setCustDropdownOpen(null); }}
+                        className={`w-full text-left px-3 py-2 text-sm border-b last:border-b-0 transition ${isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'}`}>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-medium truncate">{c.company_name}</span>
+                          <div className="flex items-center gap-1 shrink-0">
+                            {c.brand && (
+                              <span className="inline-block px-1.5 py-0.5 text-[10px] rounded bg-indigo-100 text-indigo-700">{c.brand}</span>
+                            )}
+                            <span className={`inline-block px-1.5 py-0.5 text-[10px] rounded-full ${OP_BADGE[op]}`}>{op}</span>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
               <p className="text-xs text-gray-400 mt-1">협력사 계정에 거래처를 연결해야 발주가 가능합니다</p>
             </div>
             <div className="flex justify-end gap-2">

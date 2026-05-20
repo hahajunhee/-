@@ -18,7 +18,7 @@ const navItems = [
   { key: 'orders', href: '/orders-manage', label: '발주 관리', icon: ShoppingCart },
   { key: 'costs', href: '/costs', label: '비용', icon: Wallet },
   { key: 'dashboard', href: '/', label: '통계', icon: LayoutDashboard },
-  { key: 'members', href: '/members', label: '회원 관리', icon: Users },
+  { key: 'members', href: '/members', label: '계정 관리', icon: Users },
 ];
 
 // 매니저는 회원관리/설정 영구 차단 (관리자 전용)
