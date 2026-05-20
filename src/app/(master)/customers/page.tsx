@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
-import { Plus, Pencil, Trash2, Search, ArrowUp, ArrowDown, ArrowUpDown, GripVertical } from 'lucide-react';
+import { useEffect, useState, useCallback } from 'react';
+import { Plus, Pencil, Trash2, Search, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import toast from 'react-hot-toast';
 import PageHeader from '@/components/PageHeader';
 import Modal from '@/components/Modal';
@@ -30,7 +30,7 @@ const OP_BADGE: Record<OperationType, string> = {
   '가맹점': 'bg-emerald-100 text-emerald-700',
 };
 
-// 표시 가능한 컬럼 정의 (actions 열은 항상 마지막에 고정, 이동 불가)
+// 표시 컬럼 정의 (고정 순서, 액션 열은 항상 마지막)
 interface ColumnDef {
   key: string;
   label: string;
@@ -39,9 +39,9 @@ interface ColumnDef {
 }
 
 const COLUMNS: ColumnDef[] = [
-  { key: 'company_name', label: '상호', sortVal: (c) => c.company_name || '' },
   { key: 'brand', label: '브랜드', sortVal: (c) => c.brand || '' },
   { key: 'operation_type', label: '운영구분', thClass: 'text-center', sortVal: (c) => c.operation_type || '' },
+  { key: 'company_name', label: '상호', sortVal: (c) => c.company_name || '' },
   { key: 'royalty', label: '로열티', thClass: 'text-right', sortVal: (c) => {
     if ((c.operation_type as OperationType) !== '가맹점') return -1;
     if (c.royalty_type === 'fixed_monthly') return Number(c.royalty_amount) || 0;
@@ -53,8 +53,6 @@ const COLUMNS: ColumnDef[] = [
   { key: 'reg_number', label: '등록번호', sortVal: (c) => c.reg_number || '' },
 ];
 
-const DEFAULT_ORDER = COLUMNS.map(c => c.key);
-const STORAGE_KEY = 'customers-column-order-v1';
 const SORT_STORAGE_KEY = 'customers-sort-v1';
 
 export default function CustomersPage() {
@@ -67,29 +65,18 @@ export default function CustomersPage() {
   const [loading, setLoading] = useState(true);
   const [brandOptions, setBrandOptions] = useState<string[]>([]);
 
-  // 컬럼 순서 (localStorage 영속)
-  const [columnOrder, setColumnOrder] = useState<string[]>(DEFAULT_ORDER);
   // 정렬 상태 (localStorage 영속)
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
-  // 드래그 중인 컬럼 key
-  const [dragKey, setDragKey] = useState<string | null>(null);
 
-  // localStorage 복원
+  // localStorage 정렬 복원
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const saved = JSON.parse(raw) as string[];
-        // 유효한 키만 유지 + 기본에 있는데 빠진 건 뒤에 자동 추가
-        const validSaved = saved.filter(k => DEFAULT_ORDER.includes(k));
-        const missing = DEFAULT_ORDER.filter(k => !validSaved.includes(k));
-        setColumnOrder([...validSaved, ...missing]);
-      }
       const rawSort = localStorage.getItem(SORT_STORAGE_KEY);
       if (rawSort) {
         const { key, dir } = JSON.parse(rawSort);
-        if (key && DEFAULT_ORDER.includes(key)) {
+        const validKeys = COLUMNS.map(c => c.key);
+        if (key && validKeys.includes(key)) {
           setSortKey(key);
           setSortDir(dir === 'desc' ? 'desc' : 'asc');
         }
@@ -97,18 +84,10 @@ export default function CustomersPage() {
     } catch {}
   }, []);
 
-  // columnOrder 저장
-  useEffect(() => {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(columnOrder)); } catch {}
-  }, [columnOrder]);
   // sort 저장
   useEffect(() => {
     try { localStorage.setItem(SORT_STORAGE_KEY, JSON.stringify({ key: sortKey, dir: sortDir })); } catch {}
   }, [sortKey, sortDir]);
-
-  const orderedColumns = useMemo(() => {
-    return columnOrder.map(k => COLUMNS.find(c => c.key === k)).filter(Boolean) as ColumnDef[];
-  }, [columnOrder]);
 
   const handleSortClick = (key: string) => {
     if (sortKey === key) {
@@ -118,23 +97,9 @@ export default function CustomersPage() {
       setSortDir('asc');
     }
   };
-  const resetColumns = () => {
-    setColumnOrder(DEFAULT_ORDER);
+  const resetSort = () => {
     setSortKey(null);
     setSortDir('asc');
-  };
-  const handleDragStart = (key: string) => setDragKey(key);
-  const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); };
-  const handleDrop = (targetKey: string) => {
-    if (!dragKey || dragKey === targetKey) { setDragKey(null); return; }
-    const next = [...columnOrder];
-    const fromIdx = next.indexOf(dragKey);
-    const toIdx = next.indexOf(targetKey);
-    if (fromIdx < 0 || toIdx < 0) { setDragKey(null); return; }
-    next.splice(fromIdx, 1);
-    next.splice(toIdx, 0, dragKey);
-    setColumnOrder(next);
-    setDragKey(null);
   };
 
   const fetchCustomers = useCallback(async () => {
@@ -267,11 +232,11 @@ export default function CustomersPage() {
         </div>
       </div>
 
-      {/* 도움말 + 컬럼 초기화 */}
+      {/* 도움말 + 정렬 초기화 */}
       <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
-        <span>💡 열 제목을 <strong>드래그</strong>해서 순서 변경, <strong>클릭</strong>해서 정렬 (브라우저에 저장됨)</span>
-        {(columnOrder.join(',') !== DEFAULT_ORDER.join(',') || sortKey) && (
-          <button onClick={resetColumns} className="text-xs text-blue-500 hover:underline">기본 열 순서로 복원</button>
+        <span>💡 열 제목을 <strong>클릭</strong>하면 해당 열로 정렬됩니다 (브라우저에 저장됨)</span>
+        {sortKey && (
+          <button onClick={resetSort} className="text-xs text-blue-500 hover:underline">정렬 해제</button>
         )}
       </div>
 
@@ -283,22 +248,15 @@ export default function CustomersPage() {
             <table className="data-table">
               <thead>
                 <tr>
-                  {orderedColumns.map(col => {
+                  {COLUMNS.map(col => {
                     const isSorted = sortKey === col.key;
-                    const isDrag = dragKey === col.key;
                     return (
                       <th key={col.key}
-                        draggable
-                        onDragStart={() => handleDragStart(col.key)}
-                        onDragOver={handleDragOver}
-                        onDrop={() => handleDrop(col.key)}
-                        onDragEnd={() => setDragKey(null)}
                         className={`${col.thClass || ''} cursor-pointer select-none transition ${
-                          isDrag ? 'opacity-40' : ''
-                        } ${isSorted ? 'bg-blue-50' : ''}`}
+                          isSorted ? 'bg-blue-50' : ''
+                        }`}
                         onClick={() => handleSortClick(col.key)}>
                         <div className={`inline-flex items-center gap-1 ${col.thClass === 'text-right' ? 'justify-end' : col.thClass === 'text-center' ? 'justify-center' : ''}`}>
-                          <GripVertical size={12} className="text-gray-300" />
                           <span>{col.label}</span>
                           {isSorted ? (
                             sortDir === 'asc' ? <ArrowUp size={12} className="text-blue-500" /> : <ArrowDown size={12} className="text-blue-500" />
@@ -344,7 +302,7 @@ export default function CustomersPage() {
                   };
                   return (
                     <tr key={c.id}>
-                      {orderedColumns.map(col => renderCell(col.key))}
+                      {COLUMNS.map(col => renderCell(col.key))}
                       <td>
                         <div className="flex gap-1">
                           <button onClick={() => openEdit(c)} className="p-1.5 rounded hover:bg-gray-100">
@@ -360,7 +318,7 @@ export default function CustomersPage() {
                 })}
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={orderedColumns.length + 1} className="text-center py-8 text-gray-400">
+                    <td colSpan={COLUMNS.length + 1} className="text-center py-8 text-gray-400">
                       {search ? '검색 결과가 없습니다' : '거래처를 추가해주세요'}
                     </td>
                   </tr>
