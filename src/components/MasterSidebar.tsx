@@ -13,7 +13,7 @@ const navItems = [
   { key: 'settings', href: '/settings', label: '본사', icon: Crown },
   { key: 'dashboard', href: '/', label: '대시보드', icon: LayoutDashboard },
   { key: 'products', href: '/products', label: '품목 관리', icon: Package },
-  { key: 'customers', href: '/customers', label: '거래처 관리', icon: Building2 },
+  { key: 'customers', href: '/customers', label: '거래처', icon: Building2 },
   { key: 'transactions_new', href: '/transactions/new', label: '거래 입력', icon: PlusCircle },
   { key: 'transactions', href: '/transactions', label: '거래 내역', icon: FileText },
   { key: 'orders', href: '/orders-manage', label: '발주 관리', icon: ShoppingCart },

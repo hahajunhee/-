@@ -128,8 +128,8 @@ export default function CustomersPage() {
   return (
     <>
       <PageHeader
-        title="거래처 관리"
-        description={`총 ${customers.length}개 거래처`}
+        title="거래처"
+        description={`총 ${customers.length}개`}
         action={
           <button onClick={openAdd} className="btn-primary">
             <Plus size={16} /> 거래처 추가
@@ -165,7 +165,6 @@ export default function CustomersPage() {
                   <th>성명</th>
                   <th>연락처</th>
                   <th>주소</th>
-                  <th>업태</th>
                   <th>등록번호</th>
                   <th className="w-20"></th>
                 </tr>
@@ -196,7 +195,6 @@ export default function CustomersPage() {
                     <td>{c.contact_name}</td>
                     <td className="text-gray-500">{c.tel}</td>
                     <td className="text-gray-500 max-w-[200px] truncate">{c.address}</td>
-                    <td className="text-gray-500">{c.business_type}</td>
                     <td className="text-gray-500 font-mono text-xs">{c.reg_number}</td>
                     <td>
                       <div className="flex gap-1">
@@ -213,7 +211,7 @@ export default function CustomersPage() {
                 })}
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={10} className="text-center py-8 text-gray-400">
+                    <td colSpan={9} className="text-center py-8 text-gray-400">
                       {search ? '검색 결과가 없습니다' : '거래처를 추가해주세요'}
                     </td>
                   </tr>
@@ -231,6 +229,20 @@ export default function CustomersPage() {
         width="max-w-2xl"
       >
         <div className="grid grid-cols-2 gap-4">
+          {/* 1. 브랜드 */}
+          <div className="col-span-2">
+            <label className="form-label">브랜드</label>
+            <select className="form-select" value={form.brand}
+              onChange={(e) => setForm({ ...form, brand: e.target.value })}>
+              <option value="">(브랜드 미지정)</option>
+              {brandOptions.map(b => <option key={b} value={b}>{b}</option>)}
+            </select>
+            {brandOptions.length === 0 && (
+              <p className="text-xs text-orange-500 mt-1">먼저 [본사] 메뉴에서 브랜드를 등록하세요</p>
+            )}
+          </div>
+
+          {/* 2. 운영구분 */}
           <div className="col-span-2">
             <label className="form-label">운영구분 *</label>
             <div className="flex gap-2">
@@ -248,22 +260,23 @@ export default function CustomersPage() {
               ))}
             </div>
           </div>
-          <div>
+
+          {/* 3. 상호명 */}
+          <div className="col-span-2">
             <label className="form-label">상호명 *</label>
             <input type="text" className="form-input" placeholder="예: 미식당 성수본점" value={form.company_name}
               onChange={(e) => setForm({ ...form, company_name: e.target.value })} />
           </div>
-          <div>
-            <label className="form-label">브랜드</label>
-            <select className="form-select" value={form.brand}
-              onChange={(e) => setForm({ ...form, brand: e.target.value })}>
-              <option value="">(브랜드 미지정)</option>
-              {brandOptions.map(b => <option key={b} value={b}>{b}</option>)}
-            </select>
-            {brandOptions.length === 0 && (
-              <p className="text-xs text-orange-500 mt-1">먼저 [본사] 메뉴에서 브랜드를 등록하세요</p>
-            )}
+
+          {/* 4. 사업자번호 */}
+          <div className="col-span-2">
+            <label className="form-label">사업자등록번호</label>
+            <input type="text" className="form-input" value={form.reg_number}
+              placeholder="예: 527-42-01009"
+              onChange={(e) => setForm({ ...form, reg_number: e.target.value })} />
           </div>
+
+          {/* 5. 성명 + 가맹점이면 로열티 */}
           <div>
             <label className="form-label">성명</label>
             <input type="text" className="form-input" placeholder="예: 김도윤" value={form.contact_name}
@@ -278,6 +291,8 @@ export default function CustomersPage() {
               <p className="text-xs text-gray-500 mt-1">대시보드에서 가맹점 매출 × 로열티%가 본점 매출/가맹점 비용으로 자동 반영 (부가세 별도)</p>
             </div>
           )}
+
+          {/* 6. 나머지 */}
           <div className="col-span-2">
             <label className="form-label">이메일</label>
             <input type="email" className="form-input" placeholder="예: partner@company.com" value={form.email}
@@ -297,22 +312,6 @@ export default function CustomersPage() {
             <label className="form-label">FAX</label>
             <input type="text" className="form-input" placeholder="예: 02-123-5679" value={form.fax}
               onChange={(e) => setForm({ ...form, fax: e.target.value })} />
-          </div>
-          <div>
-            <label className="form-label">업태</label>
-            <input type="text" className="form-input" placeholder="예: 숙박 및 음식업" value={form.business_type}
-              onChange={(e) => setForm({ ...form, business_type: e.target.value })} />
-          </div>
-          <div>
-            <label className="form-label">업종</label>
-            <input type="text" className="form-input" placeholder="예: 한식 일반 음식점" value={form.business_category}
-              onChange={(e) => setForm({ ...form, business_category: e.target.value })} />
-          </div>
-          <div className="col-span-2">
-            <label className="form-label">사업자등록번호</label>
-            <input type="text" className="form-input" value={form.reg_number}
-              placeholder="예: 527-42-01009"
-              onChange={(e) => setForm({ ...form, reg_number: e.target.value })} />
           </div>
         </div>
 
