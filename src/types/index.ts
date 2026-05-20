@@ -54,6 +54,7 @@ export interface Cost {
   id: number;
   customer_id: number;
   customer_name?: string;
+  customer_brand?: string;
   operation_type?: OperationType;
   category: string;
   settlement_month: string;  // YYYY-MM

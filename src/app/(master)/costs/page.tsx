@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
-import { Plus, Trash2, Pencil, Save, X, Settings } from 'lucide-react';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { Plus, Trash2, Pencil, Save, X, Settings, ChevronDown } from 'lucide-react';
 import toast from 'react-hot-toast';
 import PageHeader from '@/components/PageHeader';
 import Modal from '@/components/Modal';
@@ -26,6 +26,10 @@ export default function CostsPage() {
   const [monthFilter, setMonthFilter] = useState('');
   const [customerFilter, setCustomerFilter] = useState('');
   const [opFilter, setOpFilter] = useState('');
+  const [brandFilter, setBrandFilter] = useState('');
+  const [brandOptions, setBrandOptions] = useState<string[]>([]);
+  const [custDropdownOpen, setCustDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Cost | null>(null);
@@ -46,16 +50,38 @@ export default function CostsPage() {
     if (monthFilter) params.set('month', monthFilter);
     if (customerFilter) params.set('customer_id', customerFilter);
     if (opFilter) params.set('operation_type', opFilter);
-    const [cRes, cuRes, catRes] = await Promise.all([
+    if (brandFilter) params.set('brand', brandFilter);
+    const [cRes, cuRes, catRes, sRes] = await Promise.all([
       fetch(`/api/costs?${params}`),
       fetch('/api/customers'),
       fetch('/api/cost-categories'),
+      fetch('/api/settings'),
     ]);
     setCosts(await cRes.json());
     setCustomers(await cuRes.json());
     setCategories(await catRes.json());
+    try {
+      const s = await sRes.json();
+      setBrandOptions(Array.isArray(s?.brands) ? s.brands : []);
+    } catch {}
     setLoading(false);
-  }, [monthFilter, customerFilter, opFilter]);
+  }, [monthFilter, customerFilter, opFilter, brandFilter]);
+
+  // 외부 클릭 시 드롭다운 닫기
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) setCustDropdownOpen(false);
+    };
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, []);
+
+  // 1차/2차 필터 적용된 거래처 옵션
+  const filteredCustomerOpts = customers.filter(c => {
+    if (brandFilter && (c.brand || '') !== brandFilter) return false;
+    if (opFilter && (c.operation_type || '가맹점') !== opFilter) return false;
+    return true;
+  });
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
@@ -159,33 +185,91 @@ export default function CostsPage() {
       />
 
       {/* 필터 */}
-      <div className="card mb-4">
-        <div className="flex flex-wrap gap-3 items-end">
+      <div className="card mb-4 space-y-3">
+        {/* 1차/2차/3차 (위) */}
+        <div className="grid grid-cols-3 gap-3">
+          <div>
+            <label className="form-label">1차: 브랜드</label>
+            <select className="form-select" value={brandFilter}
+              onChange={(e) => { setBrandFilter(e.target.value); setCustomerFilter(''); }}>
+              <option value="">전체 브랜드</option>
+              {brandOptions.map(b => <option key={b} value={b}>{b}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="form-label">2차: 운영구분</label>
+            <select className="form-select" value={opFilter}
+              onChange={(e) => { setOpFilter(e.target.value); setCustomerFilter(''); }}>
+              <option value="">전체 운영구분</option>
+              {OPERATION_TYPES.map(op => <option key={op} value={op}>{op}</option>)}
+            </select>
+          </div>
+          <div className="relative" ref={dropdownRef}>
+            <label className="form-label">3차: 거래처 ({filteredCustomerOpts.length}곳)</label>
+            <button type="button"
+              onClick={() => setCustDropdownOpen(!custDropdownOpen)}
+              className="form-select flex items-center justify-between w-full text-left">
+              {(() => {
+                const sel = customers.find(c => String(c.id) === customerFilter);
+                if (!sel) return <span className="text-gray-400">전체</span>;
+                const op = (sel.operation_type || '가맹점') as OperationType;
+                return (
+                  <span className="flex items-center gap-2 truncate">
+                    <span className="font-medium truncate">{sel.company_name}</span>
+                    {sel.brand && (
+                      <span className="inline-block px-1.5 py-0.5 text-[10px] rounded bg-indigo-100 text-indigo-700">{sel.brand}</span>
+                    )}
+                    <span className={`inline-block px-1.5 py-0.5 text-[10px] rounded-full ${OP_BADGE[op]}`}>{op}</span>
+                  </span>
+                );
+              })()}
+              <ChevronDown size={14} className="text-gray-400 shrink-0" />
+            </button>
+            {custDropdownOpen && (
+              <div className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-[300px] overflow-y-auto">
+                <button type="button"
+                  onClick={() => { setCustomerFilter(''); setCustDropdownOpen(false); }}
+                  className="w-full text-left px-3 py-2 text-sm text-gray-400 hover:bg-gray-50 border-b">
+                  전체
+                </button>
+                {filteredCustomerOpts.length === 0 && (
+                  <div className="px-3 py-4 text-sm text-gray-400 text-center">조건에 맞는 거래처가 없습니다</div>
+                )}
+                {filteredCustomerOpts.map(c => {
+                  const op = (c.operation_type || '가맹점') as OperationType;
+                  const isSelected = String(c.id) === customerFilter;
+                  return (
+                    <button type="button" key={c.id}
+                      onClick={() => { setCustomerFilter(String(c.id)); setCustDropdownOpen(false); }}
+                      className={`w-full text-left px-3 py-2 text-sm border-b last:border-b-0 transition ${
+                        isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'
+                      }`}>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-medium truncate">{c.company_name}</span>
+                        <div className="flex items-center gap-1 shrink-0">
+                          {c.brand && (
+                            <span className="inline-block px-1.5 py-0.5 text-[10px] rounded bg-indigo-100 text-indigo-700">{c.brand}</span>
+                          )}
+                          <span className={`inline-block px-1.5 py-0.5 text-[10px] rounded-full ${OP_BADGE[op]}`}>{op}</span>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* 기존 필터 (아래): 정산 년-월 */}
+        <div className="flex flex-wrap gap-3 items-end pt-2 border-t border-gray-100">
           <div>
             <label className="form-label">정산 년-월</label>
             <input type="month" className="form-input" value={monthFilter}
               onChange={(e) => setMonthFilter(e.target.value)} />
           </div>
-          <div>
-            <label className="form-label">거래처</label>
-            <select className="form-select" value={customerFilter}
-              onChange={(e) => setCustomerFilter(e.target.value)}>
-              <option value="">전체</option>
-              {customers.map(c => (
-                <option key={c.id} value={c.id}>{c.company_name}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="form-label">운영구분</label>
-            <select className="form-select" value={opFilter}
-              onChange={(e) => setOpFilter(e.target.value)}>
-              <option value="">전체</option>
-              {OPERATION_TYPES.map(op => <option key={op} value={op}>{op}</option>)}
-            </select>
-          </div>
-          {(monthFilter || customerFilter || opFilter) && (
-            <button onClick={() => { setMonthFilter(''); setCustomerFilter(''); setOpFilter(''); }}
+          {(monthFilter || customerFilter || opFilter || brandFilter) && (
+            <button onClick={() => { setMonthFilter(''); setCustomerFilter(''); setOpFilter(''); setBrandFilter(''); }}
               className="btn-secondary">
               필터 해제
             </button>

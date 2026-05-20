@@ -12,8 +12,9 @@ export async function GET(request: NextRequest) {
   const month = sp.get('month');
   const customerId = sp.get('customer_id');
   const operationType = sp.get('operation_type');
+  const brand = sp.get('brand');
 
-  let q = `SELECT co.*, c.company_name as customer_name, c.operation_type
+  let q = `SELECT co.*, c.company_name as customer_name, c.brand as customer_brand, c.operation_type
            FROM costs co
            JOIN customers c ON co.customer_id = c.id
            WHERE 1=1`;
@@ -21,6 +22,7 @@ export async function GET(request: NextRequest) {
   if (month) { params.push(month); q += ` AND co.settlement_month = $${params.length}`; }
   if (customerId) { params.push(Number(customerId)); q += ` AND co.customer_id = $${params.length}`; }
   if (operationType) { params.push(operationType); q += ` AND c.operation_type = $${params.length}`; }
+  if (brand !== null) { params.push(brand); q += ` AND c.brand = $${params.length}`; }
   q += ' ORDER BY co.settlement_month DESC, co.id DESC';
 
   const data = await query(q, params);
