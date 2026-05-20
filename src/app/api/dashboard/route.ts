@@ -158,7 +158,7 @@ export async function GET(request: NextRequest) {
   const w4 = buildTxnWhere();
   const customerTxn = await query(`
     SELECT t.customer_id, c.company_name as customer_name, c.brand as customer_brand,
-      c.operation_type, c.royalty_rate,
+      c.operation_type, c.royalty_rate, c.royalty_type, c.royalty_amount,
       COUNT(t.id)::int as transaction_count,
       COALESCE(SUM(t.supply_total), 0)::numeric as supply_total,
       COALESCE(SUM(t.grand_total), 0)::numeric as grand_total,
@@ -166,7 +166,7 @@ export async function GET(request: NextRequest) {
       COALESCE(SUM(CASE WHEN t.payment_status = 'unpaid' THEN t.grand_total ELSE 0 END), 0)::numeric as unpaid_total
     FROM transactions t JOIN customers c ON t.customer_id = c.id
     WHERE ${w4.where}
-    GROUP BY t.customer_id, c.company_name, c.brand, c.operation_type, c.royalty_rate
+    GROUP BY t.customer_id, c.company_name, c.brand, c.operation_type, c.royalty_rate, c.royalty_type, c.royalty_amount
   `, w4.params);
 
   const w5 = buildTxnWhere();
@@ -208,6 +208,8 @@ export async function GET(request: NextRequest) {
       brand: r.customer_brand || '',
       operation_type: r.operation_type || '가맹점',
       royalty_rate: Number(r.royalty_rate) || 0,
+      royalty_type: (r.royalty_type === 'fixed_monthly' ? 'fixed_monthly' : 'percent') as 'percent' | 'fixed_monthly',
+      royalty_amount: Number(r.royalty_amount) || 0,
       transaction_count: Number(r.transaction_count),
       supply_total: Number(r.supply_total),
       grand_total,
@@ -229,13 +231,15 @@ export async function GET(request: NextRequest) {
   // 비용만 있는 거래처도 포함
   for (const [cid, cost] of Object.entries(customerCostMap)) {
     if (!customers.find(c => c.customer_id === Number(cid))) {
-      const custRow = await query('SELECT company_name, brand, operation_type, royalty_rate FROM customers WHERE id = $1', [Number(cid)]);
+      const custRow = await query('SELECT company_name, brand, operation_type, royalty_rate, royalty_type, royalty_amount FROM customers WHERE id = $1', [Number(cid)]);
       if (custRow.length > 0) {
         customers.push({
           customer_id: Number(cid), customer_name: custRow[0].company_name,
           brand: custRow[0].brand || '',
           operation_type: custRow[0].operation_type || '가맹점',
           royalty_rate: Number(custRow[0].royalty_rate) || 0,
+          royalty_type: (custRow[0].royalty_type === 'fixed_monthly' ? 'fixed_monthly' : 'percent') as 'percent' | 'fixed_monthly',
+          royalty_amount: Number(custRow[0].royalty_amount) || 0,
           transaction_count: 0, supply_total: 0, grand_total: 0, unpaid_count: 0, unpaid_total: 0,
           sales_vat: 0, purchase_vat: 0, net_vat: 0, total_margin: 0, total_net_profit: 0,
           total_cost: cost, cost_ratio: 0, final_profit: -cost,
@@ -259,9 +263,19 @@ export async function GET(request: NextRequest) {
   const brandMasterMap: Record<string, number> = {};
   for (const m of allBrandMasters) brandMasterMap[m.brand || ''] = m.id;
 
+  // 기간 내 개월 수 (정기 로열티용)
+  const periodMonths = allMonths.length || 1;
+
   for (const c of customers) {
-    if (c.operation_type === '가맹점' && c.royalty_rate > 0 && c.grand_total > 0) {
-      const royaltyAmount = Math.floor(c.grand_total * c.royalty_rate / 100);
+    if (c.operation_type !== '가맹점') continue;
+    // 로열티 금액 산출
+    let royaltyAmount = 0;
+    if (c.royalty_type === 'fixed_monthly' && c.royalty_amount > 0) {
+      royaltyAmount = Math.floor(c.royalty_amount * periodMonths);
+    } else if (c.royalty_rate > 0 && c.grand_total > 0) {
+      royaltyAmount = Math.floor(c.grand_total * c.royalty_rate / 100);
+    }
+    if (royaltyAmount > 0) {
       const royaltyVat = Math.floor(royaltyAmount * 0.1);
       const royaltyTotalWithVat = royaltyAmount + royaltyVat;
 
@@ -277,7 +291,7 @@ export async function GET(request: NextRequest) {
         let master = customers.find(x => x.customer_id === masterId);
         if (!master) {
           // 본점이 현재 결과에 없으면 추가
-          const m = await query('SELECT id, company_name, brand, operation_type, royalty_rate FROM customers WHERE id = $1', [masterId]);
+          const m = await query('SELECT id, company_name, brand, operation_type, royalty_rate, royalty_type, royalty_amount FROM customers WHERE id = $1', [masterId]);
           if (m.length > 0) {
             master = {
               customer_id: m[0].id,
@@ -285,6 +299,8 @@ export async function GET(request: NextRequest) {
               brand: m[0].brand || '',
               operation_type: m[0].operation_type,
               royalty_rate: Number(m[0].royalty_rate) || 0,
+              royalty_type: 'percent' as 'percent' | 'fixed_monthly',
+              royalty_amount: 0,
               transaction_count: 0, supply_total: 0, grand_total: 0, unpaid_count: 0, unpaid_total: 0,
               sales_vat: 0, purchase_vat: 0, net_vat: 0, total_margin: 0, total_net_profit: 0,
               total_cost: 0, cost_ratio: 0, final_profit: 0,

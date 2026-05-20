@@ -38,7 +38,9 @@ export interface Customer {
   fax: string;
   reg_number: string;
   operation_type: OperationType;
-  royalty_rate: number;      // 가맹점인 경우 로열티 % (예: 5 = 5%)
+  royalty_type: 'percent' | 'fixed_monthly';  // 로열티 산정 방식
+  royalty_rate: number;      // percent일 때 % (예: 5 = 5%)
+  royalty_amount: number;    // fixed_monthly일 때 월 정기 금액 (원)
   created_at?: string;
 }
 

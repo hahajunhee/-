@@ -19,7 +19,9 @@ const emptyCustomer = {
   fax: '',
   reg_number: '',
   operation_type: '가맹점' as OperationType,
+  royalty_type: 'percent' as 'percent' | 'fixed_monthly',
   royalty_rate: 0,
+  royalty_amount: 0,
 };
 
 const OP_BADGE: Record<OperationType, string> = {
@@ -88,7 +90,9 @@ export default function CustomersPage() {
       fax: c.fax,
       reg_number: c.reg_number,
       operation_type: (c.operation_type || '가맹점') as OperationType,
+      royalty_type: (c.royalty_type === 'fixed_monthly' ? 'fixed_monthly' : 'percent') as 'percent' | 'fixed_monthly',
       royalty_rate: Number(c.royalty_rate) || 0,
+      royalty_amount: Number(c.royalty_amount) || 0,
     });
     setModalOpen(true);
   };
@@ -188,7 +192,11 @@ export default function CustomersPage() {
                       </span>
                     </td>
                     <td className="text-right">
-                      {op === '가맹점' && Number(c.royalty_rate) > 0 ? (
+                      {op === '가맹점' && c.royalty_type === 'fixed_monthly' && Number(c.royalty_amount) > 0 ? (
+                        <span className="text-orange-600 font-semibold">
+                          월 {new Intl.NumberFormat('ko-KR').format(Number(c.royalty_amount))}원
+                        </span>
+                      ) : op === '가맹점' && Number(c.royalty_rate) > 0 ? (
                         <span className="text-orange-600 font-semibold">{Number(c.royalty_rate)}%</span>
                       ) : <span className="text-gray-300">-</span>}
                     </td>
@@ -283,12 +291,45 @@ export default function CustomersPage() {
               onChange={(e) => setForm({ ...form, contact_name: e.target.value })} />
           </div>
           {form.operation_type === '가맹점' && (
-            <div>
-              <label className="form-label">로열티 (%)</label>
-              <input type="number" step="0.1" className="form-input" placeholder="예: 5 (= 5%)"
-                value={form.royalty_rate}
-                onChange={(e) => setForm({ ...form, royalty_rate: Number(e.target.value) })} />
-              <p className="text-xs text-gray-500 mt-1">대시보드에서 가맹점 매출 × 로열티%가 본점 매출/가맹점 비용으로 자동 반영 (부가세 별도)</p>
+            <div className="col-span-2 -mt-2 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+              <label className="form-label">로열티</label>
+              <div className="flex gap-2 mb-2">
+                <button type="button"
+                  onClick={() => setForm({ ...form, royalty_type: 'percent' })}
+                  className={`flex-1 py-1.5 px-3 rounded text-xs font-medium border-2 transition ${
+                    form.royalty_type === 'percent'
+                      ? 'border-orange-500 bg-orange-100 text-orange-700'
+                      : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
+                  }`}
+                >매출 % (변동)</button>
+                <button type="button"
+                  onClick={() => setForm({ ...form, royalty_type: 'fixed_monthly' })}
+                  className={`flex-1 py-1.5 px-3 rounded text-xs font-medium border-2 transition ${
+                    form.royalty_type === 'fixed_monthly'
+                      ? 'border-orange-500 bg-orange-100 text-orange-700'
+                      : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
+                  }`}
+                >월 정기 금액 (고정)</button>
+              </div>
+              {form.royalty_type === 'percent' ? (
+                <>
+                  <input type="number" step="0.1" className="form-input" placeholder="예: 5 (= 매출의 5%)"
+                    value={form.royalty_rate}
+                    onChange={(e) => setForm({ ...form, royalty_rate: Number(e.target.value) })} />
+                  <p className="text-xs text-gray-500 mt-1">
+                    대시보드 기간 동안의 가맹점 매출 × {form.royalty_rate || 0}%가 본점 매출/가맹점 비용으로 자동 반영 (부가세 별도)
+                  </p>
+                </>
+              ) : (
+                <>
+                  <input type="number" step="1000" className="form-input" placeholder="예: 300000 (= 월 30만원)"
+                    value={form.royalty_amount}
+                    onChange={(e) => setForm({ ...form, royalty_amount: Number(e.target.value) })} />
+                  <p className="text-xs text-gray-500 mt-1">
+                    대시보드 기간(개월 수) × 월 {new Intl.NumberFormat('ko-KR').format(form.royalty_amount || 0)}원이 본점 매출/가맹점 비용으로 자동 반영 (부가세 별도)
+                  </p>
+                </>
+              )}
             </div>
           )}
 
