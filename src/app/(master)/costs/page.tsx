@@ -40,6 +40,11 @@ export default function CostsPage() {
     amount: 0,
     notes: '',
   });
+  // 모달 내 1·2·3차 필터
+  const [modalBrand, setModalBrand] = useState('');
+  const [modalOp, setModalOp] = useState<'' | OperationType>('');
+  const [modalCustOpen, setModalCustOpen] = useState(false);
+  const modalDropdownRef = useRef<HTMLDivElement>(null);
 
   const [catModalOpen, setCatModalOpen] = useState(false);
   const [newCatName, setNewCatName] = useState('');
@@ -67,14 +72,22 @@ export default function CostsPage() {
     setLoading(false);
   }, [monthFilter, customerFilter, opFilter, brandFilter]);
 
-  // 외부 클릭 시 드롭다운 닫기
+  // 외부 클릭 시 드롭다운 닫기 (필터/모달 둘 다)
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) setCustDropdownOpen(false);
+      if (modalDropdownRef.current && !modalDropdownRef.current.contains(e.target as Node)) setModalCustOpen(false);
     };
     document.addEventListener('mousedown', onClick);
     return () => document.removeEventListener('mousedown', onClick);
   }, []);
+
+  // 모달용 거래처 옵션 (브랜드 + 운영구분으로 필터링)
+  const modalCustomerOpts = customers.filter(c => {
+    if (modalBrand && (c.brand || '') !== modalBrand) return false;
+    if (modalOp && (c.operation_type || '가맹점') !== modalOp) return false;
+    return true;
+  });
 
   // 1차/2차 필터 적용된 거래처 옵션
   const filteredCustomerOpts = customers.filter(c => {
@@ -87,8 +100,11 @@ export default function CostsPage() {
 
   const openAdd = () => {
     setEditing(null);
+    // 현재 페이지 필터 값을 모달 기본값으로
+    setModalBrand(brandFilter);
+    setModalOp((opFilter || '') as '' | OperationType);
     setForm({
-      customer_id: '',
+      customer_id: customerFilter,
       category: categories[0]?.name || '',
       settlement_month: defaultMonth,
       amount: 0,
@@ -99,6 +115,10 @@ export default function CostsPage() {
 
   const openEdit = (cost: Cost) => {
     setEditing(cost);
+    // 편집 대상 거래처의 브랜드/운영구분을 모달 필터에 자동 세팅
+    const cust = customers.find(c => c.id === cost.customer_id);
+    setModalBrand(cust?.brand || '');
+    setModalOp((cust?.operation_type as OperationType) || '');
     setForm({
       customer_id: String(cost.customer_id),
       category: cost.category,
@@ -170,7 +190,7 @@ export default function CostsPage() {
   return (
     <>
       <PageHeader
-        title="비용 입력"
+        title="비용"
         description={`총 ${costs.length}건 / ${formatKRW(totalAmount)}원`}
         action={
           <div className="flex gap-2">
@@ -350,15 +370,76 @@ export default function CostsPage() {
       <Modal open={modalOpen} onClose={() => setModalOpen(false)}
         title={editing ? '비용 수정' : '비용 입력'} width="max-w-xl">
         <div className="space-y-4">
-          <div>
-            <label className="form-label">거래처 *</label>
-            <select className="form-select" value={form.customer_id}
-              onChange={(e) => setForm({ ...form, customer_id: e.target.value })}>
-              <option value="">거래처를 선택하세요</option>
-              {customers.map(c => (
-                <option key={c.id} value={c.id}>{c.company_name} ({c.operation_type || '가맹점'})</option>
-              ))}
-            </select>
+          {/* 1차/2차 (모달 내) */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="form-label">1차: 브랜드</label>
+              <select className="form-select" value={modalBrand}
+                onChange={(e) => { setModalBrand(e.target.value); setForm({ ...form, customer_id: '' }); }}>
+                <option value="">전체 브랜드</option>
+                {brandOptions.map(b => <option key={b} value={b}>{b}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="form-label">2차: 운영구분</label>
+              <select className="form-select" value={modalOp}
+                onChange={(e) => { setModalOp(e.target.value as OperationType | ''); setForm({ ...form, customer_id: '' }); }}>
+                <option value="">전체 운영구분</option>
+                {OPERATION_TYPES.map(op => <option key={op} value={op}>{op}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {/* 3차: 거래처 (색상 배지 드롭다운) */}
+          <div className="relative" ref={modalDropdownRef}>
+            <label className="form-label">3차: 거래처 * ({modalCustomerOpts.length}곳)</label>
+            <button type="button"
+              onClick={() => setModalCustOpen(!modalCustOpen)}
+              className="form-select flex items-center justify-between w-full text-left">
+              {(() => {
+                const sel = customers.find(c => String(c.id) === form.customer_id);
+                if (!sel) return <span className="text-gray-400">거래처를 선택하세요</span>;
+                const op = (sel.operation_type || '가맹점') as OperationType;
+                return (
+                  <span className="flex items-center gap-2 truncate">
+                    <span className="font-medium truncate">{sel.company_name}</span>
+                    {sel.brand && (
+                      <span className="inline-block px-1.5 py-0.5 text-[10px] rounded bg-indigo-100 text-indigo-700">{sel.brand}</span>
+                    )}
+                    <span className={`inline-block px-1.5 py-0.5 text-[10px] rounded-full ${OP_BADGE[op]}`}>{op}</span>
+                  </span>
+                );
+              })()}
+              <ChevronDown size={14} className="text-gray-400 shrink-0" />
+            </button>
+            {modalCustOpen && (
+              <div className="absolute z-30 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-[260px] overflow-y-auto">
+                {modalCustomerOpts.length === 0 && (
+                  <div className="px-3 py-4 text-sm text-gray-400 text-center">조건에 맞는 거래처가 없습니다</div>
+                )}
+                {modalCustomerOpts.map(c => {
+                  const op = (c.operation_type || '가맹점') as OperationType;
+                  const isSelected = String(c.id) === form.customer_id;
+                  return (
+                    <button type="button" key={c.id}
+                      onClick={() => { setForm({ ...form, customer_id: String(c.id) }); setModalCustOpen(false); }}
+                      className={`w-full text-left px-3 py-2 text-sm border-b last:border-b-0 transition ${
+                        isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'
+                      }`}>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-medium truncate">{c.company_name}</span>
+                        <div className="flex items-center gap-1 shrink-0">
+                          {c.brand && (
+                            <span className="inline-block px-1.5 py-0.5 text-[10px] rounded bg-indigo-100 text-indigo-700">{c.brand}</span>
+                          )}
+                          <span className={`inline-block px-1.5 py-0.5 text-[10px] rounded-full ${OP_BADGE[op]}`}>{op}</span>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>

@@ -16,7 +16,7 @@ const navItems = [
   { key: 'transactions_new', href: '/transactions/new', label: '발주', icon: PlusCircle },
   { key: 'transactions', href: '/transactions', label: '발주 내역', icon: FileText },
   { key: 'orders', href: '/orders-manage', label: '발주 관리', icon: ShoppingCart },
-  { key: 'costs', href: '/costs', label: '비용 입력', icon: Wallet },
+  { key: 'costs', href: '/costs', label: '비용', icon: Wallet },
   { key: 'dashboard', href: '/', label: '통계', icon: LayoutDashboard },
   { key: 'members', href: '/members', label: '회원 관리', icon: Users },
 ];
