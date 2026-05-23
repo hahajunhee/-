@@ -18,9 +18,10 @@ const OP_COLOR: Record<OperationType, string> = {
   '본점': 'bg-purple-100 text-purple-700 border-purple-300',
   '직영점': 'bg-blue-100 text-blue-700 border-blue-300',
   '가맹점': 'bg-emerald-100 text-emerald-700 border-emerald-300',
+  '초도물품': 'bg-amber-100 text-amber-700 border-amber-300',
 };
 const OP_DOT: Record<OperationType, string> = {
-  '본점': 'bg-purple-500', '직영점': 'bg-blue-500', '가맹점': 'bg-emerald-500',
+  '본점': 'bg-purple-500', '직영점': 'bg-blue-500', '가맹점': 'bg-emerald-500', '초도물품': 'bg-amber-500',
 };
 const CHART_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
 
