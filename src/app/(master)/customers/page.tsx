@@ -28,6 +28,7 @@ const OP_BADGE: Record<OperationType, string> = {
   '본점': 'bg-purple-100 text-purple-700',
   '직영점': 'bg-blue-100 text-blue-700',
   '가맹점': 'bg-emerald-100 text-emerald-700',
+  '초도물품': 'bg-amber-100 text-amber-700',
 };
 
 // 표시 컬럼 정의 (고정 순서, 액션 열은 항상 마지막)

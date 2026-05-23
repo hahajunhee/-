@@ -1,6 +1,9 @@
-export type OperationType = '본점' | '직영점' | '가맹점';
+export type OperationType = '본점' | '직영점' | '가맹점' | '초도물품';
 
+// 거래처용 (3종) — 거래처는 초도물품으로 지정할 수 없음
 export const OPERATION_TYPES: OperationType[] = ['본점', '직영점', '가맹점'];
+// 품목용 (4종) — 초도물품 별도 카테고리 포함
+export const PRODUCT_OPERATION_TYPES: OperationType[] = ['본점', '직영점', '가맹점', '초도물품'];
 
 export interface Product {
   id: number;

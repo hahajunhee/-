@@ -12,6 +12,7 @@ const OP_BADGE: Record<OperationType, string> = {
   '본점': 'bg-purple-100 text-purple-700',
   '직영점': 'bg-blue-100 text-blue-700',
   '가맹점': 'bg-emerald-100 text-emerald-700',
+  '초도물품': 'bg-amber-100 text-amber-700',
 };
 
 function TransactionNewContent() {
@@ -107,12 +108,16 @@ function TransactionNewContent() {
     return true;
   });
 
-  // 거래처 선택 시 해당 (브랜드 + 운영구분)의 품목만 노출
+  // 거래처 선택 시 해당 (브랜드 + 운영구분) 또는 (브랜드 + 초도물품) 품목 노출
   const selectedCustomer = customers.find(c => c.id === customerId);
   const customerOp = selectedCustomer?.operation_type || null;
   const customerBrand = selectedCustomer ? (selectedCustomer.brand || '') : null;
   const filteredProducts = products.filter(p => {
-    if (customerOp && (p.operation_type || '가맹점') !== customerOp) return false;
+    const pop = (p.operation_type || '가맹점') as OperationType;
+    if (customerOp) {
+      // 거래처 운영구분과 일치하거나, 초도물품인 경우만 허용
+      if (pop !== customerOp && pop !== '초도물품') return false;
+    }
     if (customerBrand !== null && (p.brand || '') !== customerBrand) return false;
     if (categoryFilter && p.category !== categoryFilter) return false;
     return true;
@@ -270,6 +275,9 @@ function TransactionNewContent() {
                       <div>
                         <span className="font-medium">{p.name}</span>
                         <span className="text-gray-400 ml-2 text-xs">{p.spec}</span>
+                        {(p.operation_type as OperationType) === '초도물품' && (
+                          <span className="ml-1 text-[10px] px-1 py-0.5 rounded bg-amber-200 text-amber-800 font-semibold">초도</span>
+                        )}
                         {p.apply_material_cost && (
                           <span className="ml-1 text-[10px] px-1 py-0.5 rounded bg-amber-100 text-amber-700">원가</span>
                         )}

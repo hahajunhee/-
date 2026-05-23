@@ -5,7 +5,7 @@ import { Plus, Pencil, Trash2, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
 import PageHeader from '@/components/PageHeader';
 import Modal from '@/components/Modal';
-import { Product, OPERATION_TYPES, OperationType } from '@/types';
+import { Product, PRODUCT_OPERATION_TYPES, OperationType } from '@/types';
 import { computeProductFields, formatKRW, formatPercent } from '@/lib/calculator';
 
 const CATEGORIES = ['고기', '야채', '소스', '가공', '음료'];
@@ -30,6 +30,7 @@ const OP_TAB_COLOR: Record<OperationType, string> = {
   '본점': 'bg-purple-600 text-white',
   '직영점': 'bg-blue-600 text-white',
   '가맹점': 'bg-emerald-600 text-white',
+  '초도물품': 'bg-amber-600 text-white',
 };
 
 export default function ProductsPage() {
@@ -193,7 +194,7 @@ export default function ProductsPage() {
 
       {/* 운영구분 탭 */}
       <div className="flex gap-2 mb-4 border-b pb-1">
-        {OPERATION_TYPES.map(op => {
+        {PRODUCT_OPERATION_TYPES.map(op => {
           const count = products.filter(p =>
             (p.operation_type || '가맹점') === op && (p.brand || '') === brandTab
           ).length;
@@ -340,7 +341,7 @@ export default function ProductsPage() {
           <div className="col-span-2">
             <label className="form-label">운영구분 *</label>
             <div className="flex gap-2">
-              {OPERATION_TYPES.map(op => (
+              {PRODUCT_OPERATION_TYPES.map(op => (
                 <button key={op} type="button"
                   onClick={() => setForm({ ...form, operation_type: op })}
                   className={`flex-1 py-2 px-3 rounded-lg border-2 text-sm font-medium transition ${
