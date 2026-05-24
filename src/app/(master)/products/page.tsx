@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
-import { Plus, Pencil, Trash2, Search, GripVertical } from 'lucide-react';
+import { useEffect, useState, useCallback } from 'react';
+import { Plus, Pencil, Trash2, Search, ArrowUpDown, Save, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import PageHeader from '@/components/PageHeader';
 import Modal from '@/components/Modal';
@@ -47,9 +47,10 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true);
 
   const [brandOptions, setBrandOptions] = useState<string[]>([]);
-  const [dragIdx, setDragIdx] = useState<number | null>(null);
-  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
-  const dragIdxRef = useRef<number | null>(null);   // 클로저 stale 방지
+  // 순서 편집 모드
+  const [orderEditMode, setOrderEditMode] = useState(false);
+  const [orderInputs, setOrderInputs] = useState<Record<number, string>>({});  // productId → 사용자 입력 위치값
+  const [savingOrder, setSavingOrder] = useState(false);
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
@@ -156,68 +157,65 @@ export default function ProductsPage() {
     }
   };
 
-  // 드래그 정렬
-  const handleDragStart = (e: React.DragEvent, idx: number) => {
-    dragIdxRef.current = idx;
-    setDragIdx(idx);
-    e.dataTransfer.effectAllowed = 'move';
-    try { e.dataTransfer.setData('text/plain', String(idx)); } catch {}
+  // 순서 편집 모드 진입: 현재 표시 순서를 기본 입력값으로 채움
+  const enterOrderEdit = () => {
+    const initial: Record<number, string> = {};
+    filteredProducts.forEach((p, i) => { initial[p.id] = String(i + 1); });
+    setOrderInputs(initial);
+    setOrderEditMode(true);
   };
-  const handleDragOver = (e: React.DragEvent, idx: number) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    if (dragOverIdx !== idx) setDragOverIdx(idx);
+  const cancelOrderEdit = () => {
+    setOrderInputs({});
+    setOrderEditMode(false);
   };
-  const handleDragEnd = () => {
-    dragIdxRef.current = null;
-    setDragIdx(null);
-    setDragOverIdx(null);
-  };
-  const handleDrop = async (e: React.DragEvent, targetIdx: number) => {
-    e.preventDefault();
-    const fromIdx = dragIdxRef.current ?? dragIdx;
-    setDragOverIdx(null);
-    if (fromIdx === null || fromIdx === targetIdx) {
-      dragIdxRef.current = null;
-      setDragIdx(null);
-      return;
+  const updateOrderInput = (id: number, value: string) => {
+    // 숫자/빈 문자열만 허용
+    if (value === '' || /^\d+$/.test(value)) {
+      setOrderInputs(prev => ({ ...prev, [id]: value }));
     }
+  };
+  const saveOrder = async () => {
+    setSavingOrder(true);
+    // 입력값 기준으로 정렬 (빈 값/유효하지 않으면 큰 값으로 처리해 뒤로 보냄)
+    const sortedVisible = [...filteredProducts].sort((a, b) => {
+      const va = Number(orderInputs[a.id]);
+      const vb = Number(orderInputs[b.id]);
+      const na = Number.isFinite(va) && va > 0 ? va : 999999;
+      const nb = Number.isFinite(vb) && vb > 0 ? vb : 999999;
+      if (na !== nb) return na - nb;
+      // 같으면 기존 순서 유지
+      return filteredProducts.indexOf(a) - filteredProducts.indexOf(b);
+    });
 
-    // 1) 보이는 리스트 재배열
-    const visible = [...filteredProducts];
-    const [moved] = visible.splice(fromIdx, 1);
-    const adjusted = fromIdx < targetIdx ? targetIdx - 1 : targetIdx;
-    visible.splice(adjusted, 0, moved);
-
-    // 2) 전체 products에서 보이는 항목들 위치에 새 순서대로 채워넣기
-    const visibleIdSet = new Set(visible.map(p => p.id));
-    const newOrderQueue = [...visible];
+    // products 전체에서 보이는 항목들 자리에 새 순서로 채워넣기
+    const visibleIdSet = new Set(sortedVisible.map(p => p.id));
+    const queue = [...sortedVisible];
     const reordered: typeof products = [];
     for (const p of products) {
       if (visibleIdSet.has(p.id)) {
-        const next = newOrderQueue.shift();
+        const next = queue.shift();
         if (next) reordered.push(next);
       } else {
         reordered.push(p);
       }
     }
 
-    // 즉시 화면 반영 (낙관적 업데이트)
     setProducts(reordered);
-    setFilteredProducts(visible);
-    dragIdxRef.current = null;
-    setDragIdx(null);
-
-    // 서버 저장
+    setFilteredProducts(sortedVisible);
     try {
-      await fetch('/api/products/reorder', {
+      const res = await fetch('/api/products/reorder', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ids: reordered.map(p => p.id) }),
       });
+      if (res.ok) toast.success('순서가 저장되었습니다');
+      else toast.error('저장 실패');
     } catch {
-      toast.error('순서 저장 실패');
+      toast.error('서버 연결 오류');
     }
+    setSavingOrder(false);
+    setOrderEditMode(false);
+    setOrderInputs({});
   };
 
   const handleDelete = async (id: number) => {
@@ -244,11 +242,35 @@ export default function ProductsPage() {
         title="품목 관리"
         description={`${brandTab || '(브랜드 미지정)'} - ${operationTab} ${filteredProducts.length}개 / 전체 ${products.length}개`}
         action={
-          <button onClick={openAdd} className="btn-primary">
-            <Plus size={16} /> 품목 추가
-          </button>
+          <div className="flex gap-2">
+            {orderEditMode ? (
+              <>
+                <button onClick={cancelOrderEdit} className="btn-secondary" disabled={savingOrder}>
+                  <X size={16} /> 취소
+                </button>
+                <button onClick={saveOrder} className="btn-success" disabled={savingOrder}>
+                  <Save size={16} /> {savingOrder ? '저장 중...' : '순서 저장'}
+                </button>
+              </>
+            ) : (
+              <>
+                <button onClick={enterOrderEdit} className="btn-secondary">
+                  <ArrowUpDown size={16} /> 순서 편집
+                </button>
+                <button onClick={openAdd} className="btn-primary">
+                  <Plus size={16} /> 품목 추가
+                </button>
+              </>
+            )}
+          </div>
         }
       />
+      {orderEditMode && (
+        <div className="mb-2 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">
+          💡 각 행 왼쪽 입력칸에 원하는 순서 번호(1부터)를 입력하고 <strong>순서 저장</strong>을 누르세요.
+          (현재 화면에 보이는 {filteredProducts.length}개의 품목만 정렬됩니다.)
+        </div>
+      )}
 
       {/* 브랜드 탭 */}
       <div className="flex flex-wrap gap-1 mb-2 items-center">
@@ -324,7 +346,7 @@ export default function ProductsPage() {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th className="w-6"></th>
+                  <th className="w-14 text-center">{orderEditMode ? '순서' : ''}</th>
                   <th>품목명</th>
                   <th>분류</th>
                   <th>규격</th>
@@ -345,20 +367,20 @@ export default function ProductsPage() {
               <tbody>
                 {filteredProducts.map((p, idx) => {
                   const c = computeProductFields(p);
-                  const isDrag = dragIdx === idx;
-                  const isOver = dragOverIdx === idx && dragIdx !== idx;
                   return (
-                    <tr key={p.id}
-                      draggable
-                      onDragStart={(e) => handleDragStart(e, idx)}
-                      onDragOver={(e) => handleDragOver(e, idx)}
-                      onDrop={(e) => handleDrop(e, idx)}
-                      onDragEnd={handleDragEnd}
-                      onDragLeave={() => { if (dragOverIdx === idx) setDragOverIdx(null); }}
-                      className={`${isDrag ? 'opacity-40' : ''} ${isOver ? 'bg-blue-100 border-t-2 border-blue-500' : ''}`}>
-                      <td className="cursor-move text-gray-400 hover:text-gray-700 align-middle"
-                        title="드래그하여 순서 변경">
-                        <GripVertical size={16} />
+                    <tr key={p.id} className={orderEditMode ? 'bg-blue-50/30' : ''}>
+                      <td className="align-middle text-center">
+                        {orderEditMode ? (
+                          <input
+                            type="number"
+                            min="1"
+                            value={orderInputs[p.id] ?? ''}
+                            onChange={(e) => updateOrderInput(p.id, e.target.value)}
+                            className="w-12 text-center border border-blue-300 rounded px-1 py-0.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          />
+                        ) : (
+                          <span className="text-xs text-gray-300">{idx + 1}</span>
+                        )}
                       </td>
                       <td className="font-medium">
                         {p.name}
