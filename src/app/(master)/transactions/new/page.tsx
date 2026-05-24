@@ -289,6 +289,10 @@ function TransactionNewContent() {
                         {p.apply_material_cost && (
                           <span className="ml-1 text-[10px] px-1 py-0.5 rounded bg-amber-100 text-amber-700">원가</span>
                         )}
+                        {p.invoice_hidden && (
+                          <span className="ml-1 text-[10px] px-1 py-0.5 rounded bg-purple-100 text-purple-700 font-medium"
+                            title="명세서에는 표시 안 되지만 통계에는 반영됨">대시보드 전용</span>
+                        )}
                       </div>
                       <span className="text-gray-500 text-xs">
                         {formatKRW(p.apply_material_cost ? p.material_cost : p.selling_price)}원
@@ -432,8 +436,14 @@ function TransactionNewContent() {
                   </thead>
                   <tbody>
                     {items.map((item, idx) => (
-                      <tr key={item.product_id}>
-                        <td className="font-medium">{item.product_name}</td>
+                      <tr key={item.product_id} className={item.invoice_hidden ? 'bg-purple-50/40' : ''}>
+                        <td className="font-medium">
+                          {item.product_name}
+                          {item.invoice_hidden && (
+                            <span className="ml-1 text-[10px] px-1 py-0.5 rounded bg-purple-100 text-purple-700 font-medium"
+                              title="이 품목은 거래명세서에는 표시되지 않지만 통계에는 반영됩니다">대시보드 전용</span>
+                          )}
+                        </td>
                         <td className="text-gray-500">{item.spec}</td>
                         <td className="text-gray-500">{item.unit}</td>
                         <td>
