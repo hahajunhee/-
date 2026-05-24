@@ -59,7 +59,7 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const { id, action, customer_id, role, allowed_tabs } = await request.json();
+  const { id, action, customer_id, role, allowed_tabs, can_view_margin } = await request.json();
 
   if (action === 'approve') {
     await query('UPDATE users SET status = $1, customer_id = $2 WHERE id = $3', ['approved', customer_id, id]);
@@ -85,6 +85,11 @@ export async function PUT(request: NextRequest) {
     // 매니저 탭 권한 설정 (JSONB 배열)
     const tabs = Array.isArray(allowed_tabs) ? JSON.stringify(allowed_tabs) : null;
     await query('UPDATE users SET allowed_tabs = $1::jsonb WHERE id = $2 AND role = $3', [tabs, id, 'manager']);
+    return NextResponse.json({ success: true });
+  }
+  if (action === 'update_can_view_margin') {
+    // 매니저 마진 노출 권한
+    await query('UPDATE users SET can_view_margin = $1 WHERE id = $2 AND role = $3', [!!can_view_margin, id, 'manager']);
     return NextResponse.json({ success: true });
   }
 

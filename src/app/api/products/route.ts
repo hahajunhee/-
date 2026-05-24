@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
     params.push(`%${search}%`);
     q += ` AND name ILIKE $${params.length}`;
   }
-  q += ' ORDER BY id';
+  q += ' ORDER BY sort_order ASC, id ASC';
 
   const data = await query(q, params);
   return NextResponse.json(data);

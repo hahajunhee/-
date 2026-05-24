@@ -20,6 +20,7 @@ export interface Product {
   apply_material_cost: boolean;  // Y: 거래 시 단가=재료원가 사용, N: 단가(납품가) 사용
   incentive: number;             // 장려금 (수량 × 장려금만큼 손익에 가산)
   invoice_hidden: boolean;       // Y: 거래명세서/이메일에 표시 안 함 (대시보드/내부 손익에만 반영)
+  sort_order?: number;           // 사용자 정렬 순서
   created_at?: string;
   // computed fields
   margin?: number;

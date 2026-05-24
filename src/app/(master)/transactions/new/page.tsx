@@ -29,6 +29,7 @@ function TransactionNewContent() {
   const [items, setItems] = useState<TransactionItem[]>([]);
   const [saving, setSaving] = useState(false);
   const [userRole, setUserRole] = useState<'master' | 'manager' | 'partner' | null>(null);
+  const [canViewMargin, setCanViewMargin] = useState<boolean>(true);
   const [brandFilter, setBrandFilter] = useState<string>('');         // 1차: 브랜드
   const [opFilter, setOpFilter] = useState<'' | OperationType>('');   // 2차: 운영구분
   const [brandOptions, setBrandOptions] = useState<string[]>([]);
@@ -47,6 +48,13 @@ function TransactionNewContent() {
     try {
       const auth = await aRes.json();
       setUserRole(auth?.user?.role || null);
+      // master는 항상 노출, manager는 can_view_margin 플래그에 따라
+      const role = auth?.user?.role;
+      if (role === 'manager') {
+        setCanViewMargin(!!auth.user.can_view_margin);
+      } else {
+        setCanViewMargin(true);
+      }
     } catch {}
     try {
       const s = await sRes.json();
@@ -85,8 +93,8 @@ function TransactionNewContent() {
     }
   }, [editId]);
 
-  // 매니저는 마진/순익 비공개
-  const showProfit = userRole !== 'manager';
+  // 마진/순익 노출: master는 항상, manager는 can_view_margin 플래그에 따라
+  const showProfit = userRole === 'master' || (userRole === 'manager' && canViewMargin);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 

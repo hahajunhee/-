@@ -14,6 +14,7 @@ export interface AuthUser {
   status: string;
   customer_id: number | null;
   allowed_tabs?: string[] | null;
+  can_view_margin?: boolean;
 }
 
 export async function hashPassword(password: string): Promise<string> {
@@ -26,7 +27,7 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
 
 export function createToken(user: AuthUser): string {
   return jwt.sign(
-    { id: user.id, email: user.email, name: user.name, role: user.role, customer_id: user.customer_id, allowed_tabs: user.allowed_tabs ?? null },
+    { id: user.id, email: user.email, name: user.name, role: user.role, customer_id: user.customer_id, allowed_tabs: user.allowed_tabs ?? null, can_view_margin: !!user.can_view_margin },
     JWT_SECRET,
     { expiresIn: '7d' }
   );
@@ -70,6 +71,7 @@ export async function login(email: string, password: string): Promise<{ token: s
     status: user.status,
     customer_id: user.customer_id,
     allowed_tabs: user.allowed_tabs || null,
+    can_view_margin: !!user.can_view_margin,
   };
 
   return { token: createToken(authUser), user: authUser };

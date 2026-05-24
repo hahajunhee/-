@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { Plus, Pencil, Trash2, Search } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, GripVertical } from 'lucide-react';
 import toast from 'react-hot-toast';
 import PageHeader from '@/components/PageHeader';
 import Modal from '@/components/Modal';
@@ -9,6 +9,7 @@ import { Product, PRODUCT_OPERATION_TYPES, OperationType } from '@/types';
 import { computeProductFields, formatKRW, formatPercent } from '@/lib/calculator';
 
 const CATEGORIES = ['고기', '야채', '소스', '가공', '음료'];
+const INITIAL_CATEGORIES = ['주방용품', '식기', '인테리어', '테이블'];
 
 const emptyProduct = {
   name: '',
@@ -46,6 +47,7 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true);
 
   const [brandOptions, setBrandOptions] = useState<string[]>([]);
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
@@ -82,10 +84,19 @@ export default function ProductsPage() {
     setFilteredProducts(filtered);
   }, [products, categoryFilter, search, operationTab, brandTab]);
 
+  // 모달에서 사용할 카테고리 (초도물품 vs 일반)
+  const modalCategories = form.operation_type === '초도물품' ? INITIAL_CATEGORIES : CATEGORIES;
+
   const openAdd = () => {
     setEditing(null);
     // 현재 선택된 (운영구분 + 브랜드)로 기본 설정
-    setForm({ ...emptyProduct, operation_type: operationTab, brand: brandTab });
+    const isInitial = operationTab === '초도물품';
+    setForm({
+      ...emptyProduct,
+      operation_type: operationTab,
+      brand: brandTab,
+      category: isInitial ? INITIAL_CATEGORIES[0] : CATEGORIES[0],
+    });
     setModalOpen(true);
   };
 
@@ -141,6 +152,44 @@ export default function ProductsPage() {
         toast.error('추가 실패');
       }
     }
+  };
+
+  // 드래그 정렬
+  const handleDragStart = (idx: number) => setDragIdx(idx);
+  const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); };
+  const handleDrop = async (targetIdx: number) => {
+    if (dragIdx === null || dragIdx === targetIdx) { setDragIdx(null); return; }
+    // filteredProducts 기준으로 재배열한 결과를 products의 해당 영역에 반영
+    const visible = [...filteredProducts];
+    const [moved] = visible.splice(dragIdx, 1);
+    visible.splice(targetIdx, 0, moved);
+    setDragIdx(null);
+    setFilteredProducts(visible);
+
+    // products 전체에서 보이는 부분만 새 순서로 교체
+    const visibleIds = new Set(visible.map(p => p.id));
+    const newOrderForVisible = visible.map(p => p.id);
+    const reordered: typeof products = [];
+    let i = 0;
+    for (const p of products) {
+      if (visibleIds.has(p.id)) {
+        const nextId = newOrderForVisible[i++];
+        const nextItem = products.find(x => x.id === nextId);
+        if (nextItem) reordered.push(nextItem);
+      } else {
+        reordered.push(p);
+      }
+    }
+    setProducts(reordered);
+
+    // 서버에 저장
+    try {
+      await fetch('/api/products/reorder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: reordered.map(p => p.id) }),
+      });
+    } catch {}
   };
 
   const handleDelete = async (id: number) => {
@@ -231,7 +280,7 @@ export default function ProductsPage() {
             className="form-select w-auto"
           >
             <option value="">전체 분류</option>
-            {CATEGORIES.map((c) => (
+            {(operationTab === '초도물품' ? INITIAL_CATEGORIES : CATEGORIES).map((c) => (
               <option key={c} value={c}>{c}</option>
             ))}
           </select>
@@ -247,6 +296,7 @@ export default function ProductsPage() {
             <table className="data-table">
               <thead>
                 <tr>
+                  <th className="w-6"></th>
                   <th>품목명</th>
                   <th>분류</th>
                   <th>규격</th>
@@ -265,10 +315,20 @@ export default function ProductsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredProducts.map((p) => {
+                {filteredProducts.map((p, idx) => {
                   const c = computeProductFields(p);
+                  const isDrag = dragIdx === idx;
                   return (
-                    <tr key={p.id}>
+                    <tr key={p.id}
+                      draggable
+                      onDragStart={() => handleDragStart(idx)}
+                      onDragOver={handleDragOver}
+                      onDrop={() => handleDrop(idx)}
+                      onDragEnd={() => setDragIdx(null)}
+                      className={isDrag ? 'opacity-40' : ''}>
+                      <td className="cursor-move text-gray-300 hover:text-gray-500 align-middle">
+                        <GripVertical size={14} />
+                      </td>
                       <td className="font-medium">
                         {p.name}
                         {p.invoice_hidden && (
@@ -319,7 +379,7 @@ export default function ProductsPage() {
                 })}
                 {filteredProducts.length === 0 && (
                   <tr>
-                    <td colSpan={14} className="text-center py-8 text-gray-400">
+                    <td colSpan={15} className="text-center py-8 text-gray-400">
                       {search || categoryFilter ? '검색 결과가 없습니다' : '품목을 추가해주세요'}
                     </td>
                   </tr>
@@ -343,7 +403,12 @@ export default function ProductsPage() {
             <div className="flex gap-2">
               {PRODUCT_OPERATION_TYPES.map(op => (
                 <button key={op} type="button"
-                  onClick={() => setForm({ ...form, operation_type: op })}
+                  onClick={() => {
+                    // 운영구분 전환 시 카테고리 자동 보정
+                    const cats = op === '초도물품' ? INITIAL_CATEGORIES : CATEGORIES;
+                    const newCategory = cats.includes(form.category) ? form.category : cats[0];
+                    setForm({ ...form, operation_type: op, category: newCategory });
+                  }}
                   className={`flex-1 py-2 px-3 rounded-lg border-2 text-sm font-medium transition ${
                     form.operation_type === op
                       ? 'border-blue-500 bg-blue-50 text-blue-700'
@@ -385,7 +450,7 @@ export default function ProductsPage() {
               value={form.category}
               onChange={(e) => setForm({ ...form, category: e.target.value })}
             >
-              {CATEGORIES.map((c) => (
+              {modalCategories.map((c) => (
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>

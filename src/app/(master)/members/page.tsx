@@ -30,6 +30,7 @@ interface User {
   customer_id: number | null;
   company_name: string | null;
   allowed_tabs: string[] | null;
+  can_view_margin: boolean;
   created_at: string;
 }
 
@@ -52,6 +53,7 @@ export default function MembersPage() {
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
   const [permModal, setPermModal] = useState<User | null>(null);
   const [permTabs, setPermTabs] = useState<string[]>([]);
+  const [permCanViewMargin, setPermCanViewMargin] = useState<boolean>(false);
   const [createModal, setCreateModal] = useState(false);
   const [createForm, setCreateForm] = useState({
     email: '',
@@ -143,6 +145,7 @@ export default function MembersPage() {
       ? u.allowed_tabs
       : ['customers', 'transactions_new', 'transactions', 'orders'];
     setPermTabs(defaults);
+    setPermCanViewMargin(!!u.can_view_margin);
   };
 
   const togglePermTab = (key: string) => {
@@ -151,12 +154,19 @@ export default function MembersPage() {
 
   const savePerms = async () => {
     if (!permModal) return;
-    const res = await fetch('/api/members', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: permModal.id, action: 'update_tabs', allowed_tabs: permTabs }),
-    });
-    if (res.ok) {
+    const [tabsRes, mRes] = await Promise.all([
+      fetch('/api/members', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: permModal.id, action: 'update_tabs', allowed_tabs: permTabs }),
+      }),
+      fetch('/api/members', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: permModal.id, action: 'update_can_view_margin', can_view_margin: permCanViewMargin }),
+      }),
+    ]);
+    if (tabsRes.ok && mRes.ok) {
       toast.success('권한이 저장되었습니다');
       setPermModal(null);
       fetchData();
@@ -486,6 +496,22 @@ export default function MembersPage() {
                 </label>
               ))}
             </div>
+
+            {/* 마진/순익 노출 권한 */}
+            <div className="border-2 border-amber-200 bg-amber-50 rounded-lg p-3">
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input type="checkbox"
+                  checked={permCanViewMargin}
+                  onChange={(e) => setPermCanViewMargin(e.target.checked)}
+                  className="w-4 h-4 mt-0.5" />
+                <span className="text-sm">
+                  <span className="font-semibold text-amber-700">마진/순익 노출</span>
+                  <span className="text-gray-600 ml-2">발주/거래내역에서 마진·순익 컬럼을 볼 수 있습니다.</span>
+                  <span className="block text-xs text-gray-500 mt-1">기본값: 비공개 (매니저는 마진을 못 봄)</span>
+                </span>
+              </label>
+            </div>
+
             <div className="flex justify-end gap-2">
               <button onClick={() => setPermModal(null)} className="btn-secondary">취소</button>
               <button onClick={savePerms} className="btn-primary">저장</button>
