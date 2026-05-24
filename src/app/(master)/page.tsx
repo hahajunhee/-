@@ -28,6 +28,15 @@ function getPreset(key: string) {
   }
 }
 
+interface CostCat {
+  category: string;
+  amount: number;
+  ratio: number;
+  material_part?: number;
+  purchase_part?: number;
+  cost_tab_part: number;
+}
+
 interface HqStats {
   period: { date_from: string; date_to: string };
   hq: {
@@ -36,11 +45,13 @@ interface HqStats {
       order_revenue: number; royalty_revenue: number; manual_revenue: number;
       material_cost: number; other_cost: number;
     };
+    cost_by_category: CostCat[];
   };
   main_stores: {
     revenue: number; cost: number; profit: number;
     cost_purchase: number; cost_other: number;
     stores: { id: number; name: string; brand: string; revenue: number; cost: number; profit: number; cost_purchase: number; cost_other: number }[];
+    cost_by_category: CostCat[];
   };
   total: { revenue: number; cost: number; profit: number };
   monthly: {
@@ -177,6 +188,46 @@ export default function HqStatsPage() {
             </p>
           </div>
         </div>
+
+        {/* 본사 비용 카테고리별 (매출 대비) */}
+        {stats.hq.cost_by_category.length > 0 && (
+          <div className="card p-0 overflow-hidden">
+            <div className="px-4 py-3 border-b bg-amber-50 font-semibold text-sm">
+              본사 비용 구분별 (본사 매출 대비 비율)
+              <span className="text-xs text-gray-500 font-normal ml-2">* 식재료비 = 발주재료원가 + 비용탭 직접 기입</span>
+            </div>
+            <table className="data-table">
+              <thead><tr><th>구분</th><th className="text-right">금액</th><th className="text-right">비율</th></tr></thead>
+              <tbody>
+                {stats.hq.cost_by_category.map(c => {
+                  const isFood = c.category === '식재료비';
+                  const ratioColor = c.ratio > 0.3 ? 'text-red-600 font-bold' : c.ratio > 0.15 ? 'text-orange-500' : 'text-gray-500';
+                  return (
+                    <tr key={c.category}>
+                      <td>
+                        <div>{c.category}</div>
+                        {isFood && c.amount > 0 && (
+                          <div className="text-[10px] text-gray-400 mt-0.5">
+                            발주재료원가 {formatKRW(c.material_part || 0)} + 직접 기입 {formatKRW(c.cost_tab_part)}
+                          </div>
+                        )}
+                      </td>
+                      <td className="text-right text-amber-700 font-medium align-top">{formatKRW(c.amount)}원</td>
+                      <td className={`text-right ${ratioColor} align-top`}>{(c.ratio * 100).toFixed(1)}%</td>
+                    </tr>
+                  );
+                })}
+                <tr className="bg-gray-50 font-semibold">
+                  <td>합계</td>
+                  <td className="text-right text-amber-800">{formatKRW(stats.hq.cost)}원</td>
+                  <td className="text-right text-gray-700">
+                    {stats.hq.revenue > 0 ? ((stats.hq.cost / stats.hq.revenue) * 100).toFixed(1) : '0'}%
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Section 2: 본점들 */}
@@ -218,7 +269,7 @@ export default function HqStatsPage() {
 
         {/* 본점별 상세 */}
         {stats.main_stores.stores.length > 0 && (
-          <div className="card p-0 overflow-hidden">
+          <div className="card p-0 overflow-hidden mb-3">
             <div className="px-4 py-3 border-b bg-slate-50 font-semibold text-sm">본점별 손익</div>
             <table className="data-table">
               <thead>
@@ -248,6 +299,46 @@ export default function HqStatsPage() {
                     <td className={`text-right font-bold ${s.profit < 0 ? 'text-red-600' : 'text-emerald-600'}`}>{formatKRW(s.profit)}원</td>
                   </tr>
                 ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* 본점 비용 카테고리별 */}
+        {stats.main_stores.cost_by_category.length > 0 && (
+          <div className="card p-0 overflow-hidden">
+            <div className="px-4 py-3 border-b bg-amber-50 font-semibold text-sm">
+              본점 비용 구분별 (본점 매출 대비 비율)
+              <span className="text-xs text-gray-500 font-normal ml-2">* 식재료비 = 본사로부터 매입(발주) + 비용탭 직접 기입</span>
+            </div>
+            <table className="data-table">
+              <thead><tr><th>구분</th><th className="text-right">금액</th><th className="text-right">비율</th></tr></thead>
+              <tbody>
+                {stats.main_stores.cost_by_category.map(c => {
+                  const isFood = c.category === '식재료비';
+                  const ratioColor = c.ratio > 0.3 ? 'text-red-600 font-bold' : c.ratio > 0.15 ? 'text-orange-500' : 'text-gray-500';
+                  return (
+                    <tr key={c.category}>
+                      <td>
+                        <div>{c.category}</div>
+                        {isFood && c.amount > 0 && (
+                          <div className="text-[10px] text-gray-400 mt-0.5">
+                            발주매입 {formatKRW(c.purchase_part || 0)} + 직접 기입 {formatKRW(c.cost_tab_part)}
+                          </div>
+                        )}
+                      </td>
+                      <td className="text-right text-amber-700 font-medium align-top">{formatKRW(c.amount)}원</td>
+                      <td className={`text-right ${ratioColor} align-top`}>{(c.ratio * 100).toFixed(1)}%</td>
+                    </tr>
+                  );
+                })}
+                <tr className="bg-gray-50 font-semibold">
+                  <td>합계</td>
+                  <td className="text-right text-amber-800">{formatKRW(stats.main_stores.cost)}원</td>
+                  <td className="text-right text-gray-700">
+                    {stats.main_stores.revenue > 0 ? ((stats.main_stores.cost / stats.main_stores.revenue) * 100).toFixed(1) : '0'}%
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>

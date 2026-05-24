@@ -36,8 +36,8 @@ interface Stats {
   period: { date_from: string; date_to: string };
   summary: { total_revenue: number; total_cost_other: number; total_cost_purchase: number; total_cost: number; total_profit: number; cost_ratio: number };
   monthly: { month: string; revenue: number; cost_other: number; cost_purchase: number; total_cost: number; profit: number }[];
-  revenue_by_category: { category: string; total: number }[];
-  cost_by_category: { category: string; total: number }[];
+  revenue_by_category: { category: string; total: number; ratio: number }[];
+  cost_by_category: { category: string; amount: number; ratio: number; purchase_part: number; cost_tab_part: number }[];
   revenues: { id: number; settlement_month: string; category: string; amount: number; notes: string; source: string }[];
   costs: { id: number; settlement_month: string; category: string; amount: number; notes: string }[];
   purchases: { id: number; date: string; supply_total: number; vat_total: number; grand_total: number; payment_status: string; source: string; order_number: string }[];
@@ -286,35 +286,58 @@ export default function CustomerStatsPage() {
           {/* 카테고리별 + 월별 표 */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
             <div className="card p-0 overflow-hidden">
-              <div className="px-4 py-3 border-b bg-blue-50 font-semibold text-sm">매출 구분별</div>
+              <div className="px-4 py-3 border-b bg-blue-50 font-semibold text-sm">매출 구분별 (매출 대비 비율)</div>
               <table className="data-table">
-                <thead><tr><th>구분</th><th className="text-right">금액</th></tr></thead>
+                <thead><tr><th>구분</th><th className="text-right">금액</th><th className="text-right">비율</th></tr></thead>
                 <tbody>
                   {stats.revenue_by_category.map(r => (
                     <tr key={r.category}>
                       <td>{r.category}</td>
                       <td className="text-right text-blue-700 font-medium">{formatKRW(r.total)}원</td>
+                      <td className="text-right text-gray-500">{(r.ratio * 100).toFixed(1)}%</td>
                     </tr>
                   ))}
                   {stats.revenue_by_category.length === 0 && (
-                    <tr><td colSpan={2} className="text-center py-4 text-gray-400">매출 없음</td></tr>
+                    <tr><td colSpan={3} className="text-center py-4 text-gray-400">매출 없음</td></tr>
                   )}
                 </tbody>
               </table>
             </div>
             <div className="card p-0 overflow-hidden">
-              <div className="px-4 py-3 border-b bg-amber-50 font-semibold text-sm">비용 구분별 (기타 비용)</div>
+              <div className="px-4 py-3 border-b bg-amber-50 font-semibold text-sm">
+                비용 구분별 (매출 대비 비율)
+                <span className="text-xs text-gray-500 font-normal ml-2">* 식재료비 = 발주 매입 + 비용탭 직접 기입</span>
+              </div>
               <table className="data-table">
-                <thead><tr><th>구분</th><th className="text-right">금액</th></tr></thead>
+                <thead><tr><th>구분</th><th className="text-right">금액</th><th className="text-right">비율</th></tr></thead>
                 <tbody>
-                  {stats.cost_by_category.map(c => (
+                  {stats.cost_by_category.map(c => {
+                    const isFood = c.category === '식재료비';
+                    const ratioColor = c.ratio > 0.3 ? 'text-red-600 font-bold' : c.ratio > 0.15 ? 'text-orange-500' : 'text-gray-500';
+                    return (
                     <tr key={c.category}>
-                      <td>{c.category}</td>
-                      <td className="text-right text-amber-700 font-medium">{formatKRW(c.total)}원</td>
+                      <td>
+                        <div>{c.category}</div>
+                        {isFood && c.amount > 0 && (
+                          <div className="text-[10px] text-gray-400 mt-0.5">
+                            발주 {formatKRW(c.purchase_part)} + 직접 기입 {formatKRW(c.cost_tab_part)}
+                          </div>
+                        )}
+                      </td>
+                      <td className="text-right text-amber-700 font-medium align-top">{formatKRW(c.amount)}원</td>
+                      <td className={`text-right ${ratioColor} align-top`}>{(c.ratio * 100).toFixed(1)}%</td>
                     </tr>
-                  ))}
+                    );
+                  })}
                   {stats.cost_by_category.length === 0 && (
-                    <tr><td colSpan={2} className="text-center py-4 text-gray-400">비용 없음</td></tr>
+                    <tr><td colSpan={3} className="text-center py-4 text-gray-400">비용 없음</td></tr>
+                  )}
+                  {stats.cost_by_category.length > 0 && (
+                    <tr className="bg-gray-50 font-semibold">
+                      <td>합계</td>
+                      <td className="text-right text-amber-800">{formatKRW(stats.summary.total_cost)}원</td>
+                      <td className="text-right text-gray-700">{(stats.summary.cost_ratio * 100).toFixed(1)}%</td>
+                    </tr>
                   )}
                 </tbody>
               </table>

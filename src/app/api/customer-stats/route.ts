@@ -78,11 +78,39 @@ export async function GET(request: NextRequest) {
     row.profit = row.revenue - row.total_cost;
   }
 
-  // 비용 카테고리별
-  const costByCategory: Record<string, number> = {};
+  // 비용 카테고리별 (식재료비 = 발주매입 + 비용탭의 식재료비)
+  // - 식재료비는 발주 내역 전체(invoice_hidden 포함)의 grand_total + costs 탭의 '식재료비' 합산
+  // - 그 외 카테고리는 costs 탭만
+  const FOOD_CATEGORY = '식재료비';
+  const costByCategoryMap: Record<string, number> = {};
   for (const c of costList) {
-    costByCategory[c.category] = (costByCategory[c.category] || 0) + Number(c.amount);
+    costByCategoryMap[c.category] = (costByCategoryMap[c.category] || 0) + Number(c.amount);
   }
+  const totalPurchase = purchaseList.reduce((s, t) => s + Number(t.grand_total), 0);
+  costByCategoryMap[FOOD_CATEGORY] = (costByCategoryMap[FOOD_CATEGORY] || 0) + totalPurchase;
+
+  // 카테고리 정렬 순서를 위해 cost_categories 조회
+  const catRows = await query('SELECT name, order_idx FROM cost_categories ORDER BY order_idx, id');
+  const orderMap: Record<string, number> = {};
+  for (const r of catRows) orderMap[r.name] = Number(r.order_idx);
+
+  const costByCategory = Object.entries(costByCategoryMap)
+    .map(([category, amount]) => ({
+      category,
+      amount,
+      // 매출 대비 비율 (식재료비는 발주 매입을 포함)
+      ratio: totalRevenue > 0 ? amount / totalRevenue : 0,
+      // 식재료비의 발주 매입분/비용탭 분리 표시용
+      purchase_part: category === FOOD_CATEGORY ? totalPurchase : 0,
+      cost_tab_part: category === FOOD_CATEGORY
+        ? amount - totalPurchase
+        : amount,
+    }))
+    .sort((a, b) => {
+      const oa = orderMap[a.category] ?? 999;
+      const ob = orderMap[b.category] ?? 999;
+      return oa - ob;
+    });
   // 매출 카테고리별
   const revenueByCategory: Record<string, number> = {};
   for (const r of revenueList) {
@@ -113,8 +141,12 @@ export async function GET(request: NextRequest) {
       cost_ratio: totalRevenue > 0 ? totalCost / totalRevenue : 0,
     },
     monthly: Object.values(monthlyMap),
-    revenue_by_category: Object.entries(revenueByCategory).map(([k, v]) => ({ category: k, total: v })),
-    cost_by_category: Object.entries(costByCategory).map(([k, v]) => ({ category: k, total: v })),
+    revenue_by_category: Object.entries(revenueByCategory).map(([k, v]) => ({
+      category: k,
+      total: v,
+      ratio: totalRevenue > 0 ? v / totalRevenue : 0,
+    })),
+    cost_by_category: costByCategory,
     revenues: revenueList.map(r => ({
       id: r.id, settlement_month: r.settlement_month, category: r.category,
       amount: Number(r.amount), notes: r.notes, source: r.source,

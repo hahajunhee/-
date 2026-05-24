@@ -132,6 +132,56 @@ export async function GET(request: NextRequest) {
   }
   const mainStoreProfit = mainStoreRevenue - mainStoreCost;
 
+  // ===== 비용 카테고리별 breakdown =====
+  // 식재료비는 발주재료원가(또는 매입) + 비용탭 식재료비
+  const FOOD_CATEGORY = '식재료비';
+  const catRows = await query('SELECT name, order_idx FROM cost_categories ORDER BY order_idx, id');
+  const orderMap: Record<string, number> = {};
+  for (const r of catRows) orderMap[r.name] = Number(r.order_idx);
+
+  // 본사 비용 카테고리별 (customer_id IS NULL)
+  const hqCostCatList = await query(
+    `SELECT category, COALESCE(SUM(amount), 0)::numeric as total
+     FROM costs WHERE customer_id IS NULL AND settlement_month BETWEEN $1 AND $2
+     GROUP BY category`,
+    [monthFrom, monthTo]
+  );
+  const hqCostCatMap: Record<string, number> = {};
+  for (const r of hqCostCatList) hqCostCatMap[r.category] = Number(r.total);
+  // 본사 식재료비 = 발주재료원가 + costs.식재료비
+  hqCostCatMap[FOOD_CATEGORY] = (hqCostCatMap[FOOD_CATEGORY] || 0) + hqMaterialCost;
+
+  const hqCostByCategory = Object.entries(hqCostCatMap).map(([category, amount]) => ({
+    category,
+    amount,
+    ratio: hqRevenue > 0 ? amount / hqRevenue : 0,
+    material_part: category === FOOD_CATEGORY ? hqMaterialCost : 0,
+    cost_tab_part: category === FOOD_CATEGORY ? amount - hqMaterialCost : amount,
+  })).sort((a, b) => (orderMap[a.category] ?? 999) - (orderMap[b.category] ?? 999));
+
+  // 본점들 비용 카테고리별
+  let mainStoreCostByCategory: { category: string; amount: number; ratio: number; purchase_part: number; cost_tab_part: number }[] = [];
+  if (hqCustomerIds.length > 0) {
+    const idsPlaceholders = hqCustomerIds.map((_, i) => `$${i + 3}`).join(',');
+    const mainCostCatList = await query(
+      `SELECT category, COALESCE(SUM(amount), 0)::numeric as total
+       FROM costs WHERE customer_id IN (${idsPlaceholders}) AND settlement_month BETWEEN $1 AND $2
+       GROUP BY category`,
+      [monthFrom, monthTo, ...hqCustomerIds]
+    );
+    const mainCatMap: Record<string, number> = {};
+    for (const r of mainCostCatList) mainCatMap[r.category] = Number(r.total);
+    // 본점 식재료비 = 본점 매입(=발주 grand_total) + costs.식재료비
+    mainCatMap[FOOD_CATEGORY] = (mainCatMap[FOOD_CATEGORY] || 0) + mainStorePurchase;
+    mainStoreCostByCategory = Object.entries(mainCatMap).map(([category, amount]) => ({
+      category,
+      amount,
+      ratio: mainStoreRevenue > 0 ? amount / mainStoreRevenue : 0,
+      purchase_part: category === FOOD_CATEGORY ? mainStorePurchase : 0,
+      cost_tab_part: category === FOOD_CATEGORY ? amount - mainStorePurchase : amount,
+    })).sort((a, b) => (orderMap[a.category] ?? 999) - (orderMap[b.category] ?? 999));
+  }
+
   // ===== Section 3: 합계 =====
   const totalRevenue = hqRevenue + mainStoreRevenue;
   const totalCost = hqCost + mainStoreCost;
@@ -230,6 +280,7 @@ export async function GET(request: NextRequest) {
         material_cost: hqMaterialCost,         // 발주재료원가
         other_cost: hqOtherCost,               // 본사 운영비 (인건비/임차료 등)
       },
+      cost_by_category: hqCostByCategory,
     },
     main_stores: {
       revenue: mainStoreRevenue,
@@ -238,6 +289,7 @@ export async function GET(request: NextRequest) {
       cost_purchase: mainStorePurchase,
       cost_other: mainStoreCost - mainStorePurchase,
       stores: mainStores,
+      cost_by_category: mainStoreCostByCategory,
     },
     total: {
       revenue: totalRevenue,
