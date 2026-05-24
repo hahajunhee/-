@@ -13,10 +13,11 @@ export async function PUT(
   const { id } = await params;
   const body = await request.json();
   const amount = Number(body.amount) || 0;
+  const customerId = body.customer_id ? Number(body.customer_id) : null;
   const data = await query(
     `UPDATE costs SET customer_id=$1, category=$2, settlement_month=$3, amount=$4, notes=$5
      WHERE id=$6 RETURNING *`,
-    [Number(body.customer_id), body.category, body.settlement_month, amount, body.notes || '', Number(id)]
+    [customerId, body.category, body.settlement_month, amount, body.notes || '', Number(id)]
   );
   if (data.length === 0) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 

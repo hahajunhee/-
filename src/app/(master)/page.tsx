@@ -1,227 +1,102 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  LineChart, Line, Legend,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts';
 import {
-  TrendingUp, AlertCircle, Receipt, Wallet, TrendingDown,
-  ArrowUp, ArrowDown, Minus, X, Calendar, Plus,
+  TrendingUp, TrendingDown, Wallet, Calendar, Crown, Building2, Sigma, Receipt,
 } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 import { formatKRW } from '@/lib/calculator';
-import { OPERATION_TYPES, OperationType } from '@/types';
 
-const OP_COLOR: Record<OperationType, string> = {
-  '본점': 'bg-purple-100 text-purple-700 border-purple-300',
-  '직영점': 'bg-blue-100 text-blue-700 border-blue-300',
-  '가맹점': 'bg-emerald-100 text-emerald-700 border-emerald-300',
-  '초도물품': 'bg-amber-100 text-amber-700 border-amber-300',
-};
-const OP_DOT: Record<OperationType, string> = {
-  '본점': 'bg-purple-500', '직영점': 'bg-blue-500', '가맹점': 'bg-emerald-500', '초도물품': 'bg-amber-500',
-};
-const CHART_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
-
-interface CustomerSummary {
-  customer_id: number; customer_name: string; operation_type: OperationType;
-  transaction_count: number; supply_total: number; grand_total: number;
-  unpaid_count: number; unpaid_total: number;
-  sales_vat: number; purchase_vat: number; net_vat: number;
-  total_margin: number; total_net_profit: number;
-  total_cost: number; cost_ratio: number; final_profit: number;
-}
-
-interface Benchmark {
-  count: number; grand_total: number; total_cost: number; cost_ratio: number;
-  final_profit: number; sales_vat: number; purchase_vat: number; net_vat: number;
-  unpaid_total: number;
-}
-
-interface MonthlyData {
-  month: string; grand_total: number; total_cost: number; final_profit: number; total_net_profit: number;
-}
-
-interface MonthMetric { grand_total: number; total_cost: number; final_profit: number; }
-type PerCustomerMonthly = Record<number, Record<string, MonthMetric>>;
-type BenchMonthly = Record<string, Record<string, MonthMetric>>;
-
-interface CustomerOpt { id: number; company_name: string; brand?: string; operation_type?: OperationType; }
-
-// 날짜 프리셋
 function getPreset(key: string) {
   const now = new Date();
   const y = now.getFullYear();
   const m = now.getMonth();
   const fmt = (d: Date) => d.toISOString().split('T')[0];
   switch (key) {
-    case '이번달':
-      return { from: fmt(new Date(y, m, 1)), to: fmt(new Date(y, m + 1, 0)) };
-    case '이번분기': {
-      const qStart = Math.floor(m / 3) * 3;
-      return { from: fmt(new Date(y, qStart, 1)), to: fmt(new Date(y, qStart + 3, 0)) };
-    }
-    case '올해':
-      return { from: `${y}-01-01`, to: `${y}-12-31` };
-    case '작년':
-      return { from: `${y - 1}-01-01`, to: `${y - 1}-12-31` };
-    case '최근3개월':
-      return { from: fmt(new Date(y, m - 2, 1)), to: fmt(new Date(y, m + 1, 0)) };
-    case '최근6개월':
-      return { from: fmt(new Date(y, m - 5, 1)), to: fmt(new Date(y, m + 1, 0)) };
-    default:
-      return { from: `${y}-01-01`, to: `${y}-12-31` };
+    case '이번달': return { from: fmt(new Date(y, m, 1)), to: fmt(new Date(y, m + 1, 0)) };
+    case '이번분기': { const qStart = Math.floor(m / 3) * 3;
+      return { from: fmt(new Date(y, qStart, 1)), to: fmt(new Date(y, qStart + 3, 0)) }; }
+    case '최근3개월': return { from: fmt(new Date(y, m - 2, 1)), to: fmt(new Date(y, m + 1, 0)) };
+    case '최근6개월': return { from: fmt(new Date(y, m - 5, 1)), to: fmt(new Date(y, m + 1, 0)) };
+    case '올해': return { from: `${y}-01-01`, to: `${y}-12-31` };
+    case '작년': return { from: `${y - 1}-01-01`, to: `${y - 1}-12-31` };
+    default: return { from: `${y}-01-01`, to: `${y}-12-31` };
   }
 }
 
-export default function DashboardPage() {
+interface HqStats {
+  period: { date_from: string; date_to: string };
+  hq: {
+    revenue: number; cost: number; profit: number;
+    breakdown: {
+      order_revenue: number; royalty_revenue: number; manual_revenue: number;
+      material_cost: number; other_cost: number;
+    };
+  };
+  main_stores: {
+    revenue: number; cost: number; profit: number;
+    cost_purchase: number; cost_other: number;
+    stores: { id: number; name: string; brand: string; revenue: number; cost: number; profit: number; cost_purchase: number; cost_other: number }[];
+  };
+  total: { revenue: number; cost: number; profit: number };
+  monthly: {
+    month: string;
+    hq_revenue: number; hq_cost: number; hq_profit: number;
+    main_revenue: number; main_cost: number; main_profit: number;
+    total_revenue: number; total_cost: number; total_profit: number;
+  }[];
+  is_manager: boolean;
+}
+
+export default function HqStatsPage() {
   const router = useRouter();
   const [userRole, setUserRole] = useState<string>('master');
   useEffect(() => {
-    fetch('/api/auth').then((r) => r.json()).then((data) => {
-      if (data?.user?.role) setUserRole(data.user.role);
+    fetch('/api/auth').then(r => r.json()).then(d => {
+      if (d?.user?.role) setUserRole(d.user.role);
     }).catch(() => {});
   }, [router]);
-  const isManager = userRole === 'manager';
 
   const initial = getPreset('올해');
   const [dateFrom, setDateFrom] = useState(initial.from);
   const [dateTo, setDateTo] = useState(initial.to);
-  const [opFilter, setOpFilter] = useState<'' | OperationType>('');
-  const [brandFilter, setBrandFilter] = useState<string>('');  // 빈 문자열 = 전체 브랜드
-  const [selectedCustIds, setSelectedCustIds] = useState<number[]>([]);
-
-  const [monthly, setMonthly] = useState<MonthlyData[]>([]);
-  const [monthlyPerCust, setMonthlyPerCust] = useState<PerCustomerMonthly>({});
-  const [monthlyBench, setMonthlyBench] = useState<BenchMonthly>({});
-  const [customers, setCustomers] = useState<CustomerSummary[]>([]);
-  const [benchmarks, setBenchmarks] = useState<Record<string, Benchmark>>({});
-  const [customerOpts, setCustomerOpts] = useState<CustomerOpt[]>([]);
-  const [grandSum, setGrandSum] = useState({ grand_total: 0, total_cost: 0, final_profit: 0 });
-  const [vatSum, setVatSum] = useState({ sales_vat: 0, purchase_vat: 0, net_vat: 0 });
+  const [stats, setStats] = useState<HqStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [chartMetric, setChartMetric] = useState<'final_profit' | 'grand_total' | 'total_cost'>('final_profit');
-  const [showBenchLines, setShowBenchLines] = useState<{ 본점: boolean; 직영점: boolean; 가맹점: boolean; 전체: boolean }>({
-    본점: false, 직영점: false, 가맹점: true, 전체: false,
-  });
 
-  const fetchDashboard = useCallback(async () => {
+  const fetchStats = useCallback(async () => {
     setRefreshing(true);
-    const params = new URLSearchParams();
-    params.set('date_from', dateFrom);
-    params.set('date_to', dateTo);
-    if (opFilter) params.set('operation_type', opFilter);
-    if (brandFilter) params.set('brand', brandFilter);
-    if (selectedCustIds.length > 0) params.set('customer_ids', selectedCustIds.join(','));
-
-    const [dashRes, custRes] = await Promise.all([
-      fetch(`/api/dashboard?${params}`),
-      fetch('/api/customers'),
-    ]);
-    const dash = await dashRes.json();
-    setMonthly(dash.monthly || []);
-    setMonthlyPerCust(dash.monthly_per_customer || {});
-    setMonthlyBench(dash.monthly_benchmarks || {});
-    setCustomers(dash.customers || []);
-    setBenchmarks(dash.benchmarks || {});
-    setGrandSum(dash.grand_summary || { grand_total: 0, total_cost: 0, final_profit: 0 });
-    setVatSum(dash.vat_summary || { sales_vat: 0, purchase_vat: 0, net_vat: 0 });
-    setCustomerOpts(await custRes.json());
+    try {
+      const res = await fetch(`/api/hq-stats?date_from=${dateFrom}&date_to=${dateTo}`);
+      if (res.ok) setStats(await res.json());
+    } catch {}
     setLoading(false);
     setRefreshing(false);
-  }, [dateFrom, dateTo, opFilter, brandFilter, selectedCustIds]);
+  }, [dateFrom, dateTo]);
 
-  useEffect(() => { fetchDashboard(); }, [fetchDashboard]);
-
-  // 비교 분석에 사용할 거래처 (선택된 것이 있으면 그 거래처, 없으면 운영구분 필터 결과)
-  const compareCustomers = useMemo(() => {
-    if (selectedCustIds.length > 0) {
-      return customers.filter(c => selectedCustIds.includes(c.customer_id));
-    }
-    return [];
-  }, [customers, selectedCustIds]);
-
-  const filteredCustomerOpts = opFilter
-    ? customerOpts.filter(c => (c.operation_type || '가맹점') === opFilter)
-    : customerOpts;
-
-  const toggleCustomer = (id: number) => {
-    setSelectedCustIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
-  };
+  useEffect(() => { fetchStats(); }, [fetchStats]);
 
   const applyPreset = (key: string) => {
-    const p = getPreset(key);
-    setDateFrom(p.from); setDateTo(p.to);
+    const p = getPreset(key); setDateFrom(p.from); setDateTo(p.to);
   };
 
-  // 월별 차트 (전체 막대형)
-  const monthlyChart = monthly.map(m => ({
+  const monthlyChart = stats?.monthly.map(m => ({
     name: m.month.substring(5) + '월',
-    매출: m.grand_total,
-    비용: m.total_cost,
-    순익: m.final_profit,
-  }));
+    '본사 매출': m.hq_revenue,
+    '본사 비용': m.hq_cost,
+    '본점 매출': m.main_revenue,
+    '본점 비용': m.main_cost,
+    '총 순익': m.total_profit,
+  })) || [];
 
-  // 거래처별 + 운영구분 평균 비교 라인 차트 데이터
-  const metricLabel: Record<typeof chartMetric, string> = {
-    final_profit: '최종 순익',
-    grand_total: '매출',
-    total_cost: '비용',
-  };
-  const compareLineChart = monthly.map(m => {
-    const point: Record<string, number | string> = { name: m.month.substring(5) + '월' };
-    // 선택된 거래처별
-    for (const cid of selectedCustIds) {
-      const c = customerOpts.find(x => x.id === cid);
-      if (!c) continue;
-      const data = monthlyPerCust[cid]?.[m.month];
-      point[c.company_name] = data ? data[chartMetric] : 0;
-    }
-    // 운영구분 평균 (체크된 것만)
-    (['본점','직영점','가맹점','전체'] as const).forEach(op => {
-      if (showBenchLines[op]) {
-        const data = monthlyBench[op]?.[m.month];
-        point[`${op}평균`] = data ? data[chartMetric] : 0;
-      }
-    });
-    return point;
-  });
+  if (loading) return <div className="p-8 text-center text-gray-400">불러오는 중...</div>;
+  if (!stats) return <div className="p-8 text-center text-red-500">데이터를 불러올 수 없습니다</div>;
 
-  // 거래처별 시리즈 키 + 색
-  const customerSeries = selectedCustIds.map((cid, idx) => {
-    const c = customerOpts.find(x => x.id === cid);
-    return c ? { key: c.company_name, color: CHART_COLORS[idx % CHART_COLORS.length] } : null;
-  }).filter(Boolean) as { key: string; color: string }[];
-  const benchSeries: { key: string; color: string }[] = [];
-  if (showBenchLines.본점) benchSeries.push({ key: '본점평균', color: '#a855f7' });
-  if (showBenchLines.직영점) benchSeries.push({ key: '직영점평균', color: '#3b82f6' });
-  if (showBenchLines.가맹점) benchSeries.push({ key: '가맹점평균', color: '#10b981' });
-  if (showBenchLines.전체) benchSeries.push({ key: '전체평균', color: '#6b7280' });
-
-  // 평균 대비 비교 헬퍼
-  const diffPct = (val: number, avg: number) => {
-    if (avg === 0) return null;
-    return ((val - avg) / avg) * 100;
-  };
-  const DiffBadge = ({ val, avg, inverse = false }: { val: number; avg: number; inverse?: boolean }) => {
-    const pct = diffPct(val, avg);
-    if (pct === null || Math.abs(pct) < 0.1) {
-      return <span className="inline-flex items-center text-[10px] text-gray-400 gap-0.5"><Minus size={10}/>0%</span>;
-    }
-    const isGood = inverse ? pct < 0 : pct > 0;
-    const color = Math.abs(pct) < 5 ? 'text-gray-500' : isGood ? 'text-emerald-600' : 'text-red-600';
-    return (
-      <span className={`inline-flex items-center text-[10px] font-medium gap-0.5 ${color}`}>
-        {pct > 0 ? <ArrowUp size={10}/> : <ArrowDown size={10}/>}
-        {Math.abs(pct).toFixed(1)}%
-      </span>
-    );
-  };
-
-  if (loading) return <div className="p-8 text-center text-gray-400">대시보드를 불러오는 중...</div>;
+  const isManager = userRole === 'manager';
 
   return (
     <>
@@ -240,9 +115,8 @@ export default function DashboardPage() {
         }
       />
 
-      {/* 필터 바 */}
-      <div className="card mb-4 space-y-3">
-        {/* 기간 */}
+      {/* 기간 필터 */}
+      <div className="card mb-6">
         <div className="flex flex-wrap items-center gap-2">
           <Calendar size={16} className="text-gray-500" />
           <span className="text-sm font-semibold text-gray-700">기간:</span>
@@ -254,446 +128,189 @@ export default function DashboardPage() {
           <div className="flex gap-1 ml-2">
             {['이번달','이번분기','최근3개월','최근6개월','올해','작년'].map(k => (
               <button key={k} onClick={() => applyPreset(k)}
-                className="text-xs px-2 py-1 rounded border border-gray-200 hover:bg-gray-50">
-                {k}
-              </button>
+                className="text-xs px-2 py-1 rounded border border-gray-200 hover:bg-gray-50">{k}</button>
             ))}
           </div>
         </div>
-
-        {/* 브랜드 */}
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm font-semibold text-gray-700">브랜드:</span>
-          {(() => {
-            const allBrands = Array.from(new Set(customerOpts.map(c => c.brand || ''))).sort();
-            return (
-              <>
-                <button onClick={() => setBrandFilter('')}
-                  className={`px-3 py-1 rounded text-xs font-medium border-2 transition ${
-                    !brandFilter ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-600 border-gray-200'
-                  }`}>전체</button>
-                {allBrands.map(b => (
-                  <button key={b || '__none__'} onClick={() => setBrandFilter(b)}
-                    className={`px-3 py-1 rounded text-xs font-medium border-2 transition ${
-                      brandFilter === b ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-600 border-gray-200'
-                    }`}>{b || '(미지정)'}</button>
-                ))}
-              </>
-            );
-          })()}
-        </div>
-
-        {/* 운영구분 */}
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm font-semibold text-gray-700">운영구분:</span>
-          <button onClick={() => setOpFilter('')}
-            className={`px-3 py-1 rounded text-xs font-medium border-2 transition ${
-              !opFilter ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-gray-600 border-gray-200'
-            }`}>전체</button>
-          {OPERATION_TYPES.filter(op => !(isManager && op === '본점')).map(op => (
-            <button key={op} onClick={() => setOpFilter(op)}
-              className={`px-3 py-1 rounded text-xs font-medium border-2 transition ${
-                opFilter === op
-                  ? op === '본점' ? 'bg-purple-600 text-white border-purple-600'
-                    : op === '직영점' ? 'bg-blue-600 text-white border-blue-600'
-                    : 'bg-emerald-600 text-white border-emerald-600'
-                  : 'bg-white text-gray-600 border-gray-200'
-              }`}>{op}</button>
-          ))}
-        </div>
-
-        {/* 거래처 다중 선택 */}
-        <div className="flex flex-wrap items-start gap-2">
-          <span className="text-sm font-semibold text-gray-700 pt-1.5">비교 거래처:</span>
-          <div className="flex-1 min-w-[300px]">
-            <select className="form-select text-sm" value=""
-              onChange={(e) => {
-                const id = Number(e.target.value);
-                if (id && !selectedCustIds.includes(id)) toggleCustomer(id);
-              }}>
-              <option value="">거래처 추가 (여러 개 선택 가능)</option>
-              {filteredCustomerOpts
-                .filter(c => !selectedCustIds.includes(c.id))
-                .map(c => (
-                  <option key={c.id} value={c.id}>
-                    {c.company_name} ({c.operation_type || '가맹점'})
-                  </option>
-                ))}
-            </select>
-            {selectedCustIds.length > 0 && (
-              <div className="flex flex-wrap gap-1 mt-2">
-                {selectedCustIds.map(id => {
-                  const c = customerOpts.find(x => x.id === id);
-                  if (!c) return null;
-                  const op = (c.operation_type || '가맹점') as OperationType;
-                  return (
-                    <span key={id} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs ${OP_COLOR[op]}`}>
-                      <span className={`w-2 h-2 rounded-full ${OP_DOT[op]}`}></span>
-                      {c.company_name}
-                      <button onClick={() => toggleCustomer(id)} className="ml-1 hover:bg-white/50 rounded-full">
-                        <X size={12} />
-                      </button>
-                    </span>
-                  );
-                })}
-                <button onClick={() => setSelectedCustIds([])}
-                  className="text-xs text-gray-500 px-2 hover:underline">전체 해제</button>
-              </div>
-            )}
-          </div>
-        </div>
       </div>
 
-      {/* 요약 카드 */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-        <div className="card flex items-center gap-3">
-          <div className="p-3 bg-blue-100 rounded-lg"><TrendingUp size={22} className="text-blue-600" /></div>
-          <div>
-            <p className="text-xs text-gray-500">총 매출</p>
-            <p className="text-lg font-bold">{formatKRW(grandSum.grand_total)}원</p>
+      {/* Section 1: 본사 */}
+      <div className="mb-6">
+        <h2 className="flex items-center gap-2 text-lg font-bold text-gray-800 mb-3">
+          <Crown size={18} className="text-amber-600" /> 1. 본사 (SOYANG F&C)
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
+          <div className="card border-2 border-blue-200 bg-blue-50">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-semibold text-blue-700">매출</span>
+              <TrendingUp size={18} className="text-blue-600" />
+            </div>
+            <p className="text-2xl font-bold text-blue-700">{formatKRW(stats.hq.revenue)}원</p>
+            <div className="mt-3 space-y-1 text-xs text-gray-600">
+              <div className="flex justify-between"><span>· 발주 매출</span><span className="font-medium">{formatKRW(stats.hq.breakdown.order_revenue)}</span></div>
+              <div className="flex justify-between"><span>· 로열티 매출 (자동)</span><span className="font-medium text-amber-700">{formatKRW(stats.hq.breakdown.royalty_revenue)}</span></div>
+              <div className="flex justify-between"><span>· 본사 기타 매출 (수기)</span><span className="font-medium">{formatKRW(stats.hq.breakdown.manual_revenue)}</span></div>
+            </div>
           </div>
-        </div>
-        <div className="card flex items-center gap-3">
-          <div className="p-3 bg-amber-100 rounded-lg"><Wallet size={22} className="text-amber-600" /></div>
-          <div>
-            <p className="text-xs text-gray-500">총 비용</p>
-            <p className="text-lg font-bold text-amber-700">{formatKRW(grandSum.total_cost)}원</p>
+          <div className="card border-2 border-amber-200 bg-amber-50">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-semibold text-amber-700">비용</span>
+              <Wallet size={18} className="text-amber-600" />
+            </div>
+            <p className="text-2xl font-bold text-amber-700">{formatKRW(stats.hq.cost)}원</p>
+            <div className="mt-3 space-y-1 text-xs text-gray-600">
+              <div className="flex justify-between"><span>· 발주 재료원가</span><span className="font-medium">{formatKRW(stats.hq.breakdown.material_cost)}</span></div>
+              <div className="flex justify-between"><span>· 본사 운영비 (인건비/임차료 등)</span><span className="font-medium">{formatKRW(stats.hq.breakdown.other_cost)}</span></div>
+            </div>
           </div>
-        </div>
-        <div className={`card flex items-center gap-3 ${grandSum.final_profit < 0 ? 'border-red-300 bg-red-50' : ''}`}>
-          <div className={`p-3 rounded-lg ${grandSum.final_profit < 0 ? 'bg-red-100' : 'bg-emerald-100'}`}>
-            {grandSum.final_profit < 0 ? <TrendingDown size={22} className="text-red-600" /> : <TrendingUp size={22} className="text-emerald-600" />}
-          </div>
-          <div>
-            <p className="text-xs text-gray-500">최종 순익</p>
-            <p className={`text-lg font-bold ${grandSum.final_profit < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
-              {formatKRW(grandSum.final_profit)}원
+          <div className={`card border-2 ${stats.hq.profit < 0 ? 'border-red-200 bg-red-50' : 'border-emerald-200 bg-emerald-50'}`}>
+            <div className="flex items-center justify-between mb-2">
+              <span className={`text-sm font-semibold ${stats.hq.profit < 0 ? 'text-red-700' : 'text-emerald-700'}`}>손익</span>
+              {stats.hq.profit < 0 ? <TrendingDown size={18} className="text-red-600" /> : <TrendingUp size={18} className="text-emerald-600" />}
+            </div>
+            <p className={`text-2xl font-bold ${stats.hq.profit < 0 ? 'text-red-700' : 'text-emerald-700'}`}>
+              {formatKRW(stats.hq.profit)}원
             </p>
-            <p className="text-[10px] text-gray-400">매출 − 비용</p>
-          </div>
-        </div>
-        <div className="card flex items-center gap-3">
-          <div className="p-3 bg-red-100 rounded-lg"><AlertCircle size={22} className="text-red-500" /></div>
-          <div>
-            <p className="text-xs text-gray-500">미입금</p>
-            <p className="text-lg font-bold text-red-500">{formatKRW(customers.reduce((s,c)=>s+c.unpaid_total,0))}원</p>
-          </div>
-        </div>
-        <div className="card flex items-center gap-3">
-          <div className="p-3 bg-amber-100 rounded-lg"><Receipt size={22} className="text-amber-600" /></div>
-          <div>
-            <p className="text-xs text-gray-500">납부예정 부가세</p>
-            <p className="text-lg font-bold text-amber-600">{formatKRW(vatSum.net_vat)}원</p>
+            <p className="text-[10px] text-gray-400 mt-1">매출 − 비용</p>
+            <p className="text-xs text-gray-500 mt-3">
+              원가율 {stats.hq.revenue > 0 ? ((stats.hq.cost / stats.hq.revenue) * 100).toFixed(1) : '0'}%
+            </p>
           </div>
         </div>
       </div>
 
-      {/* 벤치마크 카드 */}
-      <div className="card mb-6">
-        <h3 className="font-semibold text-sm mb-3 text-gray-700">📊 기간 내 평균 지표 (벤치마크)</h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {(['본점','직영점','가맹점','전체'] as const).filter(op => !(isManager && op === '본점')).map(op => {
-            const b = benchmarks[op];
-            if (!b) return null;
-            const colors = op === '본점' ? 'bg-purple-50 border-purple-200'
-              : op === '직영점' ? 'bg-blue-50 border-blue-200'
-              : op === '가맹점' ? 'bg-emerald-50 border-emerald-200'
-              : 'bg-gray-50 border-gray-200';
-            return (
-              <div key={op} className={`p-3 rounded-lg border-2 ${colors}`}>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm font-bold">{op} 평균</span>
-                  <span className="text-[10px] text-gray-500">({b.count}개 거래처)</span>
-                </div>
-                <div className="grid grid-cols-2 gap-1 text-[11px]">
-                  <div><span className="text-gray-500">매출:</span> <span className="font-medium">{formatKRW(b.grand_total)}</span></div>
-                  <div><span className="text-gray-500">비용:</span> <span className="font-medium text-amber-700">{formatKRW(b.total_cost)}</span></div>
-                  <div><span className="text-gray-500">원가율:</span> <span className="font-medium">{(b.cost_ratio*100).toFixed(1)}%</span></div>
-                  <div><span className="text-gray-500">순익:</span> <span className={`font-medium ${b.final_profit<0?'text-red-600':'text-emerald-600'}`}>{formatKRW(b.final_profit)}</span></div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* 비교 분석 (거래처 선택 시) */}
-      {compareCustomers.length > 0 && (
-        <div className="card p-0 overflow-hidden mb-6 border-2 border-blue-400">
-          <div className="px-4 py-3 border-b bg-blue-50 font-semibold text-sm flex items-center gap-2">
-            <Plus size={16} className="text-blue-600" />
-            거래처 비교 분석 ({compareCustomers.length}개 거래처 vs 벤치마크 평균)
+      {/* Section 2: 본점들 */}
+      <div className="mb-6">
+        <h2 className="flex items-center gap-2 text-lg font-bold text-gray-800 mb-3">
+          <Building2 size={18} className="text-purple-600" /> 2. 본점 ({stats.main_stores.stores.length}개)
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
+          <div className="card border-2 border-blue-200 bg-blue-50">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-semibold text-blue-700">매출</span>
+              <TrendingUp size={18} className="text-blue-600" />
+            </div>
+            <p className="text-2xl font-bold text-blue-700">{formatKRW(stats.main_stores.revenue)}원</p>
+            <p className="text-xs text-gray-500 mt-2">매출 탭에서 본점들에 기입된 매출 합계</p>
           </div>
-          <div className="overflow-x-auto">
+          <div className="card border-2 border-amber-200 bg-amber-50">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-semibold text-amber-700">비용</span>
+              <Wallet size={18} className="text-amber-600" />
+            </div>
+            <p className="text-2xl font-bold text-amber-700">{formatKRW(stats.main_stores.cost)}원</p>
+            <div className="mt-3 space-y-1 text-xs text-gray-600">
+              <div className="flex justify-between"><span>· 본사로부터 매입 (발주)</span><span className="font-medium">{formatKRW(stats.main_stores.cost_purchase)}</span></div>
+              <div className="flex justify-between"><span>· 기타 운영비 (비용 탭)</span><span className="font-medium">{formatKRW(stats.main_stores.cost_other)}</span></div>
+            </div>
+          </div>
+          <div className={`card border-2 ${stats.main_stores.profit < 0 ? 'border-red-200 bg-red-50' : 'border-emerald-200 bg-emerald-50'}`}>
+            <div className="flex items-center justify-between mb-2">
+              <span className={`text-sm font-semibold ${stats.main_stores.profit < 0 ? 'text-red-700' : 'text-emerald-700'}`}>손익</span>
+              {stats.main_stores.profit < 0 ? <TrendingDown size={18} className="text-red-600" /> : <TrendingUp size={18} className="text-emerald-600" />}
+            </div>
+            <p className={`text-2xl font-bold ${stats.main_stores.profit < 0 ? 'text-red-700' : 'text-emerald-700'}`}>
+              {formatKRW(stats.main_stores.profit)}원
+            </p>
+            <p className="text-[10px] text-gray-400 mt-1">매출 − 비용</p>
+          </div>
+        </div>
+
+        {/* 본점별 상세 */}
+        {stats.main_stores.stores.length > 0 && (
+          <div className="card p-0 overflow-hidden">
+            <div className="px-4 py-3 border-b bg-slate-50 font-semibold text-sm">본점별 손익</div>
             <table className="data-table">
               <thead>
                 <tr>
-                  <th className="text-left sticky left-0 bg-white z-10">지표</th>
-                  {compareCustomers.map(c => (
-                    <th key={c.customer_id} className="text-right min-w-[140px]">
-                      <div className="flex flex-col items-end gap-0.5">
-                        <span className="font-bold">{c.customer_name}</span>
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded ${OP_COLOR[c.operation_type]}`}>{c.operation_type}</span>
-                      </div>
-                    </th>
-                  ))}
-                  <th className="text-right min-w-[110px] bg-purple-50">본점평균</th>
-                  <th className="text-right min-w-[110px] bg-blue-50">직영점평균</th>
-                  <th className="text-right min-w-[110px] bg-emerald-50">가맹점평균</th>
-                  <th className="text-right min-w-[110px] bg-gray-50">전체평균</th>
+                  <th>본점명</th>
+                  <th>브랜드</th>
+                  <th className="text-right">매출</th>
+                  <th className="text-right">매입(발주)</th>
+                  <th className="text-right">기타비용</th>
+                  <th className="text-right">총 비용</th>
+                  <th className="text-right">손익</th>
                 </tr>
               </thead>
               <tbody>
-                {/* 매출 */}
-                <tr>
-                  <td className="font-bold sticky left-0 bg-white">매출</td>
-                  {compareCustomers.map(c => {
-                    const bench = benchmarks[c.operation_type];
-                    return (
-                      <td key={c.customer_id} className="text-right">
-                        <div className="font-bold">{formatKRW(c.grand_total)}</div>
-                        {bench && <DiffBadge val={c.grand_total} avg={bench.grand_total} />}
-                      </td>
-                    );
-                  })}
-                  <td className="text-right bg-purple-50 text-purple-700">{formatKRW(benchmarks.본점?.grand_total || 0)}</td>
-                  <td className="text-right bg-blue-50 text-blue-700">{formatKRW(benchmarks.직영점?.grand_total || 0)}</td>
-                  <td className="text-right bg-emerald-50 text-emerald-700">{formatKRW(benchmarks.가맹점?.grand_total || 0)}</td>
-                  <td className="text-right bg-gray-50">{formatKRW(benchmarks.전체?.grand_total || 0)}</td>
-                </tr>
-                {/* 비용 */}
-                <tr>
-                  <td className="font-bold sticky left-0 bg-white">비용</td>
-                  {compareCustomers.map(c => {
-                    const bench = benchmarks[c.operation_type];
-                    return (
-                      <td key={c.customer_id} className="text-right">
-                        <div className="font-bold text-amber-700">{formatKRW(c.total_cost)}</div>
-                        {bench && <DiffBadge val={c.total_cost} avg={bench.total_cost} inverse />}
-                      </td>
-                    );
-                  })}
-                  <td className="text-right bg-purple-50 text-amber-700">{formatKRW(benchmarks.본점?.total_cost || 0)}</td>
-                  <td className="text-right bg-blue-50 text-amber-700">{formatKRW(benchmarks.직영점?.total_cost || 0)}</td>
-                  <td className="text-right bg-emerald-50 text-amber-700">{formatKRW(benchmarks.가맹점?.total_cost || 0)}</td>
-                  <td className="text-right bg-gray-50 text-amber-700">{formatKRW(benchmarks.전체?.total_cost || 0)}</td>
-                </tr>
-                {/* 원가율 */}
-                <tr>
-                  <td className="font-bold sticky left-0 bg-white">원가율</td>
-                  {compareCustomers.map(c => {
-                    const bench = benchmarks[c.operation_type];
-                    return (
-                      <td key={c.customer_id} className="text-right">
-                        <div className={`font-bold ${c.cost_ratio > 0.7 ? 'text-red-600' : c.cost_ratio > 0.5 ? 'text-orange-500' : ''}`}>
-                          {(c.cost_ratio * 100).toFixed(1)}%
-                        </div>
-                        {bench && <DiffBadge val={c.cost_ratio} avg={bench.cost_ratio} inverse />}
-                      </td>
-                    );
-                  })}
-                  <td className="text-right bg-purple-50">{((benchmarks.본점?.cost_ratio || 0) * 100).toFixed(1)}%</td>
-                  <td className="text-right bg-blue-50">{((benchmarks.직영점?.cost_ratio || 0) * 100).toFixed(1)}%</td>
-                  <td className="text-right bg-emerald-50">{((benchmarks.가맹점?.cost_ratio || 0) * 100).toFixed(1)}%</td>
-                  <td className="text-right bg-gray-50">{((benchmarks.전체?.cost_ratio || 0) * 100).toFixed(1)}%</td>
-                </tr>
-                {/* 최종 순익 */}
-                <tr className="bg-yellow-50">
-                  <td className="font-bold sticky left-0 bg-yellow-50">최종 순익</td>
-                  {compareCustomers.map(c => {
-                    const bench = benchmarks[c.operation_type];
-                    return (
-                      <td key={c.customer_id} className="text-right">
-                        <div className={`font-bold text-base ${c.final_profit < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
-                          {formatKRW(c.final_profit)}
-                        </div>
-                        {bench && <DiffBadge val={c.final_profit} avg={bench.final_profit} />}
-                      </td>
-                    );
-                  })}
-                  <td className="text-right bg-purple-100">{formatKRW(benchmarks.본점?.final_profit || 0)}</td>
-                  <td className="text-right bg-blue-100">{formatKRW(benchmarks.직영점?.final_profit || 0)}</td>
-                  <td className="text-right bg-emerald-100">{formatKRW(benchmarks.가맹점?.final_profit || 0)}</td>
-                  <td className="text-right bg-gray-100">{formatKRW(benchmarks.전체?.final_profit || 0)}</td>
-                </tr>
-                {/* 미입금 */}
-                <tr>
-                  <td className="font-bold sticky left-0 bg-white">미입금</td>
-                  {compareCustomers.map(c => (
-                    <td key={c.customer_id} className="text-right">
-                      <div className="text-red-500 font-medium">{formatKRW(c.unpaid_total)}</div>
+                {stats.main_stores.stores.map(s => (
+                  <tr key={s.id}>
+                    <td className="font-medium">{s.name}</td>
+                    <td>
+                      {s.brand ? (
+                        <span className="inline-block px-2 py-0.5 text-xs rounded bg-indigo-100 text-indigo-700 font-medium">{s.brand}</span>
+                      ) : <span className="text-gray-300">-</span>}
                     </td>
-                  ))}
-                  <td className="text-right bg-purple-50 text-red-500">{formatKRW(benchmarks.본점?.unpaid_total || 0)}</td>
-                  <td className="text-right bg-blue-50 text-red-500">{formatKRW(benchmarks.직영점?.unpaid_total || 0)}</td>
-                  <td className="text-right bg-emerald-50 text-red-500">{formatKRW(benchmarks.가맹점?.unpaid_total || 0)}</td>
-                  <td className="text-right bg-gray-50 text-red-500">{formatKRW(benchmarks.전체?.unpaid_total || 0)}</td>
-                </tr>
-                {/* 매출VAT */}
-                <tr>
-                  <td className="font-bold sticky left-0 bg-white text-xs">매출VAT</td>
-                  {compareCustomers.map(c => (
-                    <td key={c.customer_id} className="text-right text-blue-600">{formatKRW(c.sales_vat)}</td>
-                  ))}
-                  <td className="text-right bg-purple-50 text-blue-600">{formatKRW(benchmarks.본점?.sales_vat || 0)}</td>
-                  <td className="text-right bg-blue-50 text-blue-600">{formatKRW(benchmarks.직영점?.sales_vat || 0)}</td>
-                  <td className="text-right bg-emerald-50 text-blue-600">{formatKRW(benchmarks.가맹점?.sales_vat || 0)}</td>
-                  <td className="text-right bg-gray-50 text-blue-600">{formatKRW(benchmarks.전체?.sales_vat || 0)}</td>
-                </tr>
-                {/* 납부VAT */}
-                <tr>
-                  <td className="font-bold sticky left-0 bg-white text-xs">납부VAT</td>
-                  {compareCustomers.map(c => (
-                    <td key={c.customer_id} className="text-right text-amber-600 font-medium">{formatKRW(c.net_vat)}</td>
-                  ))}
-                  <td className="text-right bg-purple-50 text-amber-600">{formatKRW(benchmarks.본점?.net_vat || 0)}</td>
-                  <td className="text-right bg-blue-50 text-amber-600">{formatKRW(benchmarks.직영점?.net_vat || 0)}</td>
-                  <td className="text-right bg-emerald-50 text-amber-600">{formatKRW(benchmarks.가맹점?.net_vat || 0)}</td>
-                  <td className="text-right bg-gray-50 text-amber-600">{formatKRW(benchmarks.전체?.net_vat || 0)}</td>
-                </tr>
+                    <td className="text-right text-blue-700">{formatKRW(s.revenue)}</td>
+                    <td className="text-right text-red-600">{formatKRW(s.cost_purchase)}</td>
+                    <td className="text-right text-amber-700">{formatKRW(s.cost_other)}</td>
+                    <td className="text-right font-medium">{formatKRW(s.cost)}</td>
+                    <td className={`text-right font-bold ${s.profit < 0 ? 'text-red-600' : 'text-emerald-600'}`}>{formatKRW(s.profit)}원</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
+          </div>
+        )}
+      </div>
+
+      {/* Section 3: 합계 */}
+      {!isManager && (
+        <div className="mb-6">
+          <h2 className="flex items-center gap-2 text-lg font-bold text-gray-800 mb-3">
+            <Sigma size={18} className="text-slate-700" /> 3. 본사 총합 (1 + 2)
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="card border-2 border-blue-300 bg-blue-100">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-semibold text-blue-800">총 매출</span>
+                <TrendingUp size={18} className="text-blue-700" />
+              </div>
+              <p className="text-3xl font-bold text-blue-800">{formatKRW(stats.total.revenue)}원</p>
+            </div>
+            <div className="card border-2 border-amber-300 bg-amber-100">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-semibold text-amber-800">총 비용</span>
+                <Wallet size={18} className="text-amber-700" />
+              </div>
+              <p className="text-3xl font-bold text-amber-800">{formatKRW(stats.total.cost)}원</p>
+            </div>
+            <div className={`card border-2 ${stats.total.profit < 0 ? 'border-red-300 bg-red-100' : 'border-emerald-300 bg-emerald-100'}`}>
+              <div className="flex items-center justify-between mb-2">
+                <span className={`text-sm font-semibold ${stats.total.profit < 0 ? 'text-red-800' : 'text-emerald-800'}`}>총 순익</span>
+                {stats.total.profit < 0 ? <TrendingDown size={18} className="text-red-700" /> : <TrendingUp size={18} className="text-emerald-700" />}
+              </div>
+              <p className={`text-3xl font-bold ${stats.total.profit < 0 ? 'text-red-800' : 'text-emerald-800'}`}>
+                {formatKRW(stats.total.profit)}원
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                원가율 {stats.total.revenue > 0 ? ((stats.total.cost / stats.total.revenue) * 100).toFixed(1) : '0'}%
+              </p>
+            </div>
           </div>
         </div>
       )}
 
-      {/* 차트 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <div className="card">
-          <h3 className="font-semibold mb-4">월별 매출 / 비용 / 순익</h3>
-          <div className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={monthlyChart}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" fontSize={12} />
-                <YAxis fontSize={12} tickFormatter={(v) => `${(v / 10000).toFixed(0)}만`} />
-                <Tooltip formatter={(v) => formatKRW(Number(v)) + '원'} />
-                <Legend />
-                <Bar dataKey="매출" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="비용" fill="#f59e0b" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="순익" fill="#10b981" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* 거래처 vs 평균 비교 라인 차트 */}
-        <div className="card">
-          <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-            <h3 className="font-semibold">월별 비교 ({metricLabel[chartMetric]})</h3>
-            <div className="flex items-center gap-1">
-              {(['final_profit','grand_total','total_cost'] as const).map(k => (
-                <button key={k}
-                  onClick={() => setChartMetric(k)}
-                  className={`text-xs px-2 py-1 rounded ${
-                    chartMetric === k ? 'bg-slate-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}>
-                  {metricLabel[k]}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 mb-2 text-xs">
-            <span className="text-gray-500">평균선:</span>
-            {(['본점','직영점','가맹점','전체'] as const).map(op => (
-              <label key={op} className="flex items-center gap-1 cursor-pointer">
-                <input type="checkbox" className="w-3.5 h-3.5"
-                  checked={showBenchLines[op]}
-                  onChange={(e) => setShowBenchLines(prev => ({ ...prev, [op]: e.target.checked }))} />
-                <span className={
-                  op === '본점' ? 'text-purple-600' :
-                  op === '직영점' ? 'text-blue-600' :
-                  op === '가맹점' ? 'text-emerald-600' : 'text-gray-600'
-                }>{op}평균</span>
-              </label>
-            ))}
-          </div>
-          <div className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={compareLineChart}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" fontSize={12} />
-                <YAxis fontSize={12} tickFormatter={(v) => `${(v / 10000).toFixed(0)}만`} />
-                <Tooltip formatter={(v) => formatKRW(Number(v)) + '원'} />
-                <Legend wrapperStyle={{ fontSize: '11px' }} />
-                {customerSeries.map(s => (
-                  <Line key={s.key} type="monotone" dataKey={s.key} stroke={s.color} strokeWidth={2.5} dot={{ r: 3 }} />
-                ))}
-                {benchSeries.map(s => (
-                  <Line key={s.key} type="monotone" dataKey={s.key} stroke={s.color} strokeWidth={1.5} strokeDasharray="5 4" dot={false} />
-                ))}
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-          {customerSeries.length === 0 && (
-            <p className="text-xs text-gray-400 mt-2 text-center">
-              상단에서 거래처를 선택하면 거래처별 라인이 표시됩니다
-            </p>
-          )}
-        </div>
-      </div>
-
-      {/* 거래처 전체 손익 표 */}
-      <div className="card p-0 overflow-hidden mb-6">
-        <div className="px-4 py-3 border-b bg-slate-50 font-semibold text-sm">
-          거래처별 손익 현황 {opFilter && `(${opFilter}만)`}
-        </div>
-        <div className="overflow-x-auto">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>거래처</th>
-                <th className="text-center">구분</th>
-                <th className="text-right">매출</th>
-                <th className="text-right">비용</th>
-                <th className="text-right">원가율</th>
-                <th className="text-right">최종 순익</th>
-                <th className="text-center">평균 대비</th>
-                <th className="w-20"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {customers.map((c) => {
-                const bench = benchmarks[c.operation_type];
-                return (
-                  <tr key={c.customer_id} className={selectedCustIds.includes(c.customer_id) ? 'bg-blue-50' : ''}>
-                    <td className="font-medium">{c.customer_name}</td>
-                    <td className="text-center">
-                      <span className={`inline-block px-2 py-0.5 text-xs rounded-full border ${OP_COLOR[c.operation_type]}`}>
-                        {c.operation_type}
-                      </span>
-                    </td>
-                    <td className="text-right font-medium">{formatKRW(c.grand_total)}</td>
-                    <td className="text-right text-amber-700">{formatKRW(c.total_cost)}</td>
-                    <td className="text-right">
-                      <span className={c.cost_ratio > 0.7 ? 'text-red-600 font-bold' : c.cost_ratio > 0.5 ? 'text-orange-500' : ''}>
-                        {(c.cost_ratio * 100).toFixed(1)}%
-                      </span>
-                    </td>
-                    <td className={`text-right font-bold ${c.final_profit < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
-                      {formatKRW(c.final_profit)}원
-                    </td>
-                    <td className="text-center">
-                      {bench && <DiffBadge val={c.final_profit} avg={bench.final_profit} />}
-                    </td>
-                    <td>
-                      <button onClick={() => toggleCustomer(c.customer_id)}
-                        className={`text-xs px-2 py-1 rounded ${
-                          selectedCustIds.includes(c.customer_id)
-                            ? 'bg-blue-600 text-white'
-                            : 'border border-gray-300 hover:bg-gray-100'
-                        }`}>
-                        {selectedCustIds.includes(c.customer_id) ? '비교 중' : '비교'}
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-              {customers.length === 0 && (
-                <tr><td colSpan={8} className="text-center py-6 text-gray-400">데이터 없음</td></tr>
-              )}
-            </tbody>
-          </table>
+      {/* 월별 차트 */}
+      <div className="card">
+        <h3 className="font-semibold mb-3 flex items-center gap-2">
+          <Receipt size={16} /> 월별 매출 / 비용 / 순익
+        </h3>
+        <div className="h-[360px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={monthlyChart}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" fontSize={12} />
+              <YAxis fontSize={12} tickFormatter={(v) => `${(v / 10000).toFixed(0)}만`} />
+              <Tooltip formatter={(v) => formatKRW(Number(v)) + '원'} />
+              <Legend wrapperStyle={{ fontSize: '11px' }} />
+              <Bar dataKey="본사 매출" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="본사 비용" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="본점 매출" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="본점 비용" fill="#ec4899" radius={[4, 4, 0, 0]} />
+              {!isManager && <Bar dataKey="총 순익" fill="#10b981" radius={[4, 4, 0, 0]} />}
+            </BarChart>
+          </ResponsiveContainer>
         </div>
       </div>
     </>

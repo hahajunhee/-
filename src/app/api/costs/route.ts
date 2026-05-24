@@ -16,11 +16,15 @@ export async function GET(request: NextRequest) {
 
   let q = `SELECT co.*, c.company_name as customer_name, c.brand as customer_brand, c.operation_type
            FROM costs co
-           JOIN customers c ON co.customer_id = c.id
+           LEFT JOIN customers c ON co.customer_id = c.id
            WHERE 1=1`;
   const params: unknown[] = [];
   if (month) { params.push(month); q += ` AND co.settlement_month = $${params.length}`; }
-  if (customerId) { params.push(Number(customerId)); q += ` AND co.customer_id = $${params.length}`; }
+  if (customerId === 'null') {
+    q += ` AND co.customer_id IS NULL`;
+  } else if (customerId) {
+    params.push(Number(customerId)); q += ` AND co.customer_id = $${params.length}`;
+  }
   if (operationType) { params.push(operationType); q += ` AND c.operation_type = $${params.length}`; }
   if (brand !== null) { params.push(brand); q += ` AND c.brand = $${params.length}`; }
   q += ' ORDER BY co.settlement_month DESC, co.id DESC';
@@ -35,14 +39,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
   const body = await request.json();
-  if (!body.customer_id || !body.category || !body.settlement_month) {
+  if (!body.category || !body.settlement_month) {
     return NextResponse.json({ error: '필수 항목을 입력하세요' }, { status: 400 });
   }
   const amount = Number(body.amount) || 0;
+  const customerId = body.customer_id ? Number(body.customer_id) : null;
   const data = await query(
     `INSERT INTO costs (customer_id, category, settlement_month, amount, notes)
      VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-    [Number(body.customer_id), body.category, body.settlement_month, amount, body.notes || '']
+    [customerId, body.category, body.settlement_month, amount, body.notes || '']
   );
   const created = data[0];
 

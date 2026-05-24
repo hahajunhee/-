@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { Plus, Trash2, Pencil, Save, X, Settings, ChevronDown } from 'lucide-react';
+import { Plus, Trash2, Pencil, Save, X, Settings, ChevronDown, Crown } from 'lucide-react';
 import toast from 'react-hot-toast';
 import PageHeader from '@/components/PageHeader';
 import Modal from '@/components/Modal';
@@ -121,7 +121,7 @@ export default function CostsPage() {
     setModalBrand(cust?.brand || '');
     setModalOp((cust?.operation_type as OperationType) || '');
     setForm({
-      customer_id: String(cost.customer_id),
+      customer_id: cost.customer_id == null ? '__hq__' : String(cost.customer_id),
       category: cost.category,
       settlement_month: cost.settlement_month,
       amount: Number(cost.amount),
@@ -137,10 +137,12 @@ export default function CostsPage() {
     }
     const url = editing ? `/api/costs/${editing.id}` : '/api/costs';
     const method = editing ? 'PUT' : 'POST';
+    // __hq__는 본사 비용 → customer_id null로 전송
+    const payload = { ...form, customer_id: form.customer_id === '__hq__' ? null : form.customer_id };
     const res = await fetch(url, {
       method,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form),
+      body: JSON.stringify(payload),
     });
     if (res.ok) {
       toast.success(editing ? '수정되었습니다' : '추가되었습니다');
@@ -331,14 +333,24 @@ export default function CostsPage() {
               </tr>
             </thead>
             <tbody>
-              {costs.map((c) => (
+              {costs.map((c) => {
+                const isHq = c.customer_id == null;
+                return (
                 <tr key={c.id}>
                   <td className="font-mono">{c.settlement_month}</td>
-                  <td className="font-medium">{c.customer_name}</td>
+                  <td className="font-medium">
+                    {isHq ? (
+                      <span className="inline-flex items-center gap-1 text-amber-700 font-bold">
+                        <Crown size={12} /> 본사 (SOYANG F&C)
+                      </span>
+                    ) : c.customer_name}
+                  </td>
                   <td className="text-center">
-                    <span className={`inline-block px-2 py-0.5 text-xs rounded-full ${OP_BADGE[(c.operation_type || '가맹점') as OperationType]}`}>
-                      {c.operation_type || '가맹점'}
-                    </span>
+                    {isHq ? <span className="text-gray-300">-</span> : (
+                      <span className={`inline-block px-2 py-0.5 text-xs rounded-full ${OP_BADGE[(c.operation_type || '가맹점') as OperationType]}`}>
+                        {c.operation_type || '가맹점'}
+                      </span>
+                    )}
                   </td>
                   <td>
                     <span className="inline-block px-2 py-0.5 text-xs rounded-full bg-amber-100 text-amber-700">
@@ -358,7 +370,8 @@ export default function CostsPage() {
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
               {costs.length === 0 && (
                 <tr><td colSpan={7} className="text-center py-8 text-gray-400">비용 내역이 없습니다</td></tr>
               )}
@@ -391,13 +404,14 @@ export default function CostsPage() {
             </div>
           </div>
 
-          {/* 3차: 거래처 (색상 배지 드롭다운) */}
+          {/* 3차: 거래처 (색상 배지 드롭다운) — '본사' 선택 시 본사 비용으로 처리 */}
           <div className="relative" ref={modalDropdownRef}>
-            <label className="form-label">3차: 거래처 * ({modalCustomerOpts.length}곳)</label>
+            <label className="form-label">3차: 거래처 ({modalCustomerOpts.length}곳)</label>
             <button type="button"
               onClick={() => setModalCustOpen(!modalCustOpen)}
               className="form-select flex items-center justify-between w-full text-left">
               {(() => {
+                if (form.customer_id === '__hq__') return <span className="flex items-center gap-1 text-amber-700 font-medium"><Crown size={12}/> 본사 (SOYANG F&C)</span>;
                 const sel = customers.find(c => String(c.id) === form.customer_id);
                 if (!sel) return <span className="text-gray-400">거래처를 선택하세요</span>;
                 const op = (sel.operation_type || '가맹점') as OperationType;
@@ -415,6 +429,11 @@ export default function CostsPage() {
             </button>
             {modalCustOpen && (
               <div className="absolute z-30 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-[260px] overflow-y-auto">
+                <button type="button"
+                  onClick={() => { setForm({ ...form, customer_id: '__hq__' }); setModalCustOpen(false); }}
+                  className="w-full text-left px-3 py-2 text-sm text-amber-700 hover:bg-amber-50 border-b flex items-center gap-1">
+                  <Crown size={12} /> 본사 (SOYANG F&C)
+                </button>
                 {modalCustomerOpts.length === 0 && (
                   <div className="px-3 py-4 text-sm text-gray-400 text-center">조건에 맞는 거래처가 없습니다</div>
                 )}

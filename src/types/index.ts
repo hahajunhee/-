@@ -56,7 +56,7 @@ export interface CostCategory {
 
 export interface Cost {
   id: number;
-  customer_id: number;
+  customer_id: number | null;        // NULL = 본사 비용
   customer_name?: string;
   customer_brand?: string;
   operation_type?: OperationType;
