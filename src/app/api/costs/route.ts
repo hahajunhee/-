@@ -38,10 +38,21 @@ export async function POST(request: NextRequest) {
   if (!body.customer_id || !body.category || !body.settlement_month) {
     return NextResponse.json({ error: '필수 항목을 입력하세요' }, { status: 400 });
   }
+  const amount = Number(body.amount) || 0;
   const data = await query(
     `INSERT INTO costs (customer_id, category, settlement_month, amount, notes)
      VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-    [Number(body.customer_id), body.category, body.settlement_month, Number(body.amount) || 0, body.notes || '']
+    [Number(body.customer_id), body.category, body.settlement_month, amount, body.notes || '']
   );
-  return NextResponse.json(data[0], { status: 201 });
+  const created = data[0];
+
+  // 로열티인 경우 본사 매출 자동 생성 (customer_id=NULL)
+  if (body.category === '로열티' && amount > 0) {
+    await query(
+      `INSERT INTO revenues (customer_id, category, settlement_month, amount, notes, source, related_cost_id)
+       VALUES (NULL, '로열티', $1, $2, $3, 'royalty_auto', $4)`,
+      [body.settlement_month, amount, `자동 생성 (비용 #${created.id})`, created.id]
+    );
+  }
+  return NextResponse.json(created, { status: 201 });
 }

@@ -249,77 +249,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // 로열티 계산: 가맹점이 본점에 지불하는 로열티(부가세 별도)
-  // - 가맹점.total_cost += royalty_amount × 1.1
-  // - 가맹점.royalty_paid = royalty_amount × 1.1
-  // - 같은 브랜드 본점.grand_total += royalty_amount (본점이 받는 매출)
-  // - 같은 브랜드 본점.sales_vat += royalty_amount × 0.1
-  // - 같은 브랜드 본점.royalty_received = royalty_amount
-  // 본점은 customers 배열에 없을 수도 있어 (필터에 의해) - 그래도 같은 브랜드의 본점을 찾아 처리
-  // 단, 매니저는 본점 통계 비공개라 본점 추가 X. 가맹점 비용은 그대로.
-  const allBrandMasters = await query(
-    `SELECT id, brand FROM customers WHERE operation_type = '본점'`
-  );
-  const brandMasterMap: Record<string, number> = {};
-  for (const m of allBrandMasters) brandMasterMap[m.brand || ''] = m.id;
-
-  // 기간 내 개월 수 (정기 로열티용)
-  const periodMonths = allMonths.length || 1;
-
-  for (const c of customers) {
-    if (c.operation_type !== '가맹점') continue;
-    // 로열티 금액 산출
-    let royaltyAmount = 0;
-    if (c.royalty_type === 'fixed_monthly' && c.royalty_amount > 0) {
-      royaltyAmount = Math.floor(c.royalty_amount * periodMonths);
-    } else if (c.royalty_rate > 0 && c.grand_total > 0) {
-      royaltyAmount = Math.floor(c.grand_total * c.royalty_rate / 100);
-    }
-    if (royaltyAmount > 0) {
-      const royaltyVat = Math.floor(royaltyAmount * 0.1);
-      const royaltyTotalWithVat = royaltyAmount + royaltyVat;
-
-      // 가맹점 비용에 가산 (부가세 포함)
-      c.total_cost += royaltyTotalWithVat;
-      c.royalty_paid = royaltyTotalWithVat;
-      c.final_profit = c.grand_total - c.total_cost;
-      c.cost_ratio = c.grand_total > 0 ? c.total_cost / c.grand_total : 0;
-
-      // 본점 매출에 가산 (같은 브랜드)
-      const masterId = brandMasterMap[c.brand || ''];
-      if (masterId && !isManager) {
-        let master = customers.find(x => x.customer_id === masterId);
-        if (!master) {
-          // 본점이 현재 결과에 없으면 추가
-          const m = await query('SELECT id, company_name, brand, operation_type, royalty_rate, royalty_type, royalty_amount FROM customers WHERE id = $1', [masterId]);
-          if (m.length > 0) {
-            master = {
-              customer_id: m[0].id,
-              customer_name: m[0].company_name,
-              brand: m[0].brand || '',
-              operation_type: m[0].operation_type,
-              royalty_rate: Number(m[0].royalty_rate) || 0,
-              royalty_type: 'percent' as 'percent' | 'fixed_monthly',
-              royalty_amount: 0,
-              transaction_count: 0, supply_total: 0, grand_total: 0, unpaid_count: 0, unpaid_total: 0,
-              sales_vat: 0, purchase_vat: 0, net_vat: 0, total_margin: 0, total_net_profit: 0,
-              total_cost: 0, cost_ratio: 0, final_profit: 0,
-              royalty_paid: 0, royalty_received: 0,
-            };
-            customers.push(master);
-          }
-        }
-        if (master) {
-          master.grand_total += royaltyAmount;
-          master.sales_vat += royaltyVat;
-          master.net_vat = master.sales_vat - master.purchase_vat;
-          master.royalty_received += royaltyAmount;
-          master.final_profit = master.grand_total - master.total_cost;
-          master.cost_ratio = master.grand_total > 0 ? master.total_cost / master.grand_total : 0;
-        }
-      }
-    }
-  }
+  // 로열티는 이제 비용/매출 탭으로 관리됨 (자동 계산 제거)
   customers.sort((a, b) => b.grand_total - a.grand_total);
 
   // 5) 벤치마크 (필터와 무관하게 기간 내 전체 거래처 평균)

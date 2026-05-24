@@ -40,8 +40,10 @@ const TAB_OPTIONS: { key: string; label: string }[] = [
   { key: 'transactions_new', label: '발주' },
   { key: 'transactions', label: '발주 내역' },
   { key: 'orders', label: '발주 관리' },
+  { key: 'revenues', label: '매출' },
   { key: 'costs', label: '비용' },
-  { key: 'dashboard', label: '통계' },
+  { key: 'dashboard', label: '통계 (본사)' },
+  { key: 'customer_stats', label: '통계 (거래처)' },
 ];
 
 export default function MembersPage() {

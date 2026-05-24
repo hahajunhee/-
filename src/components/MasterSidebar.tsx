@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, Package, Building2, FileText,
   PlusCircle, Users, ShoppingCart, LogOut, ChevronLeft, ChevronRight,
-  Wallet, Crown,
+  Wallet, Crown, TrendingUp, BarChart3,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -16,15 +16,17 @@ const navItems = [
   { key: 'transactions_new', href: '/transactions/new', label: '발주', icon: PlusCircle },
   { key: 'transactions', href: '/transactions', label: '발주 내역', icon: FileText },
   { key: 'orders', href: '/orders-manage', label: '발주 관리', icon: ShoppingCart },
+  { key: 'revenues', href: '/revenues', label: '매출', icon: TrendingUp },
   { key: 'costs', href: '/costs', label: '비용', icon: Wallet },
-  { key: 'dashboard', href: '/', label: '통계', icon: LayoutDashboard },
+  { key: 'dashboard', href: '/', label: '통계 (본사)', icon: LayoutDashboard },
+  { key: 'customer_stats', href: '/customer-stats', label: '통계 (거래처)', icon: BarChart3 },
   { key: 'members', href: '/members', label: '계정 관리', icon: Users },
 ];
 
 // 매니저는 회원관리/설정 영구 차단 (관리자 전용)
 const MANAGER_ONLY_HIDDEN = ['members', 'settings'];
-// 매니저 기본 노출 탭: 대시보드(직영점/가맹점만) + 거래처관리, 거래입력, 거래내역, 발주관리, 비용입력
-const MANAGER_DEFAULT_TABS = ['dashboard', 'customers', 'transactions_new', 'transactions', 'orders', 'costs'];
+// 매니저 기본 노출 탭
+const MANAGER_DEFAULT_TABS = ['dashboard', 'customer_stats', 'customers', 'transactions_new', 'transactions', 'orders', 'revenues', 'costs'];
 
 export default function MasterSidebar({
   userName,

@@ -67,6 +67,27 @@ export interface Cost {
   created_at?: string;
 }
 
+export interface RevenueCategory {
+  id: number;
+  name: string;
+  order_idx: number;
+}
+
+export interface Revenue {
+  id: number;
+  customer_id: number | null;       // NULL = 본사 매출
+  customer_name?: string;
+  customer_brand?: string;
+  operation_type?: OperationType;
+  category: string;
+  settlement_month: string;          // YYYY-MM
+  amount: number;
+  notes: string;
+  source: 'manual' | 'royalty_auto';  // 자동 생성된 본사 매출 식별용
+  related_cost_id?: number | null;
+  created_at?: string;
+}
+
 export interface TransactionItem {
   id?: number;
   transaction_id?: number;
