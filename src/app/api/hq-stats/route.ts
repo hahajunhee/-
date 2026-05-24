@@ -132,6 +132,60 @@ export async function GET(request: NextRequest) {
   }
   const mainStoreProfit = mainStoreRevenue - mainStoreCost;
 
+  // ===== Section 3: 직영점 + 가맹점 (기타 매장) =====
+  const otherStoreCustomerRows = await query(
+    `SELECT id, company_name, brand, operation_type FROM customers WHERE operation_type IN ('직영점', '가맹점')`
+  );
+  const otherStoreIds = otherStoreCustomerRows.map(r => r.id);
+
+  let otherRevenue = 0, otherCost = 0, otherPurchase = 0, otherCostOther = 0;
+  const otherStores: Array<{ id: number; name: string; brand: string; operation_type: string; revenue: number; cost: number; profit: number; cost_purchase: number; cost_other: number }> = [];
+
+  if (otherStoreIds.length > 0) {
+    const idsParams = otherStoreIds.map((_, i) => `$${i + 3}`).join(',');
+    const otRev = await query(
+      `SELECT customer_id, COALESCE(SUM(amount), 0)::numeric as total
+       FROM revenues WHERE customer_id IN (${idsParams}) AND settlement_month BETWEEN $1 AND $2
+       GROUP BY customer_id`,
+      [monthFrom, monthTo, ...otherStoreIds]
+    );
+    const otPur = await query(
+      `SELECT customer_id, COALESCE(SUM(grand_total), 0)::numeric as total
+       FROM transactions WHERE customer_id IN (${idsParams}) AND date BETWEEN $1 AND $2
+       GROUP BY customer_id`,
+      [dateFrom, dateTo, ...otherStoreIds]
+    );
+    const otCost = await query(
+      `SELECT customer_id, COALESCE(SUM(amount), 0)::numeric as total
+       FROM costs WHERE customer_id IN (${idsParams}) AND settlement_month BETWEEN $1 AND $2
+       GROUP BY customer_id`,
+      [monthFrom, monthTo, ...otherStoreIds]
+    );
+    const revM: Record<number, number> = {};
+    for (const r of otRev) revM[r.customer_id] = Number(r.total);
+    const purM: Record<number, number> = {};
+    for (const r of otPur) purM[r.customer_id] = Number(r.total);
+    const costM: Record<number, number> = {};
+    for (const r of otCost) costM[r.customer_id] = Number(r.total);
+
+    for (const c of otherStoreCustomerRows) {
+      const rev = revM[c.id] || 0;
+      const pur = purM[c.id] || 0;
+      const oth = costM[c.id] || 0;
+      const cost = pur + oth;
+      otherRevenue += rev;
+      otherCost += cost;
+      otherPurchase += pur;
+      otherCostOther += oth;
+      otherStores.push({
+        id: c.id, name: c.company_name, brand: c.brand || '', operation_type: c.operation_type,
+        revenue: rev, cost, profit: rev - cost,
+        cost_purchase: pur, cost_other: oth,
+      });
+    }
+  }
+  const otherProfit = otherRevenue - otherCost;
+
   // ===== 비용 카테고리별 breakdown =====
   // 식재료비는 발주재료원가(또는 매입) + 비용탭 식재료비
   const FOOD_CATEGORY = '식재료비';
@@ -182,10 +236,32 @@ export async function GET(request: NextRequest) {
     })).sort((a, b) => (orderMap[a.category] ?? 999) - (orderMap[b.category] ?? 999));
   }
 
-  // ===== Section 3: 합계 =====
-  const totalRevenue = hqRevenue + mainStoreRevenue;
-  const totalCost = hqCost + mainStoreCost;
-  const totalProfit = hqProfit + mainStoreProfit;
+  // 기타 매장 비용 카테고리별
+  let otherCostByCategory: { category: string; amount: number; ratio: number; purchase_part: number; cost_tab_part: number }[] = [];
+  if (otherStoreIds.length > 0) {
+    const idsPlaceholders = otherStoreIds.map((_, i) => `$${i + 3}`).join(',');
+    const otCostCatList = await query(
+      `SELECT category, COALESCE(SUM(amount), 0)::numeric as total
+       FROM costs WHERE customer_id IN (${idsPlaceholders}) AND settlement_month BETWEEN $1 AND $2
+       GROUP BY category`,
+      [monthFrom, monthTo, ...otherStoreIds]
+    );
+    const m: Record<string, number> = {};
+    for (const r of otCostCatList) m[r.category] = Number(r.total);
+    m[FOOD_CATEGORY] = (m[FOOD_CATEGORY] || 0) + otherPurchase;
+    otherCostByCategory = Object.entries(m).map(([category, amount]) => ({
+      category,
+      amount,
+      ratio: otherRevenue > 0 ? amount / otherRevenue : 0,
+      purchase_part: category === FOOD_CATEGORY ? otherPurchase : 0,
+      cost_tab_part: category === FOOD_CATEGORY ? amount - otherPurchase : amount,
+    })).sort((a, b) => (orderMap[a.category] ?? 999) - (orderMap[b.category] ?? 999));
+  }
+
+  // ===== Section 4: 전체 사업 총합 (본사 + 본점 + 직영점 + 가맹점) =====
+  const totalRevenue = hqRevenue + mainStoreRevenue + otherRevenue;
+  const totalCost = hqCost + mainStoreCost + otherCost;
+  const totalProfit = hqProfit + mainStoreProfit + otherProfit;
 
   // ===== 월별 (본사 + 본점 합산, 차트용) =====
   const allMonths: string[] = [];
@@ -241,6 +317,26 @@ export async function GET(request: NextRequest) {
     [dateFrom, dateTo, hqCustomerIds]
   ) : [];
 
+  // 기타 매장 월별
+  const monthlyOtherRev = otherStoreIds.length > 0 ? await query(
+    `SELECT settlement_month as month, COALESCE(SUM(amount), 0)::numeric as total
+     FROM revenues WHERE customer_id = ANY($3::int[]) AND settlement_month BETWEEN $1 AND $2
+     GROUP BY settlement_month`,
+    [monthFrom, monthTo, otherStoreIds]
+  ) : [];
+  const monthlyOtherCost = otherStoreIds.length > 0 ? await query(
+    `SELECT settlement_month as month, COALESCE(SUM(amount), 0)::numeric as total
+     FROM costs WHERE customer_id = ANY($3::int[]) AND settlement_month BETWEEN $1 AND $2
+     GROUP BY settlement_month`,
+    [monthFrom, monthTo, otherStoreIds]
+  ) : [];
+  const monthlyOtherPurchase = otherStoreIds.length > 0 ? await query(
+    `SELECT TO_CHAR(date, 'YYYY-MM') as month, COALESCE(SUM(grand_total), 0)::numeric as total
+     FROM transactions WHERE customer_id = ANY($3::int[]) AND date BETWEEN $1 AND $2
+     GROUP BY TO_CHAR(date, 'YYYY-MM')`,
+    [dateFrom, dateTo, otherStoreIds]
+  ) : [];
+
   const toMap = (rows: { month: string; total: string | number }[]) => {
     const m: Record<string, number> = {};
     for (const r of rows) m[r.month] = Number(r.total);
@@ -253,17 +349,25 @@ export async function GET(request: NextRequest) {
   const mHqCost = toMap(monthlyHqCost);
   const mMainCost = toMap(monthlyMainCost);
   const mMainPur = toMap(monthlyMainPurchase);
+  const mOtherRev = toMap(monthlyOtherRev);
+  const mOtherCost = toMap(monthlyOtherCost);
+  const mOtherPur = toMap(monthlyOtherPurchase);
 
   const monthly = allMonths.map(m => {
     const hqRev = (mTxn[m] || 0) + (mHqRev[m] || 0);
     const hqC = (mMat[m] || 0) + (mHqCost[m] || 0);
     const mainRev = mMainRev[m] || 0;
     const mainC = (mMainPur[m] || 0) + (mMainCost[m] || 0);
+    const otRev = mOtherRev[m] || 0;
+    const otC = (mOtherPur[m] || 0) + (mOtherCost[m] || 0);
+    const tRev = hqRev + mainRev + otRev;
+    const tC = hqC + mainC + otC;
     return {
       month: m,
       hq_revenue: hqRev, hq_cost: hqC, hq_profit: hqRev - hqC,
       main_revenue: mainRev, main_cost: mainC, main_profit: mainRev - mainC,
-      total_revenue: hqRev + mainRev, total_cost: hqC + mainC, total_profit: (hqRev + mainRev) - (hqC + mainC),
+      other_revenue: otRev, other_cost: otC, other_profit: otRev - otC,
+      total_revenue: tRev, total_cost: tC, total_profit: tRev - tC,
     };
   });
 
@@ -290,6 +394,15 @@ export async function GET(request: NextRequest) {
       cost_other: mainStoreCost - mainStorePurchase,
       stores: mainStores,
       cost_by_category: mainStoreCostByCategory,
+    },
+    other_stores: {
+      revenue: otherRevenue,
+      cost: otherCost,
+      profit: otherProfit,
+      cost_purchase: otherPurchase,
+      cost_other: otherCostOther,
+      stores: otherStores,
+      cost_by_category: otherCostByCategory,
     },
     total: {
       revenue: totalRevenue,

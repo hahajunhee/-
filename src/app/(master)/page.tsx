@@ -53,11 +53,18 @@ interface HqStats {
     stores: { id: number; name: string; brand: string; revenue: number; cost: number; profit: number; cost_purchase: number; cost_other: number }[];
     cost_by_category: CostCat[];
   };
+  other_stores: {
+    revenue: number; cost: number; profit: number;
+    cost_purchase: number; cost_other: number;
+    stores: { id: number; name: string; brand: string; operation_type: string; revenue: number; cost: number; profit: number; cost_purchase: number; cost_other: number }[];
+    cost_by_category: CostCat[];
+  };
   total: { revenue: number; cost: number; profit: number };
   monthly: {
     month: string;
     hq_revenue: number; hq_cost: number; hq_profit: number;
     main_revenue: number; main_cost: number; main_profit: number;
+    other_revenue: number; other_cost: number; other_profit: number;
     total_revenue: number; total_cost: number; total_profit: number;
   }[];
   is_manager: boolean;
@@ -101,6 +108,8 @@ export default function HqStatsPage() {
     '본사 비용': m.hq_cost,
     '본점 매출': m.main_revenue,
     '본점 비용': m.main_cost,
+    '직영/가맹 매출': m.other_revenue,
+    '직영/가맹 비용': m.other_cost,
     '총 순익': m.total_profit,
   })) || [];
 
@@ -345,11 +354,132 @@ export default function HqStatsPage() {
         )}
       </div>
 
-      {/* Section 3: 합계 */}
+      {/* Section 3: 직영점 + 가맹점 */}
+      <div className="mb-6">
+        <h2 className="flex items-center gap-2 text-lg font-bold text-gray-800 mb-3">
+          <Building2 size={18} className="text-blue-600" /> 3. 직영점 / 가맹점 ({stats.other_stores.stores.length}개)
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
+          <div className="card border-2 border-blue-200 bg-blue-50">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-semibold text-blue-700">매출</span>
+              <TrendingUp size={18} className="text-blue-600" />
+            </div>
+            <p className="text-2xl font-bold text-blue-700">{formatKRW(stats.other_stores.revenue)}원</p>
+            <p className="text-xs text-gray-500 mt-2">직영점/가맹점에 기입된 매출 합계</p>
+          </div>
+          <div className="card border-2 border-amber-200 bg-amber-50">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-semibold text-amber-700">비용</span>
+              <Wallet size={18} className="text-amber-600" />
+            </div>
+            <p className="text-2xl font-bold text-amber-700">{formatKRW(stats.other_stores.cost)}원</p>
+            <div className="mt-3 space-y-1 text-xs text-gray-600">
+              <div className="flex justify-between"><span>· 본사로부터 매입 (발주)</span><span className="font-medium">{formatKRW(stats.other_stores.cost_purchase)}</span></div>
+              <div className="flex justify-between"><span>· 기타 운영비 (비용 탭)</span><span className="font-medium">{formatKRW(stats.other_stores.cost_other)}</span></div>
+            </div>
+          </div>
+          <div className={`card border-2 ${stats.other_stores.profit < 0 ? 'border-red-200 bg-red-50' : 'border-emerald-200 bg-emerald-50'}`}>
+            <div className="flex items-center justify-between mb-2">
+              <span className={`text-sm font-semibold ${stats.other_stores.profit < 0 ? 'text-red-700' : 'text-emerald-700'}`}>손익</span>
+              {stats.other_stores.profit < 0 ? <TrendingDown size={18} className="text-red-600" /> : <TrendingUp size={18} className="text-emerald-600" />}
+            </div>
+            <p className={`text-2xl font-bold ${stats.other_stores.profit < 0 ? 'text-red-700' : 'text-emerald-700'}`}>
+              {formatKRW(stats.other_stores.profit)}원
+            </p>
+            <p className="text-[10px] text-gray-400 mt-1">매출 − 비용</p>
+          </div>
+        </div>
+
+        {stats.other_stores.stores.length > 0 && (
+          <div className="card p-0 overflow-hidden mb-3">
+            <div className="px-4 py-3 border-b bg-slate-50 font-semibold text-sm">직영점/가맹점별 손익</div>
+            <div className="overflow-x-auto">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>매장명</th>
+                    <th>브랜드</th>
+                    <th className="text-center">구분</th>
+                    <th className="text-right">매출</th>
+                    <th className="text-right">매입(발주)</th>
+                    <th className="text-right">기타비용</th>
+                    <th className="text-right">총 비용</th>
+                    <th className="text-right">손익</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {stats.other_stores.stores.map(s => (
+                    <tr key={s.id}>
+                      <td className="font-medium">{s.name}</td>
+                      <td>
+                        {s.brand ? (
+                          <span className="inline-block px-2 py-0.5 text-xs rounded bg-indigo-100 text-indigo-700 font-medium">{s.brand}</span>
+                        ) : <span className="text-gray-300">-</span>}
+                      </td>
+                      <td className="text-center">
+                        <span className={`inline-block px-2 py-0.5 text-xs rounded-full ${s.operation_type === '직영점' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                          {s.operation_type}
+                        </span>
+                      </td>
+                      <td className="text-right text-blue-700">{formatKRW(s.revenue)}</td>
+                      <td className="text-right text-red-600">{formatKRW(s.cost_purchase)}</td>
+                      <td className="text-right text-amber-700">{formatKRW(s.cost_other)}</td>
+                      <td className="text-right font-medium">{formatKRW(s.cost)}</td>
+                      <td className={`text-right font-bold ${s.profit < 0 ? 'text-red-600' : 'text-emerald-600'}`}>{formatKRW(s.profit)}원</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {stats.other_stores.cost_by_category.length > 0 && (
+          <div className="card p-0 overflow-hidden">
+            <div className="px-4 py-3 border-b bg-amber-50 font-semibold text-sm">
+              직영점/가맹점 비용 구분별 (매출 대비 비율)
+              <span className="text-xs text-gray-500 font-normal ml-2">* 식재료비 = 본사로부터 매입(발주) + 비용탭 직접 기입</span>
+            </div>
+            <table className="data-table">
+              <thead><tr><th>구분</th><th className="text-right">금액</th><th className="text-right">비율</th></tr></thead>
+              <tbody>
+                {stats.other_stores.cost_by_category.map(c => {
+                  const isFood = c.category === '식재료비';
+                  const ratioColor = c.ratio > 0.3 ? 'text-red-600 font-bold' : c.ratio > 0.15 ? 'text-orange-500' : 'text-gray-500';
+                  return (
+                    <tr key={c.category}>
+                      <td>
+                        <div>{c.category}</div>
+                        {isFood && c.amount > 0 && (
+                          <div className="text-[10px] text-gray-400 mt-0.5">
+                            발주매입 {formatKRW(c.purchase_part || 0)} + 직접 기입 {formatKRW(c.cost_tab_part)}
+                          </div>
+                        )}
+                      </td>
+                      <td className="text-right text-amber-700 font-medium align-top">{formatKRW(c.amount)}원</td>
+                      <td className={`text-right ${ratioColor} align-top`}>{(c.ratio * 100).toFixed(1)}%</td>
+                    </tr>
+                  );
+                })}
+                <tr className="bg-gray-50 font-semibold">
+                  <td>합계</td>
+                  <td className="text-right text-amber-800">{formatKRW(stats.other_stores.cost)}원</td>
+                  <td className="text-right text-gray-700">
+                    {stats.other_stores.revenue > 0 ? ((stats.other_stores.cost / stats.other_stores.revenue) * 100).toFixed(1) : '0'}%
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Section 4: 전체 사업 총합 */}
       {!isManager && (
         <div className="mb-6">
           <h2 className="flex items-center gap-2 text-lg font-bold text-gray-800 mb-3">
-            <Sigma size={18} className="text-slate-700" /> 3. 본사 총합 (1 + 2)
+            <Sigma size={18} className="text-slate-700" /> 4. 전체 사업 총합 (1 + 2 + 3)
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="card border-2 border-blue-300 bg-blue-100">
@@ -399,6 +529,8 @@ export default function HqStatsPage() {
               <Bar dataKey="본사 비용" fill="#f59e0b" radius={[4, 4, 0, 0]} />
               <Bar dataKey="본점 매출" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
               <Bar dataKey="본점 비용" fill="#ec4899" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="직영/가맹 매출" fill="#06b6d4" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="직영/가맹 비용" fill="#a855f7" radius={[4, 4, 0, 0]} />
               {!isManager && <Bar dataKey="총 순익" fill="#10b981" radius={[4, 4, 0, 0]} />}
             </BarChart>
           </ResponsiveContainer>
