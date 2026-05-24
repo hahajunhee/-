@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { Plus, Pencil, Trash2, Search, GripVertical } from 'lucide-react';
 import toast from 'react-hot-toast';
 import PageHeader from '@/components/PageHeader';
@@ -48,6 +48,8 @@ export default function ProductsPage() {
 
   const [brandOptions, setBrandOptions] = useState<string[]>([]);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+  const dragIdxRef = useRef<number | null>(null);   // 클로저 stale 방지
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
@@ -155,41 +157,67 @@ export default function ProductsPage() {
   };
 
   // 드래그 정렬
-  const handleDragStart = (idx: number) => setDragIdx(idx);
-  const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); };
-  const handleDrop = async (targetIdx: number) => {
-    if (dragIdx === null || dragIdx === targetIdx) { setDragIdx(null); return; }
-    // filteredProducts 기준으로 재배열한 결과를 products의 해당 영역에 반영
-    const visible = [...filteredProducts];
-    const [moved] = visible.splice(dragIdx, 1);
-    visible.splice(targetIdx, 0, moved);
+  const handleDragStart = (e: React.DragEvent, idx: number) => {
+    dragIdxRef.current = idx;
+    setDragIdx(idx);
+    e.dataTransfer.effectAllowed = 'move';
+    try { e.dataTransfer.setData('text/plain', String(idx)); } catch {}
+  };
+  const handleDragOver = (e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverIdx !== idx) setDragOverIdx(idx);
+  };
+  const handleDragEnd = () => {
+    dragIdxRef.current = null;
     setDragIdx(null);
-    setFilteredProducts(visible);
+    setDragOverIdx(null);
+  };
+  const handleDrop = async (e: React.DragEvent, targetIdx: number) => {
+    e.preventDefault();
+    const fromIdx = dragIdxRef.current ?? dragIdx;
+    setDragOverIdx(null);
+    if (fromIdx === null || fromIdx === targetIdx) {
+      dragIdxRef.current = null;
+      setDragIdx(null);
+      return;
+    }
 
-    // products 전체에서 보이는 부분만 새 순서로 교체
-    const visibleIds = new Set(visible.map(p => p.id));
-    const newOrderForVisible = visible.map(p => p.id);
+    // 1) 보이는 리스트 재배열
+    const visible = [...filteredProducts];
+    const [moved] = visible.splice(fromIdx, 1);
+    const adjusted = fromIdx < targetIdx ? targetIdx - 1 : targetIdx;
+    visible.splice(adjusted, 0, moved);
+
+    // 2) 전체 products에서 보이는 항목들 위치에 새 순서대로 채워넣기
+    const visibleIdSet = new Set(visible.map(p => p.id));
+    const newOrderQueue = [...visible];
     const reordered: typeof products = [];
-    let i = 0;
     for (const p of products) {
-      if (visibleIds.has(p.id)) {
-        const nextId = newOrderForVisible[i++];
-        const nextItem = products.find(x => x.id === nextId);
-        if (nextItem) reordered.push(nextItem);
+      if (visibleIdSet.has(p.id)) {
+        const next = newOrderQueue.shift();
+        if (next) reordered.push(next);
       } else {
         reordered.push(p);
       }
     }
-    setProducts(reordered);
 
-    // 서버에 저장
+    // 즉시 화면 반영 (낙관적 업데이트)
+    setProducts(reordered);
+    setFilteredProducts(visible);
+    dragIdxRef.current = null;
+    setDragIdx(null);
+
+    // 서버 저장
     try {
       await fetch('/api/products/reorder', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ids: reordered.map(p => p.id) }),
       });
-    } catch {}
+    } catch {
+      toast.error('순서 저장 실패');
+    }
   };
 
   const handleDelete = async (id: number) => {
@@ -318,16 +346,19 @@ export default function ProductsPage() {
                 {filteredProducts.map((p, idx) => {
                   const c = computeProductFields(p);
                   const isDrag = dragIdx === idx;
+                  const isOver = dragOverIdx === idx && dragIdx !== idx;
                   return (
                     <tr key={p.id}
                       draggable
-                      onDragStart={() => handleDragStart(idx)}
-                      onDragOver={handleDragOver}
-                      onDrop={() => handleDrop(idx)}
-                      onDragEnd={() => setDragIdx(null)}
-                      className={isDrag ? 'opacity-40' : ''}>
-                      <td className="cursor-move text-gray-300 hover:text-gray-500 align-middle">
-                        <GripVertical size={14} />
+                      onDragStart={(e) => handleDragStart(e, idx)}
+                      onDragOver={(e) => handleDragOver(e, idx)}
+                      onDrop={(e) => handleDrop(e, idx)}
+                      onDragEnd={handleDragEnd}
+                      onDragLeave={() => { if (dragOverIdx === idx) setDragOverIdx(null); }}
+                      className={`${isDrag ? 'opacity-40' : ''} ${isOver ? 'bg-blue-100 border-t-2 border-blue-500' : ''}`}>
+                      <td className="cursor-move text-gray-400 hover:text-gray-700 align-middle"
+                        title="드래그하여 순서 변경">
+                        <GripVertical size={16} />
                       </td>
                       <td className="font-medium">
                         {p.name}
