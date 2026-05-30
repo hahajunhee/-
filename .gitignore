@@ -24,11 +24,17 @@
 .DS_Store
 *.pem
 
-# debug
+# debug & logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+*.log
+stdout.log
+stderr.log
+
+# build artifacts
+/dist
 
 # env files
 .env
@@ -43,3 +49,13 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# editors
+.vscode/
+.idea/
+*.swp
+Thumbs.db
+
+# 임시 DB 마이그레이션 스크립트 (체크인 금지)
+/migrate.js
+/migrate-*.js

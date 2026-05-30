@@ -1,7 +1,0 @@
-      1 [main] dirname (70632) child_copy: cygheap read copy failed, 0x0..0x800026E80, done 0, windows pid 70632, Win32 error 299
-/c/Program Files/nodejs/npx: line 14: [: =: unary operator expected
-      0 [main] bash 1107 dofork: child -1 - forked process 23684 died unexpectedly, retry 0, exit code 0xC0000142, errno 11
-/c/Program Files/nodejs/npx: fork: retry: Resource temporarily unavailable
-2008685 [main] bash 1107 dofork: child -1 - CreateProcessW failed for 'C:\Program Files\Git\usr\bin\bash.exe', errno 11
-/c/Program Files/nodejs/npx: fork: retry: Resource temporarily unavailable
-Could not determine Node.js install directory
