@@ -59,3 +59,4 @@ Thumbs.db
 # 임시 DB 마이그레이션 스크립트 (체크인 금지)
 /migrate.js
 /migrate-*.js
+HANDOVER.md
