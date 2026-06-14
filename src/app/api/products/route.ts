@@ -36,9 +36,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const body = await request.json();
   const data = await query(
-    `INSERT INTO products (name, brand, category, spec, unit, material_cost, other_cost, selling_price, vat_apply, apply_material_cost, incentive, invoice_hidden, operation_type)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *`,
-    [body.name, body.brand || '', body.category, body.spec, body.unit, body.material_cost, body.other_cost, body.selling_price, body.vat_apply, !!body.apply_material_cost, Number(body.incentive) || 0, !!body.invoice_hidden, body.operation_type || '가맹점']
+    `INSERT INTO products (name, brand, category, spec, unit, material_cost, other_cost, selling_price, vat_apply, apply_material_cost, invoice_hidden, operation_type)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
+    [body.name, body.brand || '', body.category, body.spec, body.unit, body.material_cost, body.other_cost, body.selling_price, body.vat_apply, !!body.apply_material_cost, !!body.invoice_hidden, body.operation_type || '가맹점']
   );
   return NextResponse.json(data[0], { status: 201 });
 }

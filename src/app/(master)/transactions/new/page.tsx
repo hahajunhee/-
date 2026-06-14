@@ -85,7 +85,6 @@ function TransactionNewContent() {
             vat_amount: Number(it.vat_amount),
             margin: Number(it.margin),
             net_profit: Number(it.net_profit),
-            incentive: Number(it.incentive) || 0,
             invoice_hidden: !!it.invoice_hidden,
           })));
         }
@@ -141,7 +140,6 @@ function TransactionNewContent() {
     const effectiveUnitPrice = product.apply_material_cost
       ? Number(product.material_cost)
       : Number(product.selling_price);
-    const incentive = Number(product.incentive) || 0;
     const newItem: TransactionItem = {
       product_id: product.id,
       product_name: product.name,
@@ -157,20 +155,16 @@ function TransactionNewContent() {
       vat_amount: 0,
       margin: 0,
       net_profit: 0,
-      incentive,
       invoice_hidden: !!product.invoice_hidden,
     };
-    const computed = computeItemFields({ ...newItem, incentive });
+    const computed = computeItemFields(newItem);
     setItems([...items, { ...newItem, ...computed }]);
   };
 
   const updateQty = (index: number, qty: number) => {
     const updated = [...items];
     updated[index].qty = qty;
-    const computed = computeItemFields({
-      ...updated[index],
-      incentive: updated[index].incentive || 0,
-    });
+    const computed = computeItemFields(updated[index]);
     updated[index] = { ...updated[index], ...computed };
     setItems(updated);
   };
@@ -217,7 +211,6 @@ function TransactionNewContent() {
         vat_amount: i.vat_amount,
         margin: i.margin,
         net_profit: i.net_profit,
-        incentive: i.incentive || 0,
         invoice_hidden: !!i.invoice_hidden,
       })),
     };

@@ -99,7 +99,6 @@ export async function POST(request: NextRequest) {
       const materialCost = Number(product.material_cost);
       const otherCost = Number(product.other_cost);
       const vatApply = product.vat_apply;
-      const incentive = Number(product.incentive) || 0;
       // 재료원가 적용(Y) → 단가 = 재료원가
       const unitPrice = product.apply_material_cost
         ? materialCost
@@ -112,8 +111,8 @@ export async function POST(request: NextRequest) {
       const netVatPerUnit = calcSalesVat(unitPrice, vatApply) - calcPurchaseVat(materialCost, vatApply);
       const marginPerUnit = unitPrice - materialCost - otherCost;
       const margin = marginPerUnit * qty;
-      // 순익 = 마진 - 납부부가세 + 수량 × 장려금
-      const netProfit = margin - netVatPerUnit * qty + qty * incentive;
+      // 순익 = 마진 - 납부부가세
+      const netProfit = margin - netVatPerUnit * qty;
 
       supplyTotal += amount;
       vatTotal += vatAmount;
@@ -133,7 +132,6 @@ export async function POST(request: NextRequest) {
         vat_amount: vatAmount,
         margin,
         net_profit: netProfit,
-        incentive,
         invoice_hidden: !!product.invoice_hidden,
       });
     }
@@ -150,9 +148,9 @@ export async function POST(request: NextRequest) {
     for (const ci of computedItems) {
       await query(
         `INSERT INTO transaction_items
-         (transaction_id, product_id, product_name, category, spec, unit, qty, unit_price, material_cost, other_cost, amount, vat_apply, vat_amount, margin, net_profit, incentive, invoice_hidden)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
-        [txn.id, ci.product_id, ci.product_name, ci.category, ci.spec, ci.unit, ci.qty, ci.unit_price, ci.material_cost, ci.other_cost, ci.amount, ci.vat_apply, ci.vat_amount, ci.margin, ci.net_profit, ci.incentive, ci.invoice_hidden]
+         (transaction_id, product_id, product_name, category, spec, unit, qty, unit_price, material_cost, other_cost, amount, vat_apply, vat_amount, margin, net_profit, invoice_hidden)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
+        [txn.id, ci.product_id, ci.product_name, ci.category, ci.spec, ci.unit, ci.qty, ci.unit_price, ci.material_cost, ci.other_cost, ci.amount, ci.vat_apply, ci.vat_amount, ci.margin, ci.net_profit, ci.invoice_hidden]
       );
     }
 

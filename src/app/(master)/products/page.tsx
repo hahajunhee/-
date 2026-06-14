@@ -22,7 +22,6 @@ const emptyProduct = {
   selling_price: 0,
   vat_apply: true,
   apply_material_cost: false,
-  incentive: 0,
   invoice_hidden: false,
   operation_type: '가맹점' as OperationType,
 };
@@ -116,7 +115,6 @@ export default function ProductsPage() {
       selling_price: p.selling_price,
       vat_apply: p.vat_apply,
       apply_material_cost: !!p.apply_material_cost,
-      incentive: Number(p.incentive) || 0,
       invoice_hidden: !!p.invoice_hidden,
       operation_type: (p.operation_type || '가맹점') as OperationType,
     });
@@ -356,7 +354,6 @@ export default function ProductsPage() {
                   <th className="text-right">단가(납품가)</th>
                   <th className="text-center">부가세여부</th>
                   <th className="text-center">재료원가적용</th>
-                  <th className="text-right">장려금</th>
                   <th className="text-right">마진</th>
                   <th className="text-right" title="매출부가세 - 매입부가세 = 실제 납부할 부가세">납부부가세</th>
                   <th className="text-right">최종순익</th>
@@ -408,11 +405,6 @@ export default function ProductsPage() {
                           {p.apply_material_cost ? 'Y' : 'N'}
                         </span>
                       </td>
-                      <td className="text-right">
-                        {Number(p.incentive) > 0 ? (
-                          <span className="text-purple-600 font-medium">{formatKRW(p.incentive)}</span>
-                        ) : <span className="text-gray-300">-</span>}
-                      </td>
                       <td className="text-right text-blue-600">{formatKRW(c.margin)}</td>
                       <td className="text-right text-gray-500">{formatKRW(c.vat_amount)}</td>
                       <td className="text-right text-emerald-600 font-medium">{formatKRW(c.net_profit)}</td>
@@ -432,7 +424,7 @@ export default function ProductsPage() {
                 })}
                 {filteredProducts.length === 0 && (
                   <tr>
-                    <td colSpan={15} className="text-center py-8 text-gray-400">
+                    <td colSpan={14} className="text-center py-8 text-gray-400">
                       {search || categoryFilter ? '검색 결과가 없습니다' : '품목을 추가해주세요'}
                     </td>
                   </tr>
@@ -582,19 +574,6 @@ export default function ProductsPage() {
                 <span className="text-gray-600 ml-2">체크 시 거래명세서 단가에 <strong>재료원가</strong>가 들어가고, 부가세 = 재료원가 × 10%</span>
               </span>
             </label>
-          </div>
-          <div className="col-span-2">
-            <label className="form-label">장려금 (원/단위)</label>
-            <input
-              type="number"
-              className="form-input"
-              placeholder="예: 1000 (공장에서 받는 단위당 장려금)"
-              value={form.incentive}
-              onChange={(e) => setForm({ ...form, incentive: Number(e.target.value) })}
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              거래명세서에는 표시되지 않고, 손익에만 <strong>수량 × 장려금</strong>이 가산됩니다 (절세용)
-            </p>
           </div>
           <div className="col-span-2 p-3 bg-purple-50 border border-purple-200 rounded-lg">
             <label className="flex items-center gap-2 cursor-pointer">

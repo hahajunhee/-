@@ -9,9 +9,9 @@ export async function PUT(
   const body = await request.json();
   const data = await query(
     `UPDATE products SET name=$1, brand=$2, category=$3, spec=$4, unit=$5,
-     material_cost=$6, other_cost=$7, selling_price=$8, vat_apply=$9, apply_material_cost=$10, incentive=$11, invoice_hidden=$12, operation_type=$13
-     WHERE id=$14 RETURNING *`,
-    [body.name, body.brand || '', body.category, body.spec, body.unit, body.material_cost, body.other_cost, body.selling_price, body.vat_apply, !!body.apply_material_cost, Number(body.incentive) || 0, !!body.invoice_hidden, body.operation_type || '가맹점', Number(id)]
+     material_cost=$6, other_cost=$7, selling_price=$8, vat_apply=$9, apply_material_cost=$10, invoice_hidden=$11, operation_type=$12
+     WHERE id=$13 RETURNING *`,
+    [body.name, body.brand || '', body.category, body.spec, body.unit, body.material_cost, body.other_cost, body.selling_price, body.vat_apply, !!body.apply_material_cost, !!body.invoice_hidden, body.operation_type || '가맹점', Number(id)]
   );
   if (data.length === 0) return NextResponse.json({ error: 'Not found' }, { status: 404 });
   return NextResponse.json(data[0]);
