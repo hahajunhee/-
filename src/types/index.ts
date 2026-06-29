@@ -51,6 +51,21 @@ export interface CostCategory {
   id: number;
   name: string;
   order_idx: number;
+  parent_group?: string | null;   // 상위 그룹 (예: '재료원가'). NULL이면 단독 카테고리
+}
+
+// 통계 화면의 비용 그룹 집계 (재료원가 같은 상위 그룹 + 하위 항목)
+export interface CostGroupItem {
+  category: string;
+  amount: number;
+  ratio: number;        // 매출 대비 비율
+}
+export interface CostGroup {
+  name: string;         // 그룹명 또는 단독 카테고리명
+  is_group: boolean;    // true면 하위 children을 가진 상위 그룹
+  amount: number;
+  ratio: number;
+  children: CostGroupItem[];
 }
 
 export interface Cost {

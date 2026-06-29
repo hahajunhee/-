@@ -16,12 +16,13 @@ export async function POST(request: NextRequest) {
   }
   const body = await request.json();
   if (!body.name?.trim()) return NextResponse.json({ error: '이름을 입력하세요' }, { status: 400 });
+  const parentGroup = body.parent_group?.trim() || null;
   try {
     const maxRow = await query('SELECT COALESCE(MAX(order_idx), 0) as max FROM cost_categories');
     const nextIdx = Number(maxRow[0]?.max || 0) + 1;
     const data = await query(
-      'INSERT INTO cost_categories (name, order_idx) VALUES ($1, $2) RETURNING *',
-      [body.name.trim(), nextIdx]
+      'INSERT INTO cost_categories (name, order_idx, parent_group) VALUES ($1, $2, $3) RETURNING *',
+      [body.name.trim(), nextIdx, parentGroup]
     );
     return NextResponse.json(data[0], { status: 201 });
   } catch {

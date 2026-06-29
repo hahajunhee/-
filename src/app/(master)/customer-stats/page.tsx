@@ -4,10 +4,15 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts';
+import { Fragment } from 'react';
 import { TrendingUp, TrendingDown, Wallet, Receipt, Calendar, ChevronDown } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 import { formatKRW } from '@/lib/calculator';
-import { Customer, OPERATION_TYPES, OperationType } from '@/types';
+import { Customer, OPERATION_TYPES, OperationType, CostGroup } from '@/types';
+
+function ratioCls(r: number) {
+  return r > 0.3 ? 'text-red-600 font-bold' : r > 0.15 ? 'text-orange-500' : 'text-gray-500';
+}
 
 const OP_BADGE: Record<OperationType, string> = {
   '본점': 'bg-purple-100 text-purple-700',
@@ -34,10 +39,10 @@ function getPreset(key: string) {
 interface Stats {
   customer: { id: number; company_name: string; brand: string; operation_type: OperationType; contact_name: string; };
   period: { date_from: string; date_to: string };
-  summary: { total_revenue: number; total_cost_other: number; total_cost_purchase: number; total_cost: number; total_profit: number; cost_ratio: number };
+  summary: { total_revenue: number; total_cost_other: number; total_cost_purchase: number; total_cost: number; total_profit: number; cost_ratio: number; total_purchase_ref: number };
   monthly: { month: string; revenue: number; cost_other: number; cost_purchase: number; total_cost: number; profit: number }[];
   revenue_by_category: { category: string; total: number; ratio: number }[];
-  cost_by_category: { category: string; amount: number; ratio: number; purchase_part: number; cost_tab_part: number }[];
+  cost_groups: CostGroup[];
   revenues: { id: number; settlement_month: string; category: string; amount: number; notes: string; source: string }[];
   costs: { id: number; settlement_month: string; category: string; amount: number; notes: string }[];
   purchases: { id: number; date: string; supply_total: number; vat_total: number; grand_total: number; payment_status: string; source: string; order_number: string }[];
@@ -111,8 +116,7 @@ export default function CustomerStatsPage() {
   const monthlyChart = stats?.monthly.map(m => ({
     name: m.month.substring(5) + '월',
     매출: m.revenue,
-    매입: m.cost_purchase,
-    기타비용: m.cost_other,
+    비용: m.cost_other,
     순익: m.profit,
   })) || [];
 
@@ -237,7 +241,7 @@ export default function CustomerStatsPage() {
               <div>
                 <p className="text-xs text-gray-500">총 비용</p>
                 <p className="text-lg font-bold text-amber-700">{formatKRW(stats.summary.total_cost)}원</p>
-                <p className="text-[10px] text-gray-400">매입 {formatKRW(stats.summary.total_cost_purchase)} + 기타 {formatKRW(stats.summary.total_cost_other)}</p>
+                <p className="text-[10px] text-gray-400">비용 탭 수기 입력 기준</p>
               </div>
             </div>
             <div className={`card flex items-center gap-3 ${stats.summary.total_profit < 0 ? 'border-red-300 bg-red-50' : ''}`}>
@@ -265,7 +269,7 @@ export default function CustomerStatsPage() {
 
           {/* 월별 차트 */}
           <div className="card mb-6">
-            <h3 className="font-semibold mb-3">월별 매출 / 매입 / 기타비용 / 순익</h3>
+            <h3 className="font-semibold mb-3">월별 매출 / 비용 / 순익</h3>
             <div className="h-[320px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={monthlyChart}>
@@ -275,8 +279,7 @@ export default function CustomerStatsPage() {
                   <Tooltip formatter={(v) => formatKRW(Number(v)) + '원'} />
                   <Legend />
                   <Bar dataKey="매출" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="매입" fill="#ef4444" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="기타비용" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="비용" fill="#f59e0b" radius={[4, 4, 0, 0]} />
                   <Bar dataKey="순익" fill="#10b981" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -306,33 +309,31 @@ export default function CustomerStatsPage() {
             <div className="card p-0 overflow-hidden">
               <div className="px-4 py-3 border-b bg-amber-50 font-semibold text-sm">
                 비용 구분별 (매출 대비 비율)
-                <span className="text-xs text-gray-500 font-normal ml-2">* 식재료비 = 발주 매입 + 비용탭 직접 기입</span>
+                <span className="text-xs text-gray-500 font-normal ml-2">* 비용 탭 수기 입력 기준</span>
               </div>
               <table className="data-table">
                 <thead><tr><th>구분</th><th className="text-right">금액</th><th className="text-right">비율</th></tr></thead>
                 <tbody>
-                  {stats.cost_by_category.map(c => {
-                    const isFood = c.category === '식재료비';
-                    const ratioColor = c.ratio > 0.3 ? 'text-red-600 font-bold' : c.ratio > 0.15 ? 'text-orange-500' : 'text-gray-500';
-                    return (
-                    <tr key={c.category}>
-                      <td>
-                        <div>{c.category}</div>
-                        {isFood && c.amount > 0 && (
-                          <div className="text-[10px] text-gray-400 mt-0.5">
-                            발주 {formatKRW(c.purchase_part)} + 직접 기입 {formatKRW(c.cost_tab_part)}
-                          </div>
-                        )}
-                      </td>
-                      <td className="text-right text-amber-700 font-medium align-top">{formatKRW(c.amount)}원</td>
-                      <td className={`text-right ${ratioColor} align-top`}>{(c.ratio * 100).toFixed(1)}%</td>
-                    </tr>
-                    );
-                  })}
-                  {stats.cost_by_category.length === 0 && (
+                  {stats.cost_groups.map(g => (
+                    <Fragment key={g.name}>
+                      <tr className={g.is_group ? 'bg-amber-50/60' : ''}>
+                        <td className={g.is_group ? 'font-semibold text-amber-900' : ''}>{g.name}</td>
+                        <td className="text-right text-amber-700 font-medium">{formatKRW(g.amount)}원</td>
+                        <td className={`text-right ${ratioCls(g.ratio)}`}>{(g.ratio * 100).toFixed(1)}%</td>
+                      </tr>
+                      {g.is_group && g.children.map(ch => (
+                        <tr key={g.name + ch.category} className="text-gray-500">
+                          <td className="pl-8 text-sm">└ {ch.category}</td>
+                          <td className="text-right text-sm">{formatKRW(ch.amount)}</td>
+                          <td className="text-right text-sm text-gray-400">{(ch.ratio * 100).toFixed(1)}%</td>
+                        </tr>
+                      ))}
+                    </Fragment>
+                  ))}
+                  {stats.cost_groups.length === 0 && (
                     <tr><td colSpan={3} className="text-center py-4 text-gray-400">비용 없음</td></tr>
                   )}
-                  {stats.cost_by_category.length > 0 && (
+                  {stats.cost_groups.length > 0 && (
                     <tr className="bg-gray-50 font-semibold">
                       <td>합계</td>
                       <td className="text-right text-amber-800">{formatKRW(stats.summary.total_cost)}원</td>
@@ -352,9 +353,7 @@ export default function CustomerStatsPage() {
                 <tr>
                   <th>월</th>
                   <th className="text-right">매출</th>
-                  <th className="text-right">매입(발주)</th>
-                  <th className="text-right">기타비용</th>
-                  <th className="text-right">비용 합계</th>
+                  <th className="text-right">비용</th>
                   <th className="text-right">순익</th>
                 </tr>
               </thead>
@@ -363,9 +362,7 @@ export default function CustomerStatsPage() {
                   <tr key={m.month}>
                     <td className="font-mono">{m.month}</td>
                     <td className="text-right text-blue-700">{formatKRW(m.revenue)}</td>
-                    <td className="text-right text-red-600">{formatKRW(m.cost_purchase)}</td>
-                    <td className="text-right text-amber-700">{formatKRW(m.cost_other)}</td>
-                    <td className="text-right font-medium">{formatKRW(m.total_cost)}</td>
+                    <td className="text-right text-amber-700">{formatKRW(m.total_cost)}</td>
                     <td className={`text-right font-bold ${m.profit < 0 ? 'text-red-600' : 'text-emerald-600'}`}>{formatKRW(m.profit)}</td>
                   </tr>
                 ))}
@@ -394,9 +391,12 @@ export default function CustomerStatsPage() {
             </table>
           </div>
 
-          {/* 발주 매입 내역 */}
+          {/* 발주 내역 (참고 — 손익 미반영) */}
           <div className="card p-0 overflow-hidden mb-6">
-            <div className="px-4 py-3 border-b bg-red-50 font-semibold text-sm">매입(발주) 내역 ({stats.purchases.length}건)</div>
+            <div className="px-4 py-3 border-b bg-red-50 font-semibold text-sm">
+              발주 내역 ({stats.purchases.length}건)
+              <span className="text-xs text-gray-500 font-normal ml-2">* 참고용 — 손익/통계에 반영되지 않음</span>
+            </div>
             <table className="data-table">
               <thead>
                 <tr><th>일자</th><th>구분</th><th className="text-right">공급가액</th><th className="text-right">부가세</th><th className="text-right">합계</th><th>입금</th></tr>

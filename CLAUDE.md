@@ -141,13 +141,14 @@ GMAIL_APP_PASSWORD=             # Gmail 앱 비밀번호 16자리 (GMAIL_USER �
 - `costs.customer_id`: NULL = 본사 비용
 
 ### 통계 계산 로직 (변경 시 신중)
-- **본사 매출** = SUM(transactions.grand_total) + SUM(revenues where customer_id IS NULL)
-- **본사 비용** = SUM(transaction_items.material_cost × qty) + SUM(costs where customer_id IS NULL)
-- **본점 매출** = SUM(revenues for op_type='본점' customers)
-- **본점 비용** = SUM(transactions.grand_total for 본점) + SUM(costs for 본점)
+- **2026-06 정책 변경**: 발주(transactions)는 통계에 **자동 반영하지 않음**. 매출=매출 탭(revenues), 비용=비용 탭(costs) **수기 입력만으로** 집계 (월단위 합산 입력). 발주/거래명세서 발행 기능 자체는 유지하되 손익/통계엔 미반영.
+- **본사 매출** = SUM(revenues where customer_id IS NULL)
+- **본사 비용** = SUM(costs where customer_id IS NULL)
+- **본점 매출** = SUM(revenues for op_type='본점' customers), **본점 비용** = SUM(costs for 본점)
 - **직영점/가맹점** 동일 패턴
 - **총합** = 본사 + 본점 + 직영점 + 가맹점
-- **식재료비 카테고리 통합**: 발주매입(또는 발주재료원가) + costs.식재료비
+- **비용 그룹핑**: `cost_categories.parent_group` 으로 상위 그룹(예: `재료원가`) 묶음. `lib/costGroups.ts`의 `buildCostGroups()`가 카테고리별 합계 → 그룹 합계 + 매출 대비 비율 구조로 변환. 통계 화면에서 그룹 헤더 + 하위 항목 + 합계 표시.
+- 재료원가 하위 기본 6개: 재료_육류 / 재료_가공 / 재료_식자재 / 재료_소스 / 재료_주류 / 재료_음료 (비용구분 관리에서 그룹 변경 가능)
 
 ### 로열티 자동화
 - `costs.category='로열티'` 추가 시 → 같은 금액으로 `revenues.source='royalty_auto', customer_id=NULL` 자동 생성
@@ -167,7 +168,7 @@ GMAIL_APP_PASSWORD=             # Gmail 앱 비밀번호 16자리 (GMAIL_USER �
 
 - **`AGENTS.md`** — Next.js 버전 가이드. 함부로 수정 금지.
 - **`schema.sql`** 의 시드 데이터 — 운영 DB와 분리된 참고용. 실제 변경은 마이그레이션 스크립트로.
-- **`(master)/page.tsx` 의 4단 PL 구조** — 사용자가 직접 설계한 구조. 1.본사 / 2.본점 / 3.직영점·가맹점 / 4.총합 순서와 계산식 유지.
+- **`(master)/page.tsx` 의 4단 PL 구조** — 사용자가 직접 설계한 구조. 1.본사 / 2.본점 / 3.직영점·가맹점 / 4.총합 순서 유지. (※ 2026-06부터 계산식은 매출/비용 탭 수기 입력 기준 — 발주 미반영)
 - **`lib/calculator.ts`** — 매출부가세/매입부가세/납부부가세 분리는 사용자 합의된 회계 모델. 함부로 단순화 X.
 - **`/api/costs` 로열티 자동화 로직** — 비용 ↔ 본사 매출 양방향 동기. 삭제/변경 시 데이터 불일치 위험.
 
@@ -182,5 +183,5 @@ GMAIL_APP_PASSWORD=             # Gmail 앱 비밀번호 16자리 (GMAIL_USER �
 | `transaction_items` | qty, unit_price, material_cost, amount, vat_amount, margin, net_profit, incentive, invoice_hidden |
 | `revenues` | customer_id(nullable), category, settlement_month, amount, source, related_cost_id |
 | `costs` | customer_id(nullable), category, settlement_month, amount |
-| `revenue_categories` / `cost_categories` | 카테고리 목록 (관리자가 추가/삭제) |
+| `revenue_categories` / `cost_categories` | 카테고리 목록 (관리자가 추가/삭제). `cost_categories.parent_group`: 상위 그룹(예: 재료원가) |
 | `settings` | id=1 (단일행), company_name, brands(JSONB), seal_image, invoice_note 등 |

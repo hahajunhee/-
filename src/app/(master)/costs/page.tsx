@@ -49,6 +49,7 @@ export default function CostsPage() {
 
   const [catModalOpen, setCatModalOpen] = useState(false);
   const [newCatName, setNewCatName] = useState('');
+  const [newCatGroup, setNewCatGroup] = useState('');   // 새 카테고리의 상위 그룹 ('' = 단독)
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
@@ -164,11 +165,12 @@ export default function CostsPage() {
     const res = await fetch('/api/cost-categories', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: newCatName.trim() }),
+      body: JSON.stringify({ name: newCatName.trim(), parent_group: newCatGroup || null }),
     });
     if (res.ok) {
       toast.success('추가되었습니다');
       setNewCatName('');
+      setNewCatGroup('');
       fetchAll();
     } else {
       const data = await res.json();
@@ -176,11 +178,26 @@ export default function CostsPage() {
     }
   };
 
+  // 카테고리의 상위 그룹 변경 (재료원가 등). '' = 단독
+  const setCategoryGroup = async (id: number, group: string) => {
+    const res = await fetch(`/api/cost-categories/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ parent_group: group || null }),
+    });
+    if (res.ok) { fetchAll(); } else { toast.error('그룹 변경 실패'); }
+  };
+
   const deleteCategory = async (id: number) => {
     if (!confirm('이 비용 구분을 삭제하시겠습니까?')) return;
     const res = await fetch(`/api/cost-categories/${id}`, { method: 'DELETE' });
     if (res.ok) { toast.success('삭제되었습니다'); fetchAll(); }
   };
+
+  // 존재하는 그룹명 목록 (재료원가 기본 포함)
+  const groupOptions = Array.from(
+    new Set(['재료원가', ...categories.map(c => c.parent_group).filter((g): g is string => !!g)])
+  );
 
   const totalAmount = costs.reduce((s, c) => s + Number(c.amount), 0);
 
@@ -467,7 +484,18 @@ export default function CostsPage() {
               <select className="form-select" value={form.category}
                 onChange={(e) => setForm({ ...form, category: e.target.value })}>
                 <option value="">선택</option>
-                {categories.map(cat => <option key={cat.id} value={cat.name}>{cat.name}</option>)}
+                {groupOptions.map(g => {
+                  const inGroup = categories.filter(c => c.parent_group === g);
+                  if (inGroup.length === 0) return null;
+                  return (
+                    <optgroup key={g} label={g}>
+                      {inGroup.map(cat => <option key={cat.id} value={cat.name}>{cat.name}</option>)}
+                    </optgroup>
+                  );
+                })}
+                {categories.filter(c => !c.parent_group).map(cat => (
+                  <option key={cat.id} value={cat.name}>{cat.name}</option>
+                ))}
               </select>
             </div>
             <div>
@@ -499,22 +527,36 @@ export default function CostsPage() {
 
       {/* 비용 구분 관리 모달 */}
       <Modal open={catModalOpen} onClose={() => setCatModalOpen(false)}
-        title="비용 구분 관리" width="max-w-md">
+        title="비용 구분 관리" width="max-w-lg">
         <div className="space-y-4">
           <div className="flex gap-2">
             <input type="text" className="form-input flex-1" placeholder="새 비용 구분 이름"
               value={newCatName}
               onChange={(e) => setNewCatName(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') addCategory(); }} />
+            <select className="form-select w-32" value={newCatGroup}
+              onChange={(e) => setNewCatGroup(e.target.value)}>
+              <option value="">그룹 없음</option>
+              {groupOptions.map(g => <option key={g} value={g}>{g}</option>)}
+            </select>
             <button onClick={addCategory} className="btn-primary">
               <Plus size={16} /> 추가
             </button>
           </div>
           <div className="border rounded-lg overflow-hidden">
+            <div className="flex items-center justify-between px-2 py-1.5 bg-gray-50 border-b text-[11px] text-gray-500 font-medium">
+              <span>비용 구분</span>
+              <span>상위 그룹</span>
+            </div>
             {categories.map(cat => (
-              <div key={cat.id} className="flex items-center justify-between p-2 border-b last:border-b-0 hover:bg-gray-50">
-                <span className="text-sm">{cat.name}</span>
-                <button onClick={() => deleteCategory(cat.id)} className="p-1 rounded hover:bg-red-50">
+              <div key={cat.id} className="flex items-center justify-between p-2 border-b last:border-b-0 hover:bg-gray-50 gap-2">
+                <span className="text-sm flex-1 truncate">{cat.name}</span>
+                <select className="form-select w-32 text-xs py-1" value={cat.parent_group || ''}
+                  onChange={(e) => setCategoryGroup(cat.id, e.target.value)}>
+                  <option value="">그룹 없음</option>
+                  {groupOptions.map(g => <option key={g} value={g}>{g}</option>)}
+                </select>
+                <button onClick={() => deleteCategory(cat.id)} className="p-1 rounded hover:bg-red-50 shrink-0">
                   <X size={14} className="text-red-400" />
                 </button>
               </div>
@@ -524,7 +566,7 @@ export default function CostsPage() {
             )}
           </div>
           <p className="text-xs text-gray-500">
-            기본 7개: 식재료비 / 인건비 / 임차료 / 공과금 / 소모품 및 운영비 / 마케팅비 / 기타 경비
+            상위 그룹(예: <span className="font-medium">재료원가</span>)으로 묶으면 통계에서 그룹 합계와 매출 대비 비율이 함께 표시됩니다.
           </p>
         </div>
       </Modal>

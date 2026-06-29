@@ -12,10 +12,18 @@ export async function PUT(
   }
   const { id } = await params;
   const body = await request.json();
-  const data = await query(
-    'UPDATE cost_categories SET name=$1 WHERE id=$2 RETURNING *',
-    [body.name?.trim(), Number(id)]
-  );
+  // parent_group: 명시적으로 보내면 갱신(빈 문자열/null이면 단독 카테고리로). 미전송이면 기존 유지.
+  const hasGroup = Object.prototype.hasOwnProperty.call(body, 'parent_group');
+  const parentGroup = body.parent_group?.trim() ? body.parent_group.trim() : null;
+  const data = hasGroup
+    ? await query(
+        'UPDATE cost_categories SET name=COALESCE($1, name), parent_group=$2 WHERE id=$3 RETURNING *',
+        [body.name?.trim() || null, parentGroup, Number(id)]
+      )
+    : await query(
+        'UPDATE cost_categories SET name=$1 WHERE id=$2 RETURNING *',
+        [body.name?.trim(), Number(id)]
+      );
   if (data.length === 0) return NextResponse.json({ error: 'Not found' }, { status: 404 });
   return NextResponse.json(data[0]);
 }

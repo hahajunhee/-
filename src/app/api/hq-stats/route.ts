@@ -1,21 +1,19 @@
 import { query } from '@/lib/db';
 import { getSession } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
+import { buildCostGroups } from '@/lib/costGroups';
 
 // GET /api/hq-stats?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD
 // 통계(본사) 페이지용
 //
-// Section 1: 본사 자체 PL
-//   매출: SUM(transactions.grand_total) [본사가 거래처에 판 발주 매출] + SUM(revenues.amount where customer_id IS NULL)
-//   비용: SUM(transaction_items.material_cost * qty) [발주재료원가] + SUM(costs.amount where customer_id IS NULL)
-//   손익: 매출 - 비용
+// ※ 2026-06 정책 변경: 발주(transactions)는 통계에 자동 반영하지 않는다.
+//    매출 = 매출 탭(revenues) 수기 입력, 비용 = 비용 탭(costs) 수기 입력만으로 집계.
 //
-// Section 2: 본점들 PL
-//   매출: SUM(revenues.amount where customer_id IN 본점 customers)
-//   비용: SUM(transactions.grand_total where customer_id IN 본점) [본점이 본사에서 매입] + SUM(costs.amount where customer_id IN 본점)
-//   손익: 매출 - 비용
-//
-// Section 3: 합계 = 1 + 2
+// Section 1: 본사   매출 = revenues(customer_id IS NULL),  비용 = costs(customer_id IS NULL)
+// Section 2: 본점   매출 = revenues(본점),                  비용 = costs(본점)
+// Section 3: 직영점+가맹점 동일 패턴
+// Section 4: 합계 = 1 + 2 + 3
+// 비용은 cost_categories.parent_group 기준으로 '재료원가' 등 상위 그룹으로 묶어 매출 대비 비율 표시.
 
 export async function GET(request: NextRequest) {
   const session = await getSession();
@@ -33,15 +31,24 @@ export async function GET(request: NextRequest) {
   const monthFrom = dateFrom.substring(0, 7);
   const monthTo = dateTo.substring(0, 7);
 
-  // ===== Section 1: 본사 자체 =====
-  // 1-1) 발주매출 = 모든 transactions.grand_total
-  const txnSum = await query(
-    `SELECT COALESCE(SUM(grand_total), 0)::numeric as total FROM transactions WHERE date BETWEEN $1 AND $2`,
-    [dateFrom, dateTo]
-  );
-  const hqOrderRevenue = Number(txnSum[0]?.total || 0);
+  // 비용 카테고리 메타 (그룹/정렬)
+  const catRows = await query('SELECT name, parent_group, order_idx FROM cost_categories ORDER BY order_idx, id');
+  const cats = catRows.map(r => ({ name: r.name, parent_group: r.parent_group ?? null, order_idx: Number(r.order_idx) }));
 
-  // 1-2) 본사 매출 (revenues customer_id IS NULL: 로열티 자동 + 본사 수동)
+  // 카테고리별 비용 합계 맵 빌더
+  const costCatMap = async (where: string, params: unknown[]): Promise<Record<string, number>> => {
+    const rows = await query(
+      `SELECT category, COALESCE(SUM(amount), 0)::numeric as total
+       FROM costs WHERE ${where} AND settlement_month BETWEEN $1 AND $2
+       GROUP BY category`,
+      [monthFrom, monthTo, ...params]
+    );
+    const m: Record<string, number> = {};
+    for (const r of rows) m[r.category] = Number(r.total);
+    return m;
+  };
+
+  // ===== Section 1: 본사 자체 =====
   const hqRevSum = await query(
     `SELECT COALESCE(SUM(amount), 0)::numeric as total,
             COALESCE(SUM(CASE WHEN source='royalty_auto' THEN amount ELSE 0 END), 0)::numeric as royalty,
@@ -49,97 +56,70 @@ export async function GET(request: NextRequest) {
      FROM revenues WHERE customer_id IS NULL AND settlement_month BETWEEN $1 AND $2`,
     [monthFrom, monthTo]
   );
-  const hqOtherRevenue = Number(hqRevSum[0]?.total || 0);
+  const hqRevenue = Number(hqRevSum[0]?.total || 0);
   const hqRoyaltyRevenue = Number(hqRevSum[0]?.royalty || 0);
   const hqManualRevenue = Number(hqRevSum[0]?.manual || 0);
 
-  // 1-3) 발주재료원가 = SUM(transaction_items.material_cost * qty)
-  const txnItemSum = await query(
-    `SELECT COALESCE(SUM(ti.material_cost * ti.qty), 0)::numeric as total
-     FROM transaction_items ti
-     JOIN transactions t ON ti.transaction_id = t.id
-     WHERE t.date BETWEEN $1 AND $2`,
-    [dateFrom, dateTo]
-  );
-  const hqMaterialCost = Number(txnItemSum[0]?.total || 0);
-
-  // 1-4) 본사 비용 (costs customer_id IS NULL)
   const hqCostSum = await query(
     `SELECT COALESCE(SUM(amount), 0)::numeric as total
      FROM costs WHERE customer_id IS NULL AND settlement_month BETWEEN $1 AND $2`,
     [monthFrom, monthTo]
   );
-  const hqOtherCost = Number(hqCostSum[0]?.total || 0);
-
-  const hqRevenue = hqOrderRevenue + hqOtherRevenue;
-  const hqCost = hqMaterialCost + hqOtherCost;
+  const hqCost = Number(hqCostSum[0]?.total || 0);
   const hqProfit = hqRevenue - hqCost;
 
+  const hqCostMap = await costCatMap('customer_id IS NULL', []);
+  const hqCostGroups = buildCostGroups(hqCostMap, cats, hqRevenue);
+
   // ===== Section 2: 본점들 =====
-  // 본점 customers
   const hqCustomerRows = await query(`SELECT id, company_name, brand FROM customers WHERE operation_type = '본점'`);
   const hqCustomerIds = hqCustomerRows.map(r => r.id);
 
-  let mainStoreRevenue = 0, mainStoreCost = 0, mainStorePurchase = 0;
-  const mainStores: Array<{ id: number; name: string; brand: string; revenue: number; cost: number; profit: number; cost_purchase: number; cost_other: number }> = [];
+  let mainStoreRevenue = 0, mainStoreCost = 0;
+  const mainStores: Array<{ id: number; name: string; brand: string; revenue: number; cost: number; profit: number }> = [];
+  let mainCostGroups: ReturnType<typeof buildCostGroups> = [];
 
   if (hqCustomerIds.length > 0) {
     const idsParams = hqCustomerIds.map((_, i) => `$${i + 3}`).join(',');
-
-    // 본점들 매출
     const mainRev = await query(
       `SELECT customer_id, COALESCE(SUM(amount), 0)::numeric as total
        FROM revenues WHERE customer_id IN (${idsParams}) AND settlement_month BETWEEN $1 AND $2
        GROUP BY customer_id`,
       [monthFrom, monthTo, ...hqCustomerIds]
     );
-    // 본점들 매입(=발주)
-    const mainPurchase = await query(
-      `SELECT customer_id, COALESCE(SUM(grand_total), 0)::numeric as total
-       FROM transactions WHERE customer_id IN (${idsParams}) AND date BETWEEN $1 AND $2
-       GROUP BY customer_id`,
-      [dateFrom, dateTo, ...hqCustomerIds]
-    );
-    // 본점들 기타비용
-    const mainOtherCost = await query(
+    const mainCost = await query(
       `SELECT customer_id, COALESCE(SUM(amount), 0)::numeric as total
        FROM costs WHERE customer_id IN (${idsParams}) AND settlement_month BETWEEN $1 AND $2
        GROUP BY customer_id`,
       [monthFrom, monthTo, ...hqCustomerIds]
     );
-
     const revMap: Record<number, number> = {};
     for (const r of mainRev) revMap[r.customer_id] = Number(r.total);
-    const purMap: Record<number, number> = {};
-    for (const r of mainPurchase) purMap[r.customer_id] = Number(r.total);
     const costMap: Record<number, number> = {};
-    for (const r of mainOtherCost) costMap[r.customer_id] = Number(r.total);
+    for (const r of mainCost) costMap[r.customer_id] = Number(r.total);
 
     for (const c of hqCustomerRows) {
       const rev = revMap[c.id] || 0;
-      const pur = purMap[c.id] || 0;
-      const oth = costMap[c.id] || 0;
-      const cost = pur + oth;
+      const cost = costMap[c.id] || 0;
       mainStoreRevenue += rev;
       mainStoreCost += cost;
-      mainStorePurchase += pur;
-      mainStores.push({
-        id: c.id, name: c.company_name, brand: c.brand || '',
-        revenue: rev, cost, profit: rev - cost,
-        cost_purchase: pur, cost_other: oth,
-      });
+      mainStores.push({ id: c.id, name: c.company_name, brand: c.brand || '', revenue: rev, cost, profit: rev - cost });
     }
+
+    const mapAll = await costCatMap(`customer_id IN (${idsParams})`, hqCustomerIds);
+    mainCostGroups = buildCostGroups(mapAll, cats, mainStoreRevenue);
   }
   const mainStoreProfit = mainStoreRevenue - mainStoreCost;
 
-  // ===== Section 3: 직영점 + 가맹점 (기타 매장) =====
+  // ===== Section 3: 직영점 + 가맹점 =====
   const otherStoreCustomerRows = await query(
     `SELECT id, company_name, brand, operation_type FROM customers WHERE operation_type IN ('직영점', '가맹점')`
   );
   const otherStoreIds = otherStoreCustomerRows.map(r => r.id);
 
-  let otherRevenue = 0, otherCost = 0, otherPurchase = 0, otherCostOther = 0;
-  const otherStores: Array<{ id: number; name: string; brand: string; operation_type: string; revenue: number; cost: number; profit: number; cost_purchase: number; cost_other: number }> = [];
+  let otherRevenue = 0, otherCost = 0;
+  const otherStores: Array<{ id: number; name: string; brand: string; operation_type: string; revenue: number; cost: number; profit: number }> = [];
+  let otherCostGroups: ReturnType<typeof buildCostGroups> = [];
 
   if (otherStoreIds.length > 0) {
     const idsParams = otherStoreIds.map((_, i) => `$${i + 3}`).join(',');
@@ -149,12 +129,6 @@ export async function GET(request: NextRequest) {
        GROUP BY customer_id`,
       [monthFrom, monthTo, ...otherStoreIds]
     );
-    const otPur = await query(
-      `SELECT customer_id, COALESCE(SUM(grand_total), 0)::numeric as total
-       FROM transactions WHERE customer_id IN (${idsParams}) AND date BETWEEN $1 AND $2
-       GROUP BY customer_id`,
-      [dateFrom, dateTo, ...otherStoreIds]
-    );
     const otCost = await query(
       `SELECT customer_id, COALESCE(SUM(amount), 0)::numeric as total
        FROM costs WHERE customer_id IN (${idsParams}) AND settlement_month BETWEEN $1 AND $2
@@ -163,107 +137,28 @@ export async function GET(request: NextRequest) {
     );
     const revM: Record<number, number> = {};
     for (const r of otRev) revM[r.customer_id] = Number(r.total);
-    const purM: Record<number, number> = {};
-    for (const r of otPur) purM[r.customer_id] = Number(r.total);
     const costM: Record<number, number> = {};
     for (const r of otCost) costM[r.customer_id] = Number(r.total);
 
     for (const c of otherStoreCustomerRows) {
       const rev = revM[c.id] || 0;
-      const pur = purM[c.id] || 0;
-      const oth = costM[c.id] || 0;
-      const cost = pur + oth;
+      const cost = costM[c.id] || 0;
       otherRevenue += rev;
       otherCost += cost;
-      otherPurchase += pur;
-      otherCostOther += oth;
-      otherStores.push({
-        id: c.id, name: c.company_name, brand: c.brand || '', operation_type: c.operation_type,
-        revenue: rev, cost, profit: rev - cost,
-        cost_purchase: pur, cost_other: oth,
-      });
+      otherStores.push({ id: c.id, name: c.company_name, brand: c.brand || '', operation_type: c.operation_type, revenue: rev, cost, profit: rev - cost });
     }
+
+    const mapAll = await costCatMap(`customer_id IN (${idsParams})`, otherStoreIds);
+    otherCostGroups = buildCostGroups(mapAll, cats, otherRevenue);
   }
   const otherProfit = otherRevenue - otherCost;
 
-  // ===== 비용 카테고리별 breakdown =====
-  // 식재료비는 발주재료원가(또는 매입) + 비용탭 식재료비
-  const FOOD_CATEGORY = '식재료비';
-  const catRows = await query('SELECT name, order_idx FROM cost_categories ORDER BY order_idx, id');
-  const orderMap: Record<string, number> = {};
-  for (const r of catRows) orderMap[r.name] = Number(r.order_idx);
-
-  // 본사 비용 카테고리별 (customer_id IS NULL)
-  const hqCostCatList = await query(
-    `SELECT category, COALESCE(SUM(amount), 0)::numeric as total
-     FROM costs WHERE customer_id IS NULL AND settlement_month BETWEEN $1 AND $2
-     GROUP BY category`,
-    [monthFrom, monthTo]
-  );
-  const hqCostCatMap: Record<string, number> = {};
-  for (const r of hqCostCatList) hqCostCatMap[r.category] = Number(r.total);
-  // 본사 식재료비 = 발주재료원가 + costs.식재료비
-  hqCostCatMap[FOOD_CATEGORY] = (hqCostCatMap[FOOD_CATEGORY] || 0) + hqMaterialCost;
-
-  const hqCostByCategory = Object.entries(hqCostCatMap).map(([category, amount]) => ({
-    category,
-    amount,
-    ratio: hqRevenue > 0 ? amount / hqRevenue : 0,
-    material_part: category === FOOD_CATEGORY ? hqMaterialCost : 0,
-    cost_tab_part: category === FOOD_CATEGORY ? amount - hqMaterialCost : amount,
-  })).sort((a, b) => (orderMap[a.category] ?? 999) - (orderMap[b.category] ?? 999));
-
-  // 본점들 비용 카테고리별
-  let mainStoreCostByCategory: { category: string; amount: number; ratio: number; purchase_part: number; cost_tab_part: number }[] = [];
-  if (hqCustomerIds.length > 0) {
-    const idsPlaceholders = hqCustomerIds.map((_, i) => `$${i + 3}`).join(',');
-    const mainCostCatList = await query(
-      `SELECT category, COALESCE(SUM(amount), 0)::numeric as total
-       FROM costs WHERE customer_id IN (${idsPlaceholders}) AND settlement_month BETWEEN $1 AND $2
-       GROUP BY category`,
-      [monthFrom, monthTo, ...hqCustomerIds]
-    );
-    const mainCatMap: Record<string, number> = {};
-    for (const r of mainCostCatList) mainCatMap[r.category] = Number(r.total);
-    // 본점 식재료비 = 본점 매입(=발주 grand_total) + costs.식재료비
-    mainCatMap[FOOD_CATEGORY] = (mainCatMap[FOOD_CATEGORY] || 0) + mainStorePurchase;
-    mainStoreCostByCategory = Object.entries(mainCatMap).map(([category, amount]) => ({
-      category,
-      amount,
-      ratio: mainStoreRevenue > 0 ? amount / mainStoreRevenue : 0,
-      purchase_part: category === FOOD_CATEGORY ? mainStorePurchase : 0,
-      cost_tab_part: category === FOOD_CATEGORY ? amount - mainStorePurchase : amount,
-    })).sort((a, b) => (orderMap[a.category] ?? 999) - (orderMap[b.category] ?? 999));
-  }
-
-  // 기타 매장 비용 카테고리별
-  let otherCostByCategory: { category: string; amount: number; ratio: number; purchase_part: number; cost_tab_part: number }[] = [];
-  if (otherStoreIds.length > 0) {
-    const idsPlaceholders = otherStoreIds.map((_, i) => `$${i + 3}`).join(',');
-    const otCostCatList = await query(
-      `SELECT category, COALESCE(SUM(amount), 0)::numeric as total
-       FROM costs WHERE customer_id IN (${idsPlaceholders}) AND settlement_month BETWEEN $1 AND $2
-       GROUP BY category`,
-      [monthFrom, monthTo, ...otherStoreIds]
-    );
-    const m: Record<string, number> = {};
-    for (const r of otCostCatList) m[r.category] = Number(r.total);
-    m[FOOD_CATEGORY] = (m[FOOD_CATEGORY] || 0) + otherPurchase;
-    otherCostByCategory = Object.entries(m).map(([category, amount]) => ({
-      category,
-      amount,
-      ratio: otherRevenue > 0 ? amount / otherRevenue : 0,
-      purchase_part: category === FOOD_CATEGORY ? otherPurchase : 0,
-      cost_tab_part: category === FOOD_CATEGORY ? amount - otherPurchase : amount,
-    })).sort((a, b) => (orderMap[a.category] ?? 999) - (orderMap[b.category] ?? 999));
-  }
-
-  // ===== Section 4: 전체 사업 총합 (본사 + 본점 + 직영점 + 가맹점) =====
+  // ===== Section 4: 전체 사업 총합 =====
   const totalRevenue = hqRevenue + mainStoreRevenue + otherRevenue;
   const totalCost = hqCost + mainStoreCost + otherCost;
   const totalProfit = hqProfit + mainStoreProfit + otherProfit;
 
-  // ===== 월별 (본사 + 본점 합산, 차트용) =====
+  // ===== 월별 (매출=revenues, 비용=costs) =====
   const allMonths: string[] = [];
   const [fy, fm] = monthFrom.split('-').map(Number);
   const [ty, tm] = monthTo.split('-').map(Number);
@@ -273,93 +168,47 @@ export async function GET(request: NextRequest) {
     cm++; if (cm > 12) { cm = 1; cy++; }
   }
 
-  // 월별 본사 매출(발주) + 본점 매출(revenues for 본점)
-  const monthlyTxn = await query(
-    `SELECT TO_CHAR(date, 'YYYY-MM') as month, COALESCE(SUM(grand_total), 0)::numeric as total
-     FROM transactions WHERE date BETWEEN $1 AND $2
-     GROUP BY TO_CHAR(date, 'YYYY-MM')`,
-    [dateFrom, dateTo]
-  );
-  const monthlyHqRev = await query(
+  const monthlyRev = async (where: string, params: unknown[]) => query(
     `SELECT settlement_month as month, COALESCE(SUM(amount), 0)::numeric as total
-     FROM revenues WHERE customer_id IS NULL AND settlement_month BETWEEN $1 AND $2
+     FROM revenues WHERE ${where} AND settlement_month BETWEEN $1 AND $2
      GROUP BY settlement_month`,
-    [monthFrom, monthTo]
+    [monthFrom, monthTo, ...params]
   );
-  const monthlyMainRev = hqCustomerIds.length > 0 ? await query(
+  const monthlyCost = async (where: string, params: unknown[]) => query(
     `SELECT settlement_month as month, COALESCE(SUM(amount), 0)::numeric as total
-     FROM revenues WHERE customer_id = ANY($3::int[]) AND settlement_month BETWEEN $1 AND $2
+     FROM costs WHERE ${where} AND settlement_month BETWEEN $1 AND $2
      GROUP BY settlement_month`,
-    [monthFrom, monthTo, hqCustomerIds]
-  ) : [];
-  const monthlyMaterial = await query(
-    `SELECT TO_CHAR(t.date, 'YYYY-MM') as month, COALESCE(SUM(ti.material_cost * ti.qty), 0)::numeric as total
-     FROM transaction_items ti JOIN transactions t ON ti.transaction_id = t.id
-     WHERE t.date BETWEEN $1 AND $2 GROUP BY TO_CHAR(t.date, 'YYYY-MM')`,
-    [dateFrom, dateTo]
+    [monthFrom, monthTo, ...params]
   );
-  const monthlyHqCost = await query(
-    `SELECT settlement_month as month, COALESCE(SUM(amount), 0)::numeric as total
-     FROM costs WHERE customer_id IS NULL AND settlement_month BETWEEN $1 AND $2
-     GROUP BY settlement_month`,
-    [monthFrom, monthTo]
-  );
-  const monthlyMainCost = hqCustomerIds.length > 0 ? await query(
-    `SELECT settlement_month as month, COALESCE(SUM(amount), 0)::numeric as total
-     FROM costs WHERE customer_id = ANY($3::int[]) AND settlement_month BETWEEN $1 AND $2
-     GROUP BY settlement_month`,
-    [monthFrom, monthTo, hqCustomerIds]
-  ) : [];
-  const monthlyMainPurchase = hqCustomerIds.length > 0 ? await query(
-    `SELECT TO_CHAR(date, 'YYYY-MM') as month, COALESCE(SUM(grand_total), 0)::numeric as total
-     FROM transactions WHERE customer_id = ANY($3::int[]) AND date BETWEEN $1 AND $2
-     GROUP BY TO_CHAR(date, 'YYYY-MM')`,
-    [dateFrom, dateTo, hqCustomerIds]
-  ) : [];
 
-  // 기타 매장 월별
-  const monthlyOtherRev = otherStoreIds.length > 0 ? await query(
-    `SELECT settlement_month as month, COALESCE(SUM(amount), 0)::numeric as total
-     FROM revenues WHERE customer_id = ANY($3::int[]) AND settlement_month BETWEEN $1 AND $2
-     GROUP BY settlement_month`,
-    [monthFrom, monthTo, otherStoreIds]
-  ) : [];
-  const monthlyOtherCost = otherStoreIds.length > 0 ? await query(
-    `SELECT settlement_month as month, COALESCE(SUM(amount), 0)::numeric as total
-     FROM costs WHERE customer_id = ANY($3::int[]) AND settlement_month BETWEEN $1 AND $2
-     GROUP BY settlement_month`,
-    [monthFrom, monthTo, otherStoreIds]
-  ) : [];
-  const monthlyOtherPurchase = otherStoreIds.length > 0 ? await query(
-    `SELECT TO_CHAR(date, 'YYYY-MM') as month, COALESCE(SUM(grand_total), 0)::numeric as total
-     FROM transactions WHERE customer_id = ANY($3::int[]) AND date BETWEEN $1 AND $2
-     GROUP BY TO_CHAR(date, 'YYYY-MM')`,
-    [dateFrom, dateTo, otherStoreIds]
-  ) : [];
+  const hqIdsP = (offset: number, ids: number[]) => ids.map((_, i) => `$${i + offset}`).join(',');
+
+  const monthlyHqRev = await monthlyRev('customer_id IS NULL', []);
+  const monthlyHqCost = await monthlyCost('customer_id IS NULL', []);
+  const monthlyMainRev = hqCustomerIds.length > 0 ? await monthlyRev(`customer_id IN (${hqIdsP(3, hqCustomerIds)})`, hqCustomerIds) : [];
+  const monthlyMainCost = hqCustomerIds.length > 0 ? await monthlyCost(`customer_id IN (${hqIdsP(3, hqCustomerIds)})`, hqCustomerIds) : [];
+  const monthlyOtherRev = otherStoreIds.length > 0 ? await monthlyRev(`customer_id IN (${hqIdsP(3, otherStoreIds)})`, otherStoreIds) : [];
+  const monthlyOtherCost = otherStoreIds.length > 0 ? await monthlyCost(`customer_id IN (${hqIdsP(3, otherStoreIds)})`, otherStoreIds) : [];
 
   const toMap = (rows: { month: string; total: string | number }[]) => {
     const m: Record<string, number> = {};
     for (const r of rows) m[r.month] = Number(r.total);
     return m;
   };
-  const mTxn = toMap(monthlyTxn);
   const mHqRev = toMap(monthlyHqRev);
-  const mMainRev = toMap(monthlyMainRev);
-  const mMat = toMap(monthlyMaterial);
   const mHqCost = toMap(monthlyHqCost);
+  const mMainRev = toMap(monthlyMainRev);
   const mMainCost = toMap(monthlyMainCost);
-  const mMainPur = toMap(monthlyMainPurchase);
   const mOtherRev = toMap(monthlyOtherRev);
   const mOtherCost = toMap(monthlyOtherCost);
-  const mOtherPur = toMap(monthlyOtherPurchase);
 
   const monthly = allMonths.map(m => {
-    const hqRev = (mTxn[m] || 0) + (mHqRev[m] || 0);
-    const hqC = (mMat[m] || 0) + (mHqCost[m] || 0);
+    const hqRev = mHqRev[m] || 0;
+    const hqC = mHqCost[m] || 0;
     const mainRev = mMainRev[m] || 0;
-    const mainC = (mMainPur[m] || 0) + (mMainCost[m] || 0);
+    const mainC = mMainCost[m] || 0;
     const otRev = mOtherRev[m] || 0;
-    const otC = (mOtherPur[m] || 0) + (mOtherCost[m] || 0);
+    const otC = mOtherCost[m] || 0;
     const tRev = hqRev + mainRev + otRev;
     const tC = hqC + mainC + otC;
     return {
@@ -378,31 +227,24 @@ export async function GET(request: NextRequest) {
       cost: hqCost,
       profit: hqProfit,
       breakdown: {
-        order_revenue: hqOrderRevenue,        // 발주 매출
-        royalty_revenue: hqRoyaltyRevenue,    // 로열티 자동
-        manual_revenue: hqManualRevenue,      // 본사 수동 매출
-        material_cost: hqMaterialCost,         // 발주재료원가
-        other_cost: hqOtherCost,               // 본사 운영비 (인건비/임차료 등)
+        royalty_revenue: hqRoyaltyRevenue,   // 로열티 자동
+        manual_revenue: hqManualRevenue,     // 본사 수동 매출
       },
-      cost_by_category: hqCostByCategory,
+      cost_groups: hqCostGroups,
     },
     main_stores: {
       revenue: mainStoreRevenue,
       cost: mainStoreCost,
       profit: mainStoreProfit,
-      cost_purchase: mainStorePurchase,
-      cost_other: mainStoreCost - mainStorePurchase,
       stores: mainStores,
-      cost_by_category: mainStoreCostByCategory,
+      cost_groups: mainCostGroups,
     },
     other_stores: {
       revenue: otherRevenue,
       cost: otherCost,
       profit: otherProfit,
-      cost_purchase: otherPurchase,
-      cost_other: otherCostOther,
       stores: otherStores,
-      cost_by_category: otherCostByCategory,
+      cost_groups: otherCostGroups,
     },
     total: {
       revenue: totalRevenue,

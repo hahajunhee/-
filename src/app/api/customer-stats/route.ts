@@ -1,6 +1,7 @@
 import { query } from '@/lib/db';
 import { getSession } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
+import { buildCostGroups } from '@/lib/costGroups';
 
 // GET /api/customer-stats?customer_id=X&date_from=YYYY-MM-DD&date_to=YYYY-MM-DD
 // 단일 거래처의 매출/비용/순익 상세
@@ -68,45 +69,30 @@ export async function GET(request: NextRequest) {
   for (const c of costList) {
     if (monthlyMap[c.settlement_month]) monthlyMap[c.settlement_month].cost_other += Number(c.amount);
   }
-  for (const t of purchaseList) {
-    const m = (t.date_formatted || '').substring(0, 7);
-    if (monthlyMap[m]) monthlyMap[m].cost_purchase += Number(t.grand_total);
-  }
+  // ※ 발주(purchaseList)는 손익에 반영하지 않는다 (매출/비용은 수기 입력만). 아래 내역은 참고용.
   for (const m of allMonths) {
     const row = monthlyMap[m];
-    row.total_cost = row.cost_other + row.cost_purchase;
+    row.cost_purchase = 0;
+    row.total_cost = row.cost_other;
     row.profit = row.revenue - row.total_cost;
   }
 
   // 총 매출/비용/순익 (먼저 계산 — 카테고리 비율 계산에 필요)
   const totalRevenue = revenueList.reduce((s, r) => s + Number(r.amount), 0);
   const totalCostOther = costList.reduce((s, c) => s + Number(c.amount), 0);
-  const totalCostPurchase = purchaseList.reduce((s, t) => s + Number(t.grand_total), 0);
-  const totalCost = totalCostOther + totalCostPurchase;
+  const totalCostPurchase = 0;                 // 발주는 손익 미반영
+  const totalCost = totalCostOther;
   const totalProfit = totalRevenue - totalCost;
+  const totalPurchaseRef = purchaseList.reduce((s, t) => s + Number(t.grand_total), 0); // 참고용 발주 합계
 
-  // 비용 카테고리별 (식재료비 = 발주매입 + 비용탭의 식재료비)
-  const FOOD_CATEGORY = '식재료비';
+  // 비용 카테고리별 → 재료원가 등 상위 그룹으로 묶음
   const costByCategoryMap: Record<string, number> = {};
   for (const c of costList) {
     costByCategoryMap[c.category] = (costByCategoryMap[c.category] || 0) + Number(c.amount);
   }
-  costByCategoryMap[FOOD_CATEGORY] = (costByCategoryMap[FOOD_CATEGORY] || 0) + totalCostPurchase;
-
-  // 카테고리 정렬 순서를 위해 cost_categories 조회
-  const catRows = await query('SELECT name, order_idx FROM cost_categories ORDER BY order_idx, id');
-  const orderMap: Record<string, number> = {};
-  for (const r of catRows) orderMap[r.name] = Number(r.order_idx);
-
-  const costByCategory = Object.entries(costByCategoryMap)
-    .map(([category, amount]) => ({
-      category,
-      amount,
-      ratio: totalRevenue > 0 ? amount / totalRevenue : 0,
-      purchase_part: category === FOOD_CATEGORY ? totalCostPurchase : 0,
-      cost_tab_part: category === FOOD_CATEGORY ? amount - totalCostPurchase : amount,
-    }))
-    .sort((a, b) => (orderMap[a.category] ?? 999) - (orderMap[b.category] ?? 999));
+  const catRows = await query('SELECT name, parent_group, order_idx FROM cost_categories ORDER BY order_idx, id');
+  const cats = catRows.map(r => ({ name: r.name, parent_group: r.parent_group ?? null, order_idx: Number(r.order_idx) }));
+  const costGroups = buildCostGroups(costByCategoryMap, cats, totalRevenue);
 
   // 매출 카테고리별
   const revenueByCategory: Record<string, number> = {};
@@ -130,6 +116,7 @@ export async function GET(request: NextRequest) {
       total_cost: totalCost,
       total_profit: totalProfit,
       cost_ratio: totalRevenue > 0 ? totalCost / totalRevenue : 0,
+      total_purchase_ref: totalPurchaseRef,   // 참고용 발주 합계 (손익 미반영)
     },
     monthly: Object.values(monthlyMap),
     revenue_by_category: Object.entries(revenueByCategory).map(([k, v]) => ({
@@ -137,7 +124,7 @@ export async function GET(request: NextRequest) {
       total: v,
       ratio: totalRevenue > 0 ? v / totalRevenue : 0,
     })),
-    cost_by_category: costByCategory,
+    cost_groups: costGroups,
     revenues: revenueList.map(r => ({
       id: r.id, settlement_month: r.settlement_month, category: r.category,
       amount: Number(r.amount), notes: r.notes, source: r.source,
