@@ -158,6 +158,26 @@ export async function GET(request: NextRequest) {
   const totalCost = hqCost + mainStoreCost + otherCost;
   const totalProfit = hqProfit + mainStoreProfit + otherProfit;
 
+  // 전사 매출 카테고리별 (가로 비율 요약용)
+  const totalRevByCatRows = await query(
+    `SELECT category, COALESCE(SUM(amount), 0)::numeric as total
+     FROM revenues WHERE settlement_month BETWEEN $1 AND $2 GROUP BY category`,
+    [monthFrom, monthTo]
+  );
+  const totalRevenueByCategory = totalRevByCatRows
+    .map(r => ({ category: r.category, amount: Number(r.total), ratio: totalRevenue > 0 ? Number(r.total) / totalRevenue : 0 }))
+    .sort((a, b) => b.amount - a.amount);
+
+  // 전사 비용 그룹 (재료원가 등)
+  const totalCostMapRows = await query(
+    `SELECT category, COALESCE(SUM(amount), 0)::numeric as total
+     FROM costs WHERE settlement_month BETWEEN $1 AND $2 GROUP BY category`,
+    [monthFrom, monthTo]
+  );
+  const totalCostMap: Record<string, number> = {};
+  for (const r of totalCostMapRows) totalCostMap[r.category] = Number(r.total);
+  const totalCostGroups = buildCostGroups(totalCostMap, cats, totalRevenue);
+
   // ===== 월별 (매출=revenues, 비용=costs) =====
   const allMonths: string[] = [];
   const [fy, fm] = monthFrom.split('-').map(Number);
@@ -250,6 +270,8 @@ export async function GET(request: NextRequest) {
       revenue: totalRevenue,
       cost: totalCost,
       profit: totalProfit,
+      revenue_by_category: totalRevenueByCategory,
+      cost_groups: totalCostGroups,
     },
     monthly,
     is_manager: isManager,

@@ -46,7 +46,11 @@ interface HqStats {
     stores: { id: number; name: string; brand: string; operation_type: string; revenue: number; cost: number; profit: number }[];
     cost_groups: CostGroup[];
   };
-  total: { revenue: number; cost: number; profit: number };
+  total: {
+    revenue: number; cost: number; profit: number;
+    revenue_by_category: { category: string; amount: number; ratio: number }[];
+    cost_groups: CostGroup[];
+  };
   monthly: {
     month: string;
     hq_revenue: number; hq_cost: number; hq_profit: number;
@@ -59,6 +63,73 @@ interface HqStats {
 
 function ratioCls(r: number) {
   return r > 0.3 ? 'text-red-600 font-bold' : r > 0.15 ? 'text-orange-500' : 'text-gray-500';
+}
+
+// 엑셀 스타일 가로 "총합 / 비율" 요약 표 (매출 총합 대비)
+function RatioSummary({ revenue, revenueByCategory, costGroups, cost }: {
+  revenue: number;
+  revenueByCategory: { category: string; amount: number; ratio: number }[];
+  costGroups: CostGroup[];
+  cost: number;
+}) {
+  type Kind = 'rev-total' | 'rev' | 'cost-total' | 'cost-group' | 'cost-child' | 'cost-item';
+  const cols: { label: string; amount: number; ratio: number; kind: Kind }[] = [];
+  cols.push({ label: '매출 총합', amount: revenue, ratio: 1, kind: 'rev-total' });
+  for (const r of revenueByCategory) cols.push({ label: r.category, amount: r.amount, ratio: r.ratio, kind: 'rev' });
+  cols.push({ label: '비용 합계', amount: cost, ratio: revenue > 0 ? cost / revenue : 0, kind: 'cost-total' });
+  for (const g of costGroups) {
+    if (g.is_group) {
+      cols.push({ label: g.name, amount: g.amount, ratio: g.ratio, kind: 'cost-group' });
+      for (const ch of g.children) cols.push({ label: ch.category, amount: ch.amount, ratio: ch.ratio, kind: 'cost-child' });
+    } else {
+      cols.push({ label: g.name, amount: g.amount, ratio: g.ratio, kind: 'cost-item' });
+    }
+  }
+  const headBg = (k: Kind) =>
+    k === 'rev-total' ? 'bg-blue-200 text-blue-900 font-bold' :
+    k === 'rev' ? 'bg-blue-50 text-blue-700' :
+    k === 'cost-total' ? 'bg-amber-200 text-amber-900 font-bold' :
+    k === 'cost-group' ? 'bg-emerald-200 text-emerald-900 font-bold' :
+    k === 'cost-child' ? 'bg-emerald-50 text-emerald-700' :
+    'bg-amber-50 text-amber-700';
+  const ratioColor = (k: Kind, r: number) =>
+    k === 'rev-total' || k === 'rev' ? 'text-blue-700' :
+    k === 'cost-group' || k === 'cost-total' ? 'text-emerald-700 font-bold' :
+    ratioCls(r);
+  return (
+    <div className="card p-0 overflow-hidden mb-6">
+      <div className="px-4 py-3 border-b bg-slate-50 font-semibold text-sm">
+        매출·비용 비율 요약 (전사 총합 — 매출 대비)
+        <span className="text-xs text-gray-500 font-normal ml-2">* 좌→우: 매출 총합 · 매출 구분 / 비용 합계 · 재료원가(그룹)+하위 · 기타비용</span>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="text-sm border-collapse min-w-full">
+          <thead>
+            <tr>
+              <th className="sticky left-0 z-10 bg-gray-100 px-3 py-2 text-left text-xs text-gray-500 border-b border-r">구분</th>
+              {cols.map((c, i) => (
+                <th key={i} className={`px-3 py-2 text-right text-xs whitespace-nowrap border-b border-l ${headBg(c.kind)}`}>{c.label}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td className="sticky left-0 z-10 bg-white px-3 py-2 text-xs text-gray-500 border-r font-medium">금액</td>
+              {cols.map((c, i) => (
+                <td key={i} className="px-3 py-2 text-right whitespace-nowrap tabular-nums border-l text-gray-700">{formatKRW(c.amount)}</td>
+              ))}
+            </tr>
+            <tr className="bg-gray-50">
+              <td className="sticky left-0 z-10 bg-gray-50 px-3 py-2 text-xs text-gray-500 border-r font-medium">매출 대비</td>
+              {cols.map((c, i) => (
+                <td key={i} className={`px-3 py-2 text-right whitespace-nowrap font-medium border-l ${ratioColor(c.kind, c.ratio)}`}>{(c.ratio * 100).toFixed(1)}%</td>
+              ))}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
 }
 
 // 비용 구분별 (재료원가 등 상위 그룹 + 하위 항목) 표
@@ -186,6 +257,16 @@ export default function HqStatsPage() {
         </div>
         <p className="text-xs text-gray-400 mt-2">* 매출/비용은 매출·비용 탭의 수기 입력 기준으로 집계됩니다. (발주 내역은 통계에 자동 반영되지 않음)</p>
       </div>
+
+      {/* 엑셀 스타일 가로 비율 요약 (전사 총합) */}
+      {!isManager && (
+        <RatioSummary
+          revenue={stats.total.revenue}
+          revenueByCategory={stats.total.revenue_by_category}
+          costGroups={stats.total.cost_groups}
+          cost={stats.total.cost}
+        />
+      )}
 
       {/* Section 1: 본사 */}
       <div className="mb-6">
