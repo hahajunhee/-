@@ -49,7 +49,10 @@ export default function CostsPage() {
 
   const [catModalOpen, setCatModalOpen] = useState(false);
   const [newCatName, setNewCatName] = useState('');
-  const [newCatGroup, setNewCatGroup] = useState('');   // 새 카테고리의 상위 그룹 ('' = 단독)
+  const [newCatGroup, setNewCatGroup] = useState('');   // 새 카테고리의 상위 그룹 ('' = 단독, '__new__' = 새 그룹)
+  const [newGroupName, setNewGroupName] = useState(''); // '__new__' 선택 시 입력하는 새 그룹 이름
+  const [editingCatId, setEditingCatId] = useState<number | null>(null);
+  const [editingCatName, setEditingCatName] = useState('');
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
@@ -162,15 +165,18 @@ export default function CostsPage() {
 
   const addCategory = async () => {
     if (!newCatName.trim()) { toast.error('이름을 입력하세요'); return; }
+    const group = newCatGroup === '__new__' ? newGroupName.trim() : newCatGroup;
+    if (newCatGroup === '__new__' && !group) { toast.error('새 그룹 이름을 입력하세요'); return; }
     const res = await fetch('/api/cost-categories', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: newCatName.trim(), parent_group: newCatGroup || null }),
+      body: JSON.stringify({ name: newCatName.trim(), parent_group: group || null }),
     });
     if (res.ok) {
       toast.success('추가되었습니다');
       setNewCatName('');
       setNewCatGroup('');
+      setNewGroupName('');
       fetchAll();
     } else {
       const data = await res.json();
@@ -178,14 +184,32 @@ export default function CostsPage() {
     }
   };
 
-  // 카테고리의 상위 그룹 변경 (재료원가 등). '' = 단독
-  const setCategoryGroup = async (id: number, group: string) => {
+  // 카테고리의 상위 그룹 변경. '' = 단독, '__new__' = 새 그룹(이름 입력받음)
+  const setCategoryGroup = async (id: number, value: string) => {
+    let group = value;
+    if (value === '__new__') {
+      const name = window.prompt('새 상위 그룹 이름을 입력하세요 (예: 고정비)');
+      if (!name || !name.trim()) return;
+      group = name.trim();
+    }
     const res = await fetch(`/api/cost-categories/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ parent_group: group || null }),
     });
     if (res.ok) { fetchAll(); } else { toast.error('그룹 변경 실패'); }
+  };
+
+  // 카테고리 이름 변경
+  const renameCategory = async (id: number, name: string) => {
+    if (!name.trim()) { setEditingCatId(null); return; }
+    const res = await fetch(`/api/cost-categories/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: name.trim() }),
+    });
+    if (res.ok) { setEditingCatId(null); toast.success('이름이 변경되었습니다'); fetchAll(); }
+    else { toast.error('이름 변경 실패'); }
   };
 
   const deleteCategory = async (id: number) => {
@@ -198,6 +222,11 @@ export default function CostsPage() {
   const groupOptions = Array.from(
     new Set(['재료원가', ...categories.map(c => c.parent_group).filter((g): g is string => !!g)])
   );
+  // 그룹별로 묶은 목록 (그룹 헤더 + 하위 항목, 마지막에 '그룹 없음')
+  const groupBuckets = [
+    ...groupOptions.map(g => ({ key: g, label: g, isNone: false, items: categories.filter(c => c.parent_group === g) })),
+    { key: '__none__', label: '그룹 없음 (단독 항목)', isNone: true, items: categories.filter(c => !c.parent_group) },
+  ].filter(b => b.items.length > 0);
 
   const totalAmount = costs.reduce((s, c) => s + Number(c.amount), 0);
 
@@ -526,48 +555,84 @@ export default function CostsPage() {
       </Modal>
 
       {/* 비용 구분 관리 모달 */}
-      <Modal open={catModalOpen} onClose={() => setCatModalOpen(false)}
+      <Modal open={catModalOpen} onClose={() => { setCatModalOpen(false); setEditingCatId(null); }}
         title="비용 구분 관리" width="max-w-lg">
         <div className="space-y-4">
-          <div className="flex gap-2">
-            <input type="text" className="form-input flex-1" placeholder="새 비용 구분 이름"
-              value={newCatName}
-              onChange={(e) => setNewCatName(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') addCategory(); }} />
-            <select className="form-select w-32" value={newCatGroup}
-              onChange={(e) => setNewCatGroup(e.target.value)}>
-              <option value="">그룹 없음</option>
-              {groupOptions.map(g => <option key={g} value={g}>{g}</option>)}
-            </select>
-            <button onClick={addCategory} className="btn-primary">
-              <Plus size={16} /> 추가
-            </button>
-          </div>
-          <div className="border rounded-lg overflow-hidden">
-            <div className="flex items-center justify-between px-2 py-1.5 bg-gray-50 border-b text-[11px] text-gray-500 font-medium">
-              <span>비용 구분</span>
-              <span>상위 그룹</span>
+          {/* STEP 1: 새 구분 추가 */}
+          <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 space-y-2">
+            <p className="text-xs font-bold text-blue-800">① 새 비용 구분 추가</p>
+            <div className="flex gap-2">
+              <input type="text" className="form-input flex-1" placeholder="이름 (예: 재료_채소)"
+                value={newCatName}
+                onChange={(e) => setNewCatName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && newCatGroup !== '__new__') addCategory(); }} />
+              <select className="form-select w-36" value={newCatGroup}
+                onChange={(e) => setNewCatGroup(e.target.value)}>
+                <option value="">그룹 없음</option>
+                {groupOptions.map(g => <option key={g} value={g}>{g}</option>)}
+                <option value="__new__">+ 새 그룹 만들기…</option>
+              </select>
+              <button onClick={addCategory} className="btn-primary shrink-0">
+                <Plus size={16} /> 추가
+              </button>
             </div>
-            {categories.map(cat => (
-              <div key={cat.id} className="flex items-center justify-between p-2 border-b last:border-b-0 hover:bg-gray-50 gap-2">
-                <span className="text-sm flex-1 truncate">{cat.name}</span>
-                <select className="form-select w-32 text-xs py-1" value={cat.parent_group || ''}
-                  onChange={(e) => setCategoryGroup(cat.id, e.target.value)}>
-                  <option value="">그룹 없음</option>
-                  {groupOptions.map(g => <option key={g} value={g}>{g}</option>)}
-                </select>
-                <button onClick={() => deleteCategory(cat.id)} className="p-1 rounded hover:bg-red-50 shrink-0">
-                  <X size={14} className="text-red-400" />
-                </button>
-              </div>
-            ))}
-            {categories.length === 0 && (
-              <div className="p-3 text-center text-gray-400 text-sm">카테고리가 없습니다</div>
+            {newCatGroup === '__new__' && (
+              <input type="text" autoFocus className="form-input"
+                placeholder="새 상위 그룹 이름 (예: 고정비)"
+                value={newGroupName}
+                onChange={(e) => setNewGroupName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') addCategory(); }} />
             )}
+            <p className="text-[11px] text-blue-600">상위 그룹으로 묶으면 통계에서 그룹 합계 + 매출 대비 비율이 함께 표시됩니다.</p>
           </div>
-          <p className="text-xs text-gray-500">
-            상위 그룹(예: <span className="font-medium">재료원가</span>)으로 묶으면 통계에서 그룹 합계와 매출 대비 비율이 함께 표시됩니다.
-          </p>
+
+          {/* STEP 2: 그룹별 목록 (이름 수정 / 그룹 이동 / 삭제) */}
+          <div>
+            <p className="text-xs font-bold text-gray-700 mb-2">② 현재 비용 구분 (이름 옆 ✎ 수정 · 우측에서 그룹 이동)</p>
+            <div className="space-y-3 max-h-[360px] overflow-y-auto pr-1">
+              {groupBuckets.map(bucket => (
+                <div key={bucket.key} className="border rounded-lg overflow-hidden">
+                  <div className={`px-3 py-1.5 text-xs font-semibold border-b ${bucket.isNone ? 'bg-gray-50 text-gray-500' : 'bg-emerald-50 text-emerald-800'}`}>
+                    {bucket.isNone ? bucket.label : `▼ ${bucket.label}`}
+                    <span className="font-normal text-gray-400 ml-1">({bucket.items.length})</span>
+                  </div>
+                  {bucket.items.map(cat => (
+                    <div key={cat.id} className="flex items-center gap-2 p-2 border-b last:border-b-0 hover:bg-gray-50">
+                      {editingCatId === cat.id ? (
+                        <input type="text" autoFocus className="form-input flex-1 text-sm py-1"
+                          value={editingCatName}
+                          onChange={(e) => setEditingCatName(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === 'Enter') renameCategory(cat.id, editingCatName); if (e.key === 'Escape') setEditingCatId(null); }} />
+                      ) : (
+                        <span className="text-sm flex-1 truncate">{cat.name}</span>
+                      )}
+                      {editingCatId === cat.id ? (
+                        <button onClick={() => renameCategory(cat.id, editingCatName)} className="p-1 rounded hover:bg-emerald-50 shrink-0" title="저장">
+                          <Save size={14} className="text-emerald-600" />
+                        </button>
+                      ) : (
+                        <button onClick={() => { setEditingCatId(cat.id); setEditingCatName(cat.name); }} className="p-1 rounded hover:bg-gray-100 shrink-0" title="이름 수정">
+                          <Pencil size={13} className="text-gray-400" />
+                        </button>
+                      )}
+                      <select className="form-select w-28 text-xs py-1 shrink-0" value={cat.parent_group || ''}
+                        onChange={(e) => setCategoryGroup(cat.id, e.target.value)}>
+                        <option value="">그룹 없음</option>
+                        {groupOptions.map(g => <option key={g} value={g}>{g}</option>)}
+                        <option value="__new__">+ 새 그룹…</option>
+                      </select>
+                      <button onClick={() => deleteCategory(cat.id)} className="p-1 rounded hover:bg-red-50 shrink-0" title="삭제">
+                        <X size={14} className="text-red-400" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ))}
+              {categories.length === 0 && (
+                <div className="p-3 text-center text-gray-400 text-sm border rounded-lg">카테고리가 없습니다</div>
+              )}
+            </div>
+          </div>
         </div>
       </Modal>
     </>
