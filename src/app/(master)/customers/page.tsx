@@ -371,6 +371,18 @@ export default function CustomersPage() {
               onChange={(e) => setForm({ ...form, reg_number: e.target.value })} />
           </div>
 
+          {/* 4-1. 업태 / 종목 (거래명세서 공급받는자 정보) */}
+          <div>
+            <label className="form-label">업태</label>
+            <input type="text" className="form-input" placeholder="예: 음식점업" value={form.business_type}
+              onChange={(e) => setForm({ ...form, business_type: e.target.value })} />
+          </div>
+          <div>
+            <label className="form-label">종목</label>
+            <input type="text" className="form-input" placeholder="예: 한식" value={form.business_category}
+              onChange={(e) => setForm({ ...form, business_category: e.target.value })} />
+          </div>
+
           {/* 5. 성명 + 가맹점이면 로열티 */}
           <div>
             <label className="form-label">성명</label>

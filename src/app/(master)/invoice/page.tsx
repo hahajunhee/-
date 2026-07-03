@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Printer, ArrowLeft, Download, Mail } from 'lucide-react';
+import { Printer, ArrowLeft, Download, Mail, ImageDown } from 'lucide-react';
 import Link from 'next/link';
 import { Settings } from '@/types';
 import { formatKRW } from '@/lib/calculator';
@@ -286,6 +286,7 @@ function InvoiceContent() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [loading, setLoading] = useState(true);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [imgLoading, setImgLoading] = useState(false);
   const [emailSending, setEmailSending] = useState(false);
   const invoiceRef = useRef<HTMLDivElement>(null);
 
@@ -441,6 +442,44 @@ function InvoiceContent() {
     setPdfLoading(false);
   };
 
+  // 이미지(PNG) 저장 — 실무에서 종이/카톡으로 이미지 전달용
+  const downloadImage = async () => {
+    if (!invoiceRef.current) return;
+    setImgLoading(true);
+    try {
+      const html2canvas = (await import('html2canvas')).default;
+      const pages = invoiceRef.current.querySelectorAll('.invoice-page');
+      if (pages.length === 0) { setImgLoading(false); return; }
+
+      const customerName = invoiceData?.customer.company_name || '거래처';
+      const date = invoiceData?.date || '';
+
+      for (let i = 0; i < pages.length; i++) {
+        const canvas = await html2canvas(pages[i] as HTMLElement, {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          backgroundColor: '#ffffff',
+          width: 794,
+          windowWidth: 794,
+        });
+        const imgData = canvas.toDataURL('image/png');
+        const a = document.createElement('a');
+        const suffix = pages.length > 1 ? `_${i + 1}` : '';
+        a.href = imgData;
+        a.download = `거래명세서_${customerName}_${date}${suffix}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+      toast.success(pages.length > 1 ? `이미지 ${pages.length}장 저장됨` : '이미지가 저장되었습니다');
+    } catch (err) {
+      console.error('Image generation error:', err);
+      toast.error('이미지 생성에 실패했습니다');
+    }
+    setImgLoading(false);
+  };
+
   // 이메일 발송 (PDF 첨부)
   const sendEmail = async () => {
     if (!invoiceData) return;
@@ -501,6 +540,9 @@ function InvoiceContent() {
         <div style={{ display: 'flex', gap: '8px' }}>
           <button onClick={downloadPdf} disabled={pdfLoading} className="btn-primary">
             <Download size={16} /> {pdfLoading ? 'PDF 생성 중...' : 'PDF 다운로드'}
+          </button>
+          <button onClick={downloadImage} disabled={imgLoading} className="btn-primary">
+            <ImageDown size={16} /> {imgLoading ? '이미지 생성 중...' : '이미지 저장'}
           </button>
           <button onClick={() => window.print()} className="btn-secondary">
             <Printer size={16} /> 인쇄
